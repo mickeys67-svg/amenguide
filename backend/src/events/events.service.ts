@@ -17,9 +17,10 @@ export class EventsService {
     private baseScraper: BaseScraperService,
     private aiRefiner: AiRefinerService,
     private sacredWhisper: SacredWhisperService,
-  ) {}
+  ) { }
 
   async triggerAsyncScrape(url: string) {
+    this.logger.log(`Received async scrape request for URL: ${url}`);
     this.sacredWhisper.process(url); // Don't await
     return { message: 'Sacred Whisper initiated in background.', url };
   }
