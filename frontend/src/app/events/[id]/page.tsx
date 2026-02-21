@@ -7,25 +7,34 @@ import { MapPin, Clock, Calendar, ArrowLeft, Share2, Heart, ExternalLink } from 
 import { Navigation } from "../../../components/main/Navigation";
 import { Footer } from "../../../components/main/Footer";
 
-const RETREAT_IMG = "https://images.unsplash.com/photo-1761048152614-c525d49f31ee?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb25hc3RlcnklMjBzaWxlbnQlMjByZXRyZWF0JTIwbW91bnRhaW4lMjBuYXR1cmV8ZW58MXx8fHwxNzcxNTUxMDA3fDA&ixlib=rb-4.1.0&q=80&w=1080";
+import { EventData, RETREAT_IMG, CATEGORY_COLORS } from "../../../types/event";
+import { apiFetch } from "../../../utils/api";
 
 export default function EventDetailPage() {
     const { id } = useParams();
     const router = useRouter();
-    const [event, setEvent] = useState<any>(null);
+    const [event, setEvent] = useState<EventData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://amenguide-backend-775250805671.us-west1.run.app'}/api/v1/events/${id}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setEvent(data);
-                } else {
-                    // Handle 404 or error by using fallback or redirecting
-                    console.error("Event not found");
-                }
+                const data = await apiFetch<any>(`/events/${id}`);
+                const mapped: EventData = {
+                    id: data.id,
+                    title: data.title,
+                    subtitle: data.category || "",
+                    category: data.category || "피정",
+                    date: data.date ? new Date(data.date).toLocaleDateString('ko-KR') : "연중 상시",
+                    location: data.location || "장소미정",
+                    organizer: "Luce di Fede",
+                    description: data.aiSummary || "",
+                    image: RETREAT_IMG,
+                    duration: "상세참조",
+                    tags: [],
+                    originUrl: data.originUrl
+                };
+                setEvent(mapped);
             } catch (error) {
                 console.error("Fetch failed", error);
             } finally {

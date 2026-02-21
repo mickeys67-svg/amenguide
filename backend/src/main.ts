@@ -11,7 +11,9 @@ async function bootstrap() {
   // Failsafe Database Initialization using the actual app service
   const prismaService = app.get(PrismaService);
   try {
-    console.log('Ensuring database schema exists (Unified definitive Event table creation aligned with Prisma PascalCase)...');
+    console.log(
+      'Ensuring database schema exists (Unified definitive Event table creation aligned with Prisma PascalCase)...',
+    );
     const sql = `
       CREATE TABLE IF NOT EXISTS "Event" (
         "id" TEXT PRIMARY KEY,

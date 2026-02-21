@@ -10,4 +10,4 @@ import { DevModule } from './dev/dev.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

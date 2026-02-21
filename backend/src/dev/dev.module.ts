@@ -3,7 +3,7 @@ import { DevController } from './dev.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [DevController],
+  imports: [PrismaModule],
+  controllers: [DevController],
 })
-export class DevModule { }
+export class DevModule {}

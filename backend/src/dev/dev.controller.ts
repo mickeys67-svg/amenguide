@@ -3,24 +3,26 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('dev')
 export class DevController {
-    private readonly logger = new Logger(DevController.name);
+  private readonly logger = new Logger(DevController.name);
 
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
-    @Get('reset-all')
-    async resetAll() {
-        this.logger.log('Development reset-all requested.');
-        try {
-            // Drop and recreate tables for a clean state
-            // List of tables to clean up
-            const tables = ['Bookmark', 'Event', 'User'];
+  @Get('reset-all')
+  async resetAll() {
+    this.logger.log('Development reset-all requested.');
+    try {
+      // Drop and recreate tables for a clean state
+      // List of tables to clean up
+      const tables = ['Bookmark', 'Event', 'User'];
 
-            for (const table of tables) {
-                await this.prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "${table}" CASCADE;`);
-            }
+      for (const table of tables) {
+        await this.prisma.$executeRawUnsafe(
+          `DROP TABLE IF EXISTS "${table}" CASCADE;`,
+        );
+      }
 
-            // Re-initialize the main tables (Event is the most critical one for now)
-            await this.prisma.$executeRawUnsafe(`
+      // Re-initialize the main tables (Event is the most critical one for now)
+      await this.prisma.$executeRawUnsafe(`
                 CREATE TABLE IF NOT EXISTS "Event" (
                     "id" TEXT PRIMARY KEY,
                     "title" TEXT NOT NULL,
@@ -37,8 +39,8 @@ export class DevController {
                 );
             `);
 
-            // Also re-create User and Bookmark if needed by Prisma
-            await this.prisma.$executeRawUnsafe(`
+      // Also re-create User and Bookmark if needed by Prisma
+      await this.prisma.$executeRawUnsafe(`
                 CREATE TABLE IF NOT EXISTS "User" (
                     "id" TEXT PRIMARY KEY,
                     "email" TEXT UNIQUE NOT NULL,
@@ -51,7 +53,7 @@ export class DevController {
                 );
             `);
 
-            await this.prisma.$executeRawUnsafe(`
+      await this.prisma.$executeRawUnsafe(`
                 CREATE TABLE IF NOT EXISTS "Bookmark" (
                     "id" TEXT PRIMARY KEY,
                     "userId" TEXT NOT NULL,
@@ -61,17 +63,17 @@ export class DevController {
                 );
             `);
 
-            return {
-                success: true,
-                message: 'All tables reset and re-initialized successfully.',
-                timestamp: new Date().toISOString()
-            };
-        } catch (error) {
-            this.logger.error(`Reset failed: ${error.message}`);
-            return {
-                success: false,
-                message: error.message
-            };
-        }
+      return {
+        success: true,
+        message: 'All tables reset and re-initialized successfully.',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`Reset failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
     }
+  }
 }

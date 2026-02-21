@@ -4,18 +4,17 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-    constructor() {
-        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-        const adapter = new PrismaPg(pool);
-        super({ adapter });
-    }
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
+  async onModuleInit() {
+    await this.$connect();
+    // Schema initialization moved to main.ts bootstrap for safety
+    console.log('PrismaService connected to database.');
+  }
 
-    async onModuleInit() {
-        await this.$connect();
-    }
-
-    async onModuleDestroy() {
-        await this.$disconnect();
-    }
+  async onModuleDestroy() {
+    await this.$disconnect();
+  }
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ArrowUpRight, Sparkles } from "lucide-react";
-import { EventData } from "./EventCard";
+import { EventData, CATEGORY_COLORS } from "../../types/event";
+import { apiFetch } from "../../utils/api";
 import Link from "next/link";
 
 interface SearchModalProps {
@@ -9,14 +10,6 @@ interface SearchModalProps {
     onClose: () => void;
     events: EventData[];
 }
-
-const CATEGORY_COLORS: Record<string, string> = {
-    피정: "#C9A96E",
-    강의: "#8BB8A0",
-    강론: "#9B8EC4",
-    특강: "#C47B6B",
-    피정의집: "#6B9BC4",
-};
 
 export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
     const [query, setQuery] = useState("");
@@ -53,12 +46,8 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
         const timer = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://amenguide-backend-775250805671.us-west1.run.app'}/api/v1/events/semantic?q=${encodeURIComponent(query)}`);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setSemanticResults(data);
-                }
+                const data = await apiFetch<EventData[]>(`/events/semantic?q=${encodeURIComponent(query)}`);
+                setSemanticResults(data);
             } catch (error) {
                 console.error("Semantic search failed", error);
             } finally {
@@ -73,12 +62,12 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
         ? semanticResults
         : query.trim().length > 0
             ? events.filter(
-                (e) =>
+                (e: EventData) =>
                     e.title.includes(query) ||
                     e.category.includes(query) ||
                     e.location.includes(query) ||
                     e.organizer.includes(query) ||
-                    e.tags?.some((t) => t.includes(query))
+                    e.tags?.some((t: string) => t.includes(query))
             )
             : [];
 
@@ -100,160 +89,113 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
                     >
-                        {/* Search Mode Toggle */}
-                        <div className="mb-6 flex justify-end">
-                            <button
-                                onClick={() => setIsSemantic(!isSemantic)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300"
-                                style={{
-                                    backgroundColor: isSemantic ? "#C9A96E" : "rgba(201,169,110,0.1)",
-                                    border: `1px solid ${isSemantic ? "#C9A96E" : "rgba(201,169,110,0.3)"}`
-                                }}
-                            >
-                                <Sparkles size={14} style={{ color: isSemantic ? "#080705" : "#C9A96E" }} />
-                                <span style={{
-                                    fontFamily: "'Noto Sans KR', sans-serif",
-                                    fontSize: "12px",
-                                    fontWeight: 600,
-                                    color: isSemantic ? "#080705" : "#C9A96E"
-                                }}>
-                                    {isSemantic ? "영적 AI 검색 (ON)" : "영적 AI 검색 (OFF)"}
-                                </span>
-                            </button>
-                        </div>
+                        <div className="max-w-5xl mx-auto">
+                            <div className="flex items-center justify-between mb-12">
+                                <StainedGlassIcon />
+                                <button onClick={onClose} className="p-3 text-[rgba(245,240,232,0.4)] hover:text-[#C9A96E] transition-colors">
+                                    <X size={28} strokeWidth={1.5} />
+                                </button>
+                            </div>
 
-                        {/* Search input */}
-                        <div
-                            className="relative flex items-center"
-                            style={{ borderBottom: `2px solid ${isSemantic ? "#C9A96E" : "rgba(201,169,110,0.4)"}` }}
-                        >
-                            <Search size={22} style={{ color: "rgba(201,169,110,0.6)" }} className="shrink-0 mr-4" />
-                            <input
-                                ref={inputRef}
-                                type="text"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                placeholder={isSemantic ? "현재의 마음 상태나 찾고 싶은 영성을 입력하세요... (예: 위로받고 싶어요)" : "행사명, 장소, 카테고리 검색..."}
-                                className="flex-1 bg-transparent outline-none py-4"
-                                style={{
-                                    fontFamily: "'Noto Serif KR', serif",
-                                    color: "#F5F0E8",
-                                    fontSize: "clamp(20px, 3vw, 36px)",
-                                    fontWeight: 500,
-                                    letterSpacing: "-0.02em",
-                                }}
-                            />
-                            {isSearching && (
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                    className="mr-4"
-                                >
-                                    <Sparkles size={18} style={{ color: "#C9A96E" }} />
-                                </motion.div>
-                            )}
-                            <button onClick={onClose} style={{ color: "rgba(245,240,232,0.4)" }}>
-                                <X size={20} />
-                            </button>
-                        </div>
+                            <div className="relative group mb-8">
+                                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-[#C9A96E]/40" size={24} strokeWidth={1.5} />
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    placeholder={isSemantic ? "영성적인 질문이나 필요하신 은총을 말씀해 보세요..." : "검색어를 입력하세요..."}
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    className="w-full bg-[rgba(245,240,232,0.03)] border-b border-[rgba(201,169,110,0.2)] py-8 pl-16 pr-8 text-2xl md:text-3xl font-light text-[#F5F0E8] placeholder:text-[rgba(245,240,232,0.15)] focus:outline-none focus:border-[#C9A96E] transition-all"
+                                    style={{ fontFamily: "'Playfair Display', serif" }}
+                                />
 
-                        {/* Results */}
-                        <div className="mt-6 max-h-[55vh] overflow-y-auto custom-scrollbar">
-                            <AnimatePresence mode="popLayout">
-                                {results.map((event, i) => {
-                                    const catColor = CATEGORY_COLORS[event.category] || "#C9A96E";
-                                    return (
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-4">
+                                    <button
+                                        onClick={() => setIsSemantic(!isSemantic)}
+                                        className={`flex items-center gap-2 px-6 py-2 rounded-full border transition-all ${isSemantic
+                                                ? "bg-[#C9A96E]/10 border-[#C9A96E] text-[#C9A96E]"
+                                                : "border-[rgba(245,240,232,0.1)] text-[rgba(245,240,232,0.4)] hover:border-[rgba(245,240,232,0.3)]"
+                                            }`}
+                                    >
+                                        <Sparkles size={16} className={isSemantic ? "animate-pulse" : ""} />
+                                        <span className="text-xs font-medium uppercase tracking-[0.1em]">AI Semantic</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-4 custom-scrollbar">
+                                {isSearching ? (
+                                    <div className="py-20 flex flex-col items-center justify-center gap-4 opacity-40">
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                                            className="w-8 h-8 border-2 border-[#C9A96E]/20 border-t-[#C9A96E] rounded-full"
+                                        />
+                                        <p className="text-xs uppercase tracking-[0.2em] text-[#C9A96E]">하느님의 뜻을 찾는 중...</p>
+                                    </div>
+                                ) : results.length > 0 ? (
+                                    results.map((event: EventData, i: number) => (
                                         <motion.div
                                             key={event.id}
                                             initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: 10 }}
                                             transition={{ delay: i * 0.05 }}
                                         >
-                                            <Link href={`/events/${event.id}`} onClick={onClose}>
-                                                <div
-                                                    className="flex items-center gap-4 py-4 cursor-pointer group"
-                                                    style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}
-                                                >
+                                            <Link
+                                                href={`/events/${event.id}`}
+                                                onClick={onClose}
+                                                className="group flex items-center justify-between p-6 rounded-xl hover:bg-[rgba(201,169,110,0.05)] border border-transparent hover:border-[rgba(201,169,110,0.1)] transition-all"
+                                            >
+                                                <div className="flex items-center gap-8">
                                                     <div
-                                                        className="w-1.5 h-1.5 rounded-full shrink-0"
-                                                        style={{ backgroundColor: catColor }}
+                                                        className="w-1.5 h-1.5 rounded-full"
+                                                        style={{ backgroundColor: CATEGORY_COLORS[event.category] || "#666" }}
                                                     />
-                                                    <div className="flex-1 min-w-0">
-                                                        <p
-                                                            style={{
-                                                                fontFamily: "'Noto Serif KR', serif",
-                                                                color: "#F5F0E8",
-                                                                fontSize: "16px",
-                                                                fontWeight: 600,
-                                                            }}
-                                                        >
-                                                            {event.title}
-                                                        </p>
-                                                        <p
-                                                            style={{
-                                                                fontFamily: "'Noto Sans KR', sans-serif",
-                                                                color: "rgba(245,240,232,0.35)",
-                                                                fontSize: "12px",
-                                                                marginTop: "2px",
-                                                            }}
-                                                        >
-                                                            {event.category} · {event.location} · {event.date}
-                                                        </p>
+                                                    <div>
+                                                        <div className="flex items-center gap-3 mb-1">
+                                                            <span className="text-[10px] uppercase tracking-[0.15em] opacity-40 font-medium">{event.category}</span>
+                                                            <span className="text-[10px] opacity-20">—</span>
+                                                            <span className="text-[10px] uppercase tracking-[0.1em] text-[#C9A96E]">{event.date}</span>
+                                                        </div>
+                                                        <h4 className="text-lg text-[rgba(245,240,232,0.8)] group-hover:text-[#F5F0E8] transition-colors line-clamp-1">{event.title}</h4>
                                                     </div>
-                                                    <ArrowUpRight size={14} style={{ color: "rgba(245,240,232,0.3)" }} className="shrink-0 group-hover:text-white transition-colors" />
                                                 </div>
+                                                <ArrowUpRight size={20} className="text-[rgba(245,240,232,0.2)] group-hover:text-[#C9A96E] group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
                                             </Link>
                                         </motion.div>
-                                    );
-                                })}
-                            </AnimatePresence>
-                        </div>
-
-                        {query.trim().length > 0 && results.length === 0 && !isSearching && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="mt-10 text-center"
-                            >
-                                <p style={{ fontFamily: "'Noto Serif KR', serif", color: "rgba(245,240,232,0.3)", fontSize: "18px" }}>
-                                    검색 결과가 없습니다
-                                </p>
-                                <p style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "rgba(245,240,232,0.2)", fontSize: "13px", marginTop: "8px" }}>
-                                    {isSemantic ? "영적 AI가 결과를 찾는 중이거나, 다른 표현을 시도해 보세요" : "다른 키워드로 검색해 보세요"}
-                                </p>
-                            </motion.div>
-                        )}
-
-                        {query.trim().length === 0 && !isSearching && (
-                            <div className="mt-8">
-                                <p className="mb-3 text-[11px] text-[rgba(201,169,110,0.5)] font-bold tracking-widest uppercase">
-                                    추천 검색어
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {["침묵 피정", "청년 기도회", "수도원 생활", "가톨릭 영화", "위로가 필요할 때", "가정 성화"].map((tag) => (
-                                        <button
-                                            key={tag}
-                                            onClick={() => setQuery(tag)}
-                                            className="px-3 py-1.5 transition-all duration-200 hover:opacity-80 rounded-sm"
-                                            style={{
-                                                fontFamily: "'Noto Sans KR', sans-serif",
-                                                border: "1px solid rgba(201,169,110,0.25)",
-                                                color: "rgba(201,169,110,0.7)",
-                                                fontSize: "12px",
-                                            }}
-                                        >
-                                            #{tag}
-                                        </button>
-                                    ))}
-                                </div>
+                                    ))
+                                ) : query.trim() ? (
+                                    <div className="py-20 text-center opacity-30">
+                                        <p className="text-sm tracking-widest uppercase">일치하는 내용을 찾을 수 없습니다.</p>
+                                    </div>
+                                ) : (
+                                    <div className="py-20 flex flex-col items-center gap-6 opacity-20">
+                                        <div className="grid grid-cols-3 gap-8">
+                                            {[1, 2, 3].map(i => <div key={i} className="w-16 h-[1px] bg-[#C9A96E]" />)}
+                                        </div>
+                                        <p className="text-[10px] uppercase tracking-[0.3em]">Ready to seek?</p>
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </motion.div>
                 </>
             )}
         </AnimatePresence>
+    );
+}
+
+function StainedGlassIcon() {
+    return (
+        <div className="flex gap-1.5">
+            {[1, 0.6, 0.3].map((op, i) => (
+                <div
+                    key={i}
+                    className="w-1 h-6 rounded-full"
+                    style={{ backgroundColor: `rgba(201,169,110,${op})` }}
+                />
+            ))}
+        </div>
     );
 }

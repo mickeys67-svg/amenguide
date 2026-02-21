@@ -3,29 +3,7 @@ import { motion } from "framer-motion";
 import { MapPin, Clock, ArrowUpRight, Calendar } from "lucide-react";
 import Link from "next/link";
 
-export interface EventData {
-    id: number;
-    title: string;
-    subtitle: string;
-    category: string;
-    date: string;
-    endDate?: string;
-    location: string;
-    organizer: string;
-    description: string;
-    image: string;
-    duration: string;
-    tags: string[];
-    featured?: boolean;
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-    피정: "#C9A96E",
-    강의: "#8BB8A0",
-    강론: "#9B8EC4",
-    특강: "#C47B6B",
-    피정의집: "#6B9BC4",
-};
+import { EventData, CATEGORY_COLORS } from "../../types/event";
 
 interface EventCardProps {
     event: EventData;
@@ -169,6 +147,30 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                                     </div>
                                 </div>
 
+                                {event.originUrl && (
+                                    <motion.a
+                                        href={event.originUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        whileHover={{ x: 4 }}
+                                        className="flex items-center gap-2 group/btn mb-8 w-fit"
+                                        style={{ color: "#F5F0E8" }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "13px",
+                                                letterSpacing: "0.1em",
+                                                borderBottom: `1px solid ${catColor}`,
+                                                paddingBottom: "2px",
+                                            }}
+                                        >
+                                            원문 보기
+                                        </span>
+                                        <ArrowUpRight size={14} style={{ color: catColor }} />
+                                    </motion.a>
+                                )}
+
                                 <motion.div
                                     whileHover={{ x: 4 }}
                                     className="flex items-center gap-2 group/btn"
@@ -250,7 +252,7 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                                 marginTop: "2px",
                             }}
                         >
-                            {event.organizer}
+                            {event.organizer} {event.originUrl && "· 원문"}
                         </p>
                     </div>
 
@@ -423,15 +425,29 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                         >
                             {event.organizer}
                         </span>
-                        <motion.div
-                            animate={{ x: hovered ? 0 : -6, opacity: hovered ? 1 : 0.3 }}
-                            transition={{ duration: 0.25 }}
-                            className="flex items-center gap-1"
-                            style={{ color: catColor }}
-                        >
-                            <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "11px" }}>보기</span>
-                            <ArrowUpRight size={12} />
-                        </motion.div>
+                        <div className="flex items-center gap-3">
+                            {event.originUrl && (
+                                <a
+                                    href={event.originUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-1.5 hover:bg-white/5 rounded-full transition-colors"
+                                    title="원문 보기"
+                                >
+                                    <ArrowUpRight size={12} style={{ color: catColor }} />
+                                </a>
+                            )}
+                            <motion.div
+                                animate={{ x: hovered ? 0 : -6, opacity: hovered ? 1 : 0.3 }}
+                                transition={{ duration: 0.25 }}
+                                className="flex items-center gap-1"
+                                style={{ color: catColor }}
+                            >
+                                <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "11px" }}>보기</span>
+                                <ArrowUpRight size={12} />
+                            </motion.div>
+                        </div>
                     </div>
                 </div>
 

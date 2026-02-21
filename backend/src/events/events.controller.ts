@@ -4,28 +4,38 @@ import { SemanticSearchService } from './semantic-search.service';
 
 @Controller('events')
 export class EventsController {
-    constructor(
-        private readonly eventsService: EventsService,
-        private readonly semanticSearch: SemanticSearchService
-    ) { }
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly semanticSearch: SemanticSearchService,
+  ) {}
 
-    @Get()
-    async findAll() {
-        return this.eventsService.findAll();
-    }
+  @Get('health')
+  async health() {
+    return { status: 'ok' };
+  }
 
-    @Get('semantic')
-    async search(@Query('q') query: string) {
-        return this.semanticSearch.search(query);
-    }
+  @Get()
+  async findAll() {
+    return this.eventsService.findAll();
+  }
 
-    @Get('scrape')
-    async scrape(@Query('url') url: string) {
-        return this.eventsService.scrapeOnDemand(url);
-    }
+  @Get('semantic')
+  async search(@Query('q') query: string) {
+    return this.semanticSearch.search(query);
+  }
 
-    @Get(':id')
-    async findOne(@Param('id') id: string) {
-        return this.eventsService.findOne(id);
-    }
+  @Get('nuclear-reset')
+  async nuclearReset() {
+    return this.eventsService.nuclearReset();
+  }
+
+  @Get('async-scrape')
+  async triggerAsyncScrape(@Query('url') url: string) {
+    return this.eventsService.triggerAsyncScrape(url);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.eventsService.findOne(id);
+  }
 }
