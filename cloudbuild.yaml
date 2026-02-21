@@ -1,18 +1,18 @@
 steps:
   # Build Backend
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/amenguide/backend', './backend']
+    args: ['build', '-t', 'us-west1-docker.pkg.dev/$PROJECT_ID/amenguide/backend', './backend']
   
   # Build Frontend
   - name: 'gcr.io/cloud-builders/docker'
     args: 
       - 'build'
       - '-t'
-      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/amenguide/frontend'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/amenguide/frontend'
       - '--build-arg'
-      - 'NEXT_PUBLIC_API_URL=https://amenguide-backend-775250805671.asia-northeast3.run.app'
+      - 'NEXT_PUBLIC_API_URL=https://amenguide-backend-775250805671.us-west1.run.app'
       - './frontend'
 
 images:
-  - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/amenguide/backend'
-  - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/amenguide/frontend'
+  - 'us-west1-docker.pkg.dev/$PROJECT_ID/amenguide/backend'
+  - 'us-west1-docker.pkg.dev/$PROJECT_ID/amenguide/frontend'
