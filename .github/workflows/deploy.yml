@@ -40,6 +40,7 @@ jobs:
           region: ${{ env.REGION }}
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
+            SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }}
             PORT=4000
 
       # Build and Deploy Frontend
