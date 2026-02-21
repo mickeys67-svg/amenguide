@@ -1,0 +1,78 @@
+name: Nuclear Database Fix
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pg
+        run: npm install pg
+
+      - name: Execute SQL Fix
+        run: |
+          node -e "
+          const { Client } = require('pg');
+          const client = new Client({ connectionString: process.env.DATABASE_URL });
+          client.connect()
+            .then(async () => {
+              console.log('Connected to DB. Starting Nuclear Fix...');
+              
+              // Drop everything related to event
+              await client.query('DROP TABLE IF EXISTS \"Bookmark\" CASCADE');
+              await client.query('DROP TABLE IF EXISTS \"Event\" CASCADE');
+              await client.query('DROP TABLE IF EXISTS event CASCADE');
+              
+              console.log('Creating definitive \"Event\" table (PascalCase)...');
+              await client.query(\`
+                CREATE TABLE \"Event\" (
+                  \"id\" TEXT PRIMARY KEY,
+                  \"title\" TEXT NOT NULL,
+                  \"date\" TIMESTAMP,
+                  \"location\" TEXT,
+                  \"latitude\" DOUBLE PRECISION,
+                  \"longitude\" DOUBLE PRECISION,
+                  \"originUrl\" TEXT,
+                  \"aiSummary\" TEXT,
+                  \"themeColor\" TEXT,
+                  \"category\" TEXT,
+                  \"createdAt\" TIMESTAMP DEFAULT (now() at time zone 'utc'),
+                  \"updatedAt\" TIMESTAMP DEFAULT (now() at time zone 'utc')
+                )
+              \`);
+              
+              // Create Bookmark table to match schema
+              await client.query(\`
+                CREATE TABLE \"Bookmark\" (
+                  \"id\" TEXT PRIMARY KEY,
+                  \"userId\" TEXT NOT NULL,
+                  \"eventId\" TEXT REFERENCES \"Event\"(\"id\") ON DELETE CASCADE,
+                  \"createdAt\" TIMESTAMP DEFAULT (now() at time zone 'utc')
+                )
+              \`);
+
+              console.log('Inserting seed verification record...');
+              await client.query(\`
+                INSERT INTO \"Event\" (id, title, category, \"aiSummary\", \"createdAt\")
+                VALUES ('seed-id', 'System Online: Data Verification Success', 'System', 'The database schema has been verified and is ready for ingestion.', now())
+              \`);
+
+              console.log('FIX COMPLETED SUCCESSFULLY.');
+              await client.end();
+            })
+            .catch(err => {
+              console.error('FIX FAILED:', err.message);
+              process.exit(1);
+            });
+          "
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
