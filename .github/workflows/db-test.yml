@@ -1,0 +1,41 @@
+name: DB Connectivity Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pg
+        run: npm install pg
+
+      - name: Test Connection
+        run: |
+          node -e "
+          const { Client } = require('pg');
+          const client = new Client({ connectionString: process.env.DATABASE_URL });
+          client.connect()
+            .then(async () => {
+              console.log('SUCCESS: Connected to database');
+              const res = await client.query('SELECT version()');
+              console.log('Version:', res.rows[0].version);
+              const tables = await client.query(\"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'\");
+              console.log('Tables:', tables.rows.map(r => r.table_name).join(', '));
+              await client.end();
+            })
+            .catch(err => {
+              console.error('FAILURE:', err.message);
+              process.exit(1);
+            });
+          "
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
