@@ -7,11 +7,16 @@ export class EventsController {
   constructor(
     private readonly eventsService: EventsService,
     private readonly semanticSearch: SemanticSearchService,
-  ) {}
+  ) { }
 
   @Get('health')
   async health() {
     return { status: 'ok' };
+  }
+
+  @Get('diag')
+  async getDiagnostics() {
+    return this.eventsService.getDiagnostics();
   }
 
   @Get()

@@ -142,4 +142,29 @@ export class EventsService {
       return { error: error.message };
     }
   }
+
+  async getDiagnostics() {
+    try {
+      const count = await this.prisma.event.count();
+      const dbUrl = process.env.DATABASE_URL || 'not-set';
+      // Masking password for safety
+      const maskedDbUrl = dbUrl.replace(/:([^:@]+)@/, ':****@');
+
+      return {
+        status: 'ok',
+        database: maskedDbUrl,
+        eventCount: count,
+        region: process.env.REGION || 'us-west1',
+        timestamp: new Date().toISOString(),
+        nodeEnv: process.env.NODE_ENV,
+        port: process.env.PORT
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
 }
