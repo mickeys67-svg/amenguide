@@ -164,8 +164,12 @@ export default function EventDetailPage() {
                                 </div>
 
                                 <div className="flex items-center gap-4">
-                                    <button className="flex items-center gap-2 px-8 py-4 bg-[#C9A96E] text-[#080705] font-bold rounded-sm hover:bg-[#D4B882] transition-colors">
-                                        신청 사이트 바로가기
+                                    <button
+                                        onClick={() => event.originUrl && window.open(event.originUrl, '_blank')}
+                                        className="flex items-center gap-2 px-8 py-4 bg-[#C9A96E] text-[#080705] font-bold rounded-sm hover:bg-[#D4B882] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={!event.originUrl}
+                                    >
+                                        원문 사이트 보러가기
                                         <ExternalLink size={16} />
                                     </button>
                                     <button className="p-4 border border-[rgba(245,240,232,0.1)] rounded-sm hover:border-[#C9A96E] transition-colors">
