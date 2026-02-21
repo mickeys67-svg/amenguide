@@ -87,7 +87,9 @@ async function scrapeUrl(url: string) {
 async function main() {
     // Example Target URLs - User can modify these or we can fetch them from a "Source" table later
     const targets = [
-        'https://www.catholic.or.kr/opencatholic/news/notice', // Examples
+        'https://www.catholic.or.kr/opencatholic/news/notice',
+        'https://www.catholictimes.org/article/article_list.php?cat_number=8',
+        'https://www.cpbc.co.kr/CMS/news/list.php?cid=711'
     ];
 
     for (const url of targets) {
