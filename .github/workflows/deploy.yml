@@ -29,14 +29,14 @@ jobs:
       # Build and Deploy Backend
       - name: Build and Push Backend
         run: |
-          docker build -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/amenguide/backend:${{ github.sha }} ./backend
-          docker push us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/amenguide/backend:${{ github.sha }}
+          docker build -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }} ./backend
+          docker push us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }}
 
       - name: Deploy Backend to Cloud Run
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: 'amenguide-backend'
-          image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/amenguide/backend:${{ github.sha }}'
+          image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }}'
           region: ${{ env.REGION }}
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
@@ -48,12 +48,12 @@ jobs:
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             --build-arg NEXT_PUBLIC_KAKAO_MAP_API_KEY=${{ secrets.NEXT_PUBLIC_KAKAO_MAP_API_KEY }} \
-            -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/amenguide/frontend:${{ github.sha }} ./frontend
-          docker push us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/amenguide/frontend:${{ github.sha }}
+            -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }} ./frontend
+          docker push us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }}
 
       - name: Deploy Frontend to Cloud Run
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
-          service: 'amenguide-frontend'
-          image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/amenguide/frontend:${{ github.sha }}'
+          service: 'amenguide-git'
+          image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }}'
           region: ${{ env.REGION }}
