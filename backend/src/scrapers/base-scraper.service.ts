@@ -7,8 +7,22 @@ export class BaseScraperService {
   private readonly logger = new Logger(BaseScraperService.name);
 
   async fetchHtml(url: string): Promise<string> {
+    const api_key = process.env.SCRAPER_API_KEY;
+
+    // If API key exists, use ScraperAPI for JS rendering and IP rotation
+    if (api_key) {
+      this.logger.log(`Fetching via Scraping API (with JS rendering) for: ${url}`);
+      try {
+        const proxyUrl = `http://api.scraperapi.com?api_key=${api_key}&url=${encodeURIComponent(url)}&render=true`;
+        const response = await axios.get(proxyUrl, { timeout: 60000 }); // Longer timeout for rendering
+        return response.data;
+      } catch (error) {
+        this.logger.error(`Scraping API failed: ${error.message}. Falling back to direct request.`);
+      }
+    }
+
     try {
-      this.logger.log(`Fetching HTML from: ${url}`);
+      this.logger.log(`Fetching HTML directly (No JS rendering) from: ${url}`);
       const response = await axios.get(url, {
         timeout: 10000,
         headers: {

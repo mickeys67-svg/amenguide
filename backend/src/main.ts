@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 
 async function bootstrap() {
+  console.log('--- AMENGUIDE BACKEND VERSION: v1.2.1-efbebaf-FORCE ---');
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');
   app.enableCors(); // CORS 허용 (프론트엔드 연동)

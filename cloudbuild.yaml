@@ -1,14 +1,16 @@
 steps:
   # Build Backend
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-backend', './backend']
+    args: ['build', '-t', 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-backend:${SHORT_SHA}', '-t', 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-backend:latest', './backend']
   
   # Build Frontend
   - name: 'gcr.io/cloud-builders/docker'
     args: 
       - 'build'
       - '-t'
-      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-git'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-git:${SHORT_SHA}'
+      - '-t'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-git:latest'
       - '--build-arg'
       - 'NEXT_PUBLIC_API_URL=https://amenguide-backend-775250805671.us-west1.run.app'
       - './frontend'

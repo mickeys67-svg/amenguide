@@ -11,7 +11,7 @@ export class SacredWhisperService {
     private prisma: PrismaService,
     private baseScraper: BaseScraperService,
     private aiRefiner: AiRefinerService,
-  ) {}
+  ) { }
 
   async process(url: string): Promise<void> {
     this.logger.log(`Starting background async crawl for: ${url}`);
@@ -59,7 +59,8 @@ export class SacredWhisperService {
         `Successfully completed background crawl and saved event: ${result.title}`,
       );
     } catch (error) {
-      this.logger.error(`Background crawl failed for ${url}: ${error.message}`);
+      this.logger.error(`Background activity failed for ${url}: ${error.message}`);
+      this.logger.error(`Stack: ${error.stack}`);
     }
   }
 }
