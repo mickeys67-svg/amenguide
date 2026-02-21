@@ -18,7 +18,7 @@ export default function EventDetailPage() {
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/events/${id}`);
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://amenguide-backend-775250805671.us-west1.run.app'}/api/v1/events/${id}`);
                 if (response.ok) {
                     const data = await response.json();
                     setEvent(data);

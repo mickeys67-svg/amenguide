@@ -53,7 +53,8 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
         const timer = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/events/semantic?q=${encodeURIComponent(query)}`);
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://amenguide-backend-775250805671.us-west1.run.app'}/api/v1/events/semantic?q=${encodeURIComponent(query)}`);
+
                 if (response.ok) {
                     const data = await response.json();
                     setSemanticResults(data);

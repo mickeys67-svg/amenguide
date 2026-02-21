@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { BaseScraperService } from '../scrapers/base-scraper.service';
 import { AiRefinerService } from '../scrapers/ai-refiner.service';
+import { SacredWhisperService } from '../scrapers/sacred-whisper.service';
 
 @Injectable()
 export class EventsService {
@@ -14,13 +15,52 @@ export class EventsService {
     constructor(
         private prisma: PrismaService,
         private baseScraper: BaseScraperService,
-        private aiRefiner: AiRefinerService
+        private aiRefiner: AiRefinerService,
+        private sacredWhisper: SacredWhisperService
     ) { }
 
+    async triggerAsyncScrape(url: string) {
+        this.sacredWhisper.process(url); // Don't await
+        return { message: 'Sacred Whisper initiated in background.', url };
+    }
+
+    async scrapeAndSave(url: string) {
+        try {
+            const result = await this.scrapeOnDemand(url);
+
+            return this.prisma.event.create({
+                data: {
+                    title: result.title,
+                    date: new Date(result.date),
+                    location: result.location,
+                    aiSummary: result.aiSummary,
+                    themeColor: result.themeColor,
+                    originUrl: url,
+                    category: '기타', // Default category
+                },
+            });
+        } catch (error) {
+            this.logger.error(`Failed to scrape and save ${url}: ${error.message}`);
+            throw error;
+        }
+    }
+
     async findAll() {
-        return this.prisma.event.findMany({
-            orderBy: { createdAt: 'desc' },
-        });
+        try {
+            return await this.prisma.event.findMany({
+                orderBy: { createdAt: 'desc' },
+            });
+        } catch (error) {
+            if (error.message.includes('does not exist')) {
+                this.logger.warn('Table "event" not found, attempting on-the-fly creation.');
+                await this.nuclearReset();
+                // Retry once
+                return await this.prisma.event.findMany({
+                    orderBy: { createdAt: 'desc' },
+                });
+            }
+            throw error;
+        }
     }
 
     async findOne(id: string) {
@@ -49,6 +89,40 @@ export class EventsService {
         } catch (error) {
             this.logger.error(`Failed to scrape ${url}: ${error.message}`);
             throw error;
+        }
+    }
+    async nuclearReset() {
+        try {
+            await this.prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "event" CASCADE;');
+            await this.prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "Event" CASCADE;');
+            await this.prisma.$executeRawUnsafe(`
+                CREATE TABLE IF NOT EXISTS "Event" (
+                    "id" TEXT PRIMARY KEY,
+                    "title" TEXT NOT NULL,
+                    "date" TIMESTAMP,
+                    "location" TEXT,
+                    "latitude" DOUBLE PRECISION,
+                    "longitude" DOUBLE PRECISION,
+                    "originUrl" TEXT,
+                    "aiSummary" TEXT,
+                    "themeColor" TEXT,
+                    "category" TEXT,
+                    "createdAt" TIMESTAMP DEFAULT (now() at time zone 'utc'),
+                    "updatedAt" TIMESTAMP DEFAULT (now() at time zone 'utc')
+                );
+            `);
+
+            return { message: "Database reset and 'Event' table created clean (aligned with Prisma)." };
+        } catch (error) {
+            return { error: error.message };
+        }
+    }
+
+    async debugTables() {
+        try {
+            return await this.prisma.$queryRaw`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`;
+        } catch (error) {
+            return { error: error.message };
         }
     }
 }

@@ -122,12 +122,12 @@ export default function LuceDiFedeHome() {
     const [searchOpen, setSearchOpen] = useState(false);
     const eventsRef = useRef<HTMLDivElement>(null);
 
-    const [events, setEvents] = useState<EventData[]>(ALL_EVENTS);
+    const [events, setEvents] = useState<EventData[]>([]);
 
     useEffect(() => {
         const fetchEvents = async () => {
             try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/events`);
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://amenguide-backend-775250805671.us-west1.run.app'}/api/v1/events`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.length > 0) {
@@ -145,7 +145,8 @@ export default function LuceDiFedeHome() {
                             tags: [],
                             featured: false,
                             latitude: e.latitude,
-                            longitude: e.longitude
+                            longitude: e.longitude,
+                            originUrl: e.originUrl
                         }));
                         setEvents(mappedEvents);
                     }
