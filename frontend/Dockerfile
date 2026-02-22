@@ -3,6 +3,7 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# Install dependencies based on the preferred package manager
 COPY package*.json ./
 RUN npm install
 
@@ -22,12 +23,16 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
+ENV PORT 8080
+ENV HOSTNAME "0.0.0.0"
 
 # Next.js standalone output requires copying specific files
+# Note: standalone includes node_modules and server.js
 COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 
-EXPOSE 3000
+EXPOSE 8080
 
 CMD ["node", "server.js"]
+
