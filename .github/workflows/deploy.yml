@@ -5,6 +5,7 @@ on:
     branches: [ main ]
 
 env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-west1
   BACKEND_SERVICE: amenguide-backend
   FRONTEND_SERVICE: amenguide-git
@@ -25,33 +26,24 @@ jobs:
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
 
-      - name: Detect Project ID
-        id: project
-        run: |
-          PROJECT=$(gcloud config get-value project 2>/dev/null)
-          echo "Detected project: $PROJECT"
-          echo "project_id=$PROJECT" >> $GITHUB_OUTPUT
-
       - name: Authorize Docker
         run: gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
 
       # ─── BACKEND ──────────────────────────────────────────────────
       - name: Build and Push Backend
         run: |
-          PROJECT=${{ steps.project.outputs.project_id }}
-          echo "Building for project: $PROJECT"
           docker build \
-            -t us-west1-docker.pkg.dev/${PROJECT}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }} \
-            -t us-west1-docker.pkg.dev/${PROJECT}/cloud-run-source-deploy/amenguide-backend:latest \
+            -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }} \
+            -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:latest \
             ./backend
-          docker push us-west1-docker.pkg.dev/${PROJECT}/cloud-run-source-deploy/amenguide-backend --all-tags
+          docker push us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend --all-tags
 
       - name: Deploy Backend to Cloud Run
         id: deploy-backend
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: '${{ env.BACKEND_SERVICE }}'
-          image: 'us-west1-docker.pkg.dev/${{ steps.project.outputs.project_id }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }}'
+          image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }}'
           region: '${{ env.REGION }}'
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
@@ -64,21 +56,20 @@ jobs:
       # ─── FRONTEND ─────────────────────────────────────────────────
       - name: Build and Push Frontend
         run: |
-          PROJECT=${{ steps.project.outputs.project_id }}
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             --build-arg NEXT_PUBLIC_KAKAO_MAP_API_KEY=${{ secrets.NEXT_PUBLIC_KAKAO_MAP_API_KEY }} \
-            -t us-west1-docker.pkg.dev/${PROJECT}/cloud-run-source-deploy/amenguide-git:${{ github.sha }} \
-            -t us-west1-docker.pkg.dev/${PROJECT}/cloud-run-source-deploy/amenguide-git:latest \
+            -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }} \
+            -t us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:latest \
             ./frontend
-          docker push us-west1-docker.pkg.dev/${PROJECT}/cloud-run-source-deploy/amenguide-git --all-tags
+          docker push us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git --all-tags
 
       - name: Deploy Frontend to Cloud Run
         id: deploy-frontend
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: '${{ env.FRONTEND_SERVICE }}'
-          image: 'us-west1-docker.pkg.dev/${{ steps.project.outputs.project_id }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }}'
+          image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }}'
           region: '${{ env.REGION }}'
 
       - name: Show Frontend URL
