@@ -15,13 +15,13 @@ interface ScrapingResult {
     themeColor: string;
 }
 
-const dbClient = new Client({
-    connectionString: process.env.DATABASE_URL,
-});
+// Delayed initialization to ensure env vars are loaded
+let dbClient: Client;
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 }) : null;
+
 
 
 async function refineWithAi(text: string, rawHtml?: string): Promise<ScrapingResult> {
@@ -126,11 +126,21 @@ async function scrapeUrl(url: string) {
 }
 
 async function main() {
+    if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL is not defined in environment variables.');
+    }
+
+    console.log('[SCRAPER] Initializing DB connection...');
+    dbClient = new Client({
+        connectionString: process.env.DATABASE_URL,
+    });
+
     await dbClient.connect();
 
     // Cleanup fake/placeholder data before starting
     console.log('[CLEANUP] Removing placeholder records...');
     await dbClient.query('DELETE FROM "Event" WHERE title LIKE \'%수정 필요%\' OR title = \'은총의 초대\'');
+
 
     // Example Target URLs
 
