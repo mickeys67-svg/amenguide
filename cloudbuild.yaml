@@ -13,7 +13,10 @@ steps:
       - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-git:latest'
       - '--build-arg'
       - 'NEXT_PUBLIC_API_URL=https://amenguide-backend-775250805671.us-west1.run.app'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_KAKAO_MAP_API_KEY=YOUR_KEY_HERE'
       - './frontend'
+
 
 images:
   - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/amenguide-backend'

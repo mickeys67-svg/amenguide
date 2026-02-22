@@ -34,5 +34,7 @@ COPY --from=build /app/.next/static ./.next/static
 
 EXPOSE 8080
 
-CMD ["node", "server.js"]
+# Diagnostic check to ensure server.js exists and is in the right place
+CMD ls -R /app && node server.js
+
 
