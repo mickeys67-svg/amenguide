@@ -46,6 +46,12 @@ export class BaseScraperService {
           { selector: 'img', format: 'skip' },
           { selector: 'nav', format: 'skip' },
           { selector: 'footer', format: 'skip' },
+          { selector: 'script', format: 'skip' },
+          { selector: 'style', format: 'skip' },
+          { selector: '.header', format: 'skip' },
+          { selector: '.footer', format: 'skip' },
+          { selector: '.navigation', format: 'skip' },
+          { selector: '.sidebar', format: 'skip' },
         ],
       });
     } catch (error) {

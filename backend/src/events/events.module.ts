@@ -8,5 +8,7 @@ import { SemanticSearchService } from './semantic-search.service';
   imports: [ScrapersModule],
   controllers: [EventsController],
   providers: [EventsService, SemanticSearchService],
+  exports: [EventsService],
 })
-export class EventsModule {}
+export class EventsModule { }
+

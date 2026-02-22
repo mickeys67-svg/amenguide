@@ -1,8 +1,10 @@
 const { Client } = require('pg');
+require('dotenv').config();
 
 async function resetDb() {
-    const connectionString = 'postgresql://postgres:dltWqZvjcrnH7RwZ@db.mocsygandkqqqccigwlz.supabase.co:5432/postgres';
+    const connectionString = process.env.DATABASE_URL;
     const client = new Client({ connectionString });
+
 
     try {
         await client.connect();
@@ -11,13 +13,29 @@ async function resetDb() {
         // 1. Drop existing tables to ensure clean slate
         console.log('Dropping existing tables...');
         await client.query('DROP TABLE IF EXISTS "Bookmark" CASCADE;');
-        await client.query('DROP TABLE IF EXISTS "event" CASCADE;');
+        await client.query('DROP TABLE IF EXISTS "User" CASCADE;');
         await client.query('DROP TABLE IF EXISTS "Event" CASCADE;');
+        await client.query('DROP TABLE IF EXISTS "event" CASCADE;'); // Legacy lowercase
 
-        // 2. Create the "event" table (lowercase for Prisma mapping)
-        console.log('Creating "event" table...');
+        // 2. Create the "User" table
+        console.log('Creating "User" table...');
         await client.query(`
-            CREATE TABLE "event" (
+            CREATE TABLE "User" (
+                "id" TEXT PRIMARY KEY,
+                "email" TEXT UNIQUE NOT NULL,
+                "name" TEXT,
+                "provider" TEXT NOT NULL,
+                "targetDiocese" TEXT,
+                "themeColor" TEXT,
+                "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // 3. Create the "Event" table
+        console.log('Creating "Event" table...');
+        await client.query(`
+            CREATE TABLE "Event" (
                 "id" TEXT PRIMARY KEY,
                 "title" TEXT NOT NULL,
                 "date" TIMESTAMP,
@@ -33,22 +51,25 @@ async function resetDb() {
             );
         `);
 
-        // 3. Create Bookmark table if needed (minimal for now)
+        // 4. Create the "Bookmark" table
+        console.log('Creating "Bookmark" table...');
         await client.query(`
-            CREATE TABLE IF NOT EXISTS "Bookmark" (
+            CREATE TABLE "Bookmark" (
                 "id" TEXT PRIMARY KEY,
-                "userId" TEXT NOT NULL,
-                "eventId" TEXT REFERENCES "event"("id") ON DELETE CASCADE,
-                "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+                "eventId" TEXT NOT NULL REFERENCES "Event"("id") ON DELETE CASCADE,
+                "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE("userId", "eventId")
             );
         `);
 
-        console.log('Database reset and "event" table created successfully.');
+        console.log('Database reset and schema (Event, User, Bookmark) created successfully with PascalCase.');
     } catch (error) {
         console.error('Database reset failed:', error.message);
     } finally {
         await client.end();
     }
+
 }
 
 resetDb();

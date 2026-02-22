@@ -1,9 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { PrismaClient } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 async function bootstrap() {
+
   console.log('--- AMENGUIDE BACKEND VERSION: v1.2.1-efbebaf-FORCE ---');
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');
@@ -16,6 +19,17 @@ async function bootstrap() {
       'Ensuring database schema exists (Unified definitive Event table creation aligned with Prisma PascalCase)...',
     );
     const sql = `
+      CREATE TABLE IF NOT EXISTS "User" (
+        "id" TEXT PRIMARY KEY,
+        "email" TEXT UNIQUE NOT NULL,
+        "name" TEXT,
+        "provider" TEXT NOT NULL,
+        "targetDiocese" TEXT,
+        "themeColor" TEXT,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS "Event" (
         "id" TEXT PRIMARY KEY,
         "title" TEXT NOT NULL,
@@ -30,12 +44,21 @@ async function bootstrap() {
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS "Bookmark" (
+        "id" TEXT PRIMARY KEY,
+        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+        "eventId" TEXT NOT NULL REFERENCES "Event"("id") ON DELETE CASCADE,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("userId", "eventId")
+      );
     `;
     await prismaService.$executeRawUnsafe(sql);
-    console.log('Database schema verified (Definitive).');
+    console.log('Database schema verified (Definitive: User, Event, Bookmark).');
   } catch (err) {
     console.error('Failed to initialize database schema:', err.message);
   }
+
 
   const port = process.env.PORT ?? 8080;
   console.log(`Application is starting on port ${port}`);

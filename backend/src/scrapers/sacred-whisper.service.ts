@@ -27,6 +27,7 @@ export class SacredWhisperService {
 
       // 2. Extract Text
       const text = await this.baseScraper.extractText(html);
+      this.logger.log(`Extracted text length: ${text.length} chars for ${url}`);
 
       // 3. AI Refinement (The expensive part)
       const result = await this.aiRefiner.refine(text);
@@ -56,7 +57,7 @@ export class SacredWhisperService {
       });
 
       this.logger.log(
-        `Successfully completed background crawl and saved event: ${result.title}`,
+        `✅ Successfully saved event: [${result.title}] with theme: ${result.themeColor}`,
       );
     } catch (error) {
       this.logger.error(`Background activity failed for ${url}: ${error.message}`);
