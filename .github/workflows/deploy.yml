@@ -26,17 +26,26 @@ jobs:
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
 
+      - name: Enable required APIs
+        run: |
+          gcloud services enable containerregistry.googleapis.com --project=${{ env.PROJECT_ID }} --quiet
+          gcloud services enable run.googleapis.com --project=${{ env.PROJECT_ID }} --quiet
+
       - name: Authorize Docker for GCR
         run: gcloud auth configure-docker --quiet
 
       # ─── BACKEND ──────────────────────────────────────────────────
-      - name: Build and Push Backend
+      - name: Build Backend Image
         run: |
           docker build \
             -t gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:${{ github.sha }} \
             -t gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:latest \
             ./backend
-          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-backend --all-tags
+
+      - name: Push Backend Image
+        run: |
+          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:${{ github.sha }}
+          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:latest
 
       - name: Deploy Backend to Cloud Run
         id: deploy-backend
@@ -54,7 +63,7 @@ jobs:
         run: echo "BACKEND=${{ steps.deploy-backend.outputs.url }}"
 
       # ─── FRONTEND ─────────────────────────────────────────────────
-      - name: Build and Push Frontend
+      - name: Build Frontend Image
         run: |
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
@@ -62,7 +71,11 @@ jobs:
             -t gcr.io/${{ env.PROJECT_ID }}/amenguide-git:${{ github.sha }} \
             -t gcr.io/${{ env.PROJECT_ID }}/amenguide-git:latest \
             ./frontend
-          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-git --all-tags
+
+      - name: Push Frontend Image
+        run: |
+          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-git:${{ github.sha }}
+          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-git:latest
 
       - name: Deploy Frontend to Cloud Run
         id: deploy-frontend
