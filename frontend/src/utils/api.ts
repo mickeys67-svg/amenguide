@@ -2,7 +2,8 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://amenguide-backend-7
 
 
 export async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${BASE_URL}/api/v1${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
 
     const response = await fetch(url, {
         ...options,

@@ -7,10 +7,11 @@ dotenv.config();
 
 async function bootstrap() {
 
-  console.log('--- AMENGUIDE BACKEND VERSION: v1.2.1-efbebaf-FORCE ---');
+  console.log('--- AMENGUIDE BACKEND VERSION: v2.0.1-ROBUST ---');
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api/v1');
+  // app.setGlobalPrefix('api/v1'); // Removed for robust legacy alignment
   app.enableCors(); // CORS 허용 (프론트엔드 연동)
+
 
   // Failsafe Database Initialization using the actual app service
   const prismaService = app.get(PrismaService);
