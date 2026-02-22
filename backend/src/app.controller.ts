@@ -14,8 +14,9 @@ export class AppController {
     const diag = await this.eventsService.getDiagnostics();
     return {
       message: 'Amenguide Backend is Live',
-      version: 'v1.2.2-manual-diag',
+      version: 'v1.2.9-trace-final',
       diagnostics: diag,
     };
+
   }
 }
