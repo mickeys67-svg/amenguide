@@ -41,6 +41,8 @@ jobs:
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }}
+          # Explicit command to prevent overrides
+          command: '["node", "dist/main.js"]'
 
       # Build and Deploy Frontend
       - name: Build and Push Frontend
@@ -58,3 +60,6 @@ jobs:
           service: 'amenguide-git'
           image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }}'
           region: ${{ env.REGION }}
+          # Explicit command to fix the "dist/main.js not found" error on frontend
+          command: '["node", "server.js"]'
+
