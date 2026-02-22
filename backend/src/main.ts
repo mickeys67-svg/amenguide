@@ -6,26 +6,25 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 async function bootstrap() {
-
   console.log('--- AMENGUIDE BACKEND VERSION: v3.0.0-FINAL ---');
 
   const app = await NestFactory.create(AppModule);
-  // app.setGlobalPrefix('api/v1'); // Removed for robust legacy alignment
-  app.enableCors(); // CORS 허용 (프론트엔드 연동)
+  app.enableCors();
 
+  const port = process.env.PORT ?? 8080;
 
-  // Failsafe Database Initialization using the actual app service
+  // Listen FIRST — Cloud Run requires the port to open within 60s
+  await app.listen(port);
+  console.log(`Application is running on port ${port}`);
+
+  // DB initialization runs AFTER port is open (non-blocking for startup)
   const prismaService = app.get(PrismaService);
   try {
     await prismaService.initDatabase();
+    console.log('Database schema initialized successfully.');
   } catch (err) {
-    console.error('Failed to initialize database schema:', err.message);
+    console.error('DB init failed (non-fatal):', err.message);
   }
-
-
-
-  const port = process.env.PORT ?? 8080;
-  console.log(`Application is starting on port ${port}`);
-  await app.listen(port);
 }
 bootstrap();
+
