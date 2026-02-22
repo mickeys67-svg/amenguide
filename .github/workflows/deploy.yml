@@ -29,6 +29,15 @@ jobs:
       - name: Authorize Docker
         run: gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
 
+      - name: Create Artifact Registry Repository (if not exists)
+        run: |
+          gcloud artifacts repositories create cloud-run-source-deploy \
+            --repository-format=docker \
+            --location=us-west1 \
+            --project=${{ env.PROJECT_ID }} \
+            --description="Docker images for Cloud Run" \
+            --quiet 2>/dev/null || echo "Repository already exists, continuing..."
+
       # ─── BACKEND ──────────────────────────────────────────────────
       - name: Build and Push Backend
         run: |
