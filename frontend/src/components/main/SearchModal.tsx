@@ -63,13 +63,14 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
         : query.trim().length > 0
             ? events.filter(
                 (e: EventData) =>
-                    e.title.includes(query) ||
-                    e.category.includes(query) ||
-                    e.location.includes(query) ||
-                    e.organizer.includes(query) ||
-                    e.tags?.some((t: string) => t.includes(query))
+                    (e.title?.includes(query) ?? false) ||
+                    (e.category?.includes(query) ?? false) ||
+                    (e.location?.includes(query) ?? false) ||
+                    (e.organizer?.includes(query) ?? false) ||
+                    (e.tags?.some((t: string) => t.includes(query)) ?? false)
             )
             : [];
+
 
     return (
         <AnimatePresence>
@@ -114,8 +115,8 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
                                     <button
                                         onClick={() => setIsSemantic(!isSemantic)}
                                         className={`flex items-center gap-2 px-6 py-2 rounded-full border transition-all ${isSemantic
-                                                ? "bg-[#C9A96E]/10 border-[#C9A96E] text-[#C9A96E]"
-                                                : "border-[rgba(245,240,232,0.1)] text-[rgba(245,240,232,0.4)] hover:border-[rgba(245,240,232,0.3)]"
+                                            ? "bg-[#C9A96E]/10 border-[#C9A96E] text-[#C9A96E]"
+                                            : "border-[rgba(245,240,232,0.1)] text-[rgba(245,240,232,0.4)] hover:border-[rgba(245,240,232,0.3)]"
                                             }`}
                                     >
                                         <Sparkles size={16} className={isSemantic ? "animate-pulse" : ""} />

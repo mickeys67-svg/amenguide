@@ -31,8 +31,12 @@ export class EventsController {
 
   @Get('nuclear-reset')
   async nuclearReset() {
+    if (process.env.NODE_ENV === 'production') {
+      return { error: 'Forbidden: nuclear-reset is disabled in production.' };
+    }
     return this.eventsService.nuclearReset();
   }
+
 
   @Get('async-scrape')
   async triggerAsyncScrape(@Query('url') url: string) {

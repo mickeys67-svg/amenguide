@@ -1,10 +1,8 @@
 name: Zero-Cost Scheduled Scraper
 
 on:
-  push:
-    branches: [ main ]
   schedule:
-    - cron: '0 */6 * * *' # Every 6 hours
+    - cron: '0 */6 * * *' # Every 6 hours (schedule only, not on push)
 
 jobs:
   scrape:
@@ -24,7 +22,6 @@ jobs:
         working-directory: ./backend
         run: |
           npm install
-          npx playwright install chromium --with-deps
 
       - name: Generate Prisma Client
         working-directory: ./backend

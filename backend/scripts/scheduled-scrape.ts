@@ -131,8 +131,10 @@ async function main() {
     }
 
     console.log('[SCRAPER] Initializing DB connection...');
+    console.log('[SCRAPER] DB URL host:', process.env.DATABASE_URL?.split('@')[1]?.split('/')[0] || 'unknown');
     dbClient = new Client({
         connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
     });
 
     await dbClient.connect();

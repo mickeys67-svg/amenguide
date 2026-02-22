@@ -7,7 +7,8 @@ dotenv.config();
 
 async function bootstrap() {
 
-  console.log('--- AMENGUIDE BACKEND VERSION: v2.0.1-ROBUST ---');
+  console.log('--- AMENGUIDE BACKEND VERSION: v3.0.0-FINAL ---');
+
   const app = await NestFactory.create(AppModule);
   // app.setGlobalPrefix('api/v1'); // Removed for robust legacy alignment
   app.enableCors(); // CORS 허용 (프론트엔드 연동)

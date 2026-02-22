@@ -1,12 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
-import { convert } from 'html-to-text';
-import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
-
 import { BaseScraperService } from '../scrapers/base-scraper.service';
 import { AiRefinerService } from '../scrapers/ai-refiner.service';
 import { SacredWhisperService } from '../scrapers/sacred-whisper.service';
+
 
 @Injectable()
 export class EventsService {

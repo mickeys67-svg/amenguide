@@ -1,11 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
 import { EventsService } from './events/events.service';
 
 @Controller()
 export class AppController {
   constructor(
-    private readonly appService: AppService,
     private readonly eventsService: EventsService,
   ) { }
 
@@ -13,11 +11,9 @@ export class AppController {
   async getHello() {
     const diag = await this.eventsService.getDiagnostics();
     return {
-      message: 'Amenguide Definitive Backend is Live',
-      version: 'v2.0.0-GOLD',
+      message: 'Amenguide Backend is Live',
+      version: 'v3.0.0-FINAL',
       diagnostics: diag,
     };
-
-
   }
 }

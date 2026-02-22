@@ -1,4 +1,6 @@
 import { motion } from "framer-motion";
+import { CATEGORY_COLORS as BASE_CATEGORY_COLORS } from "../../types/event";
+
 
 const FILTERS = [
     { label: "전체", value: "전체" },
@@ -11,12 +13,9 @@ const FILTERS = [
 
 const CATEGORY_COLORS: Record<string, string> = {
     전체: "#F5F0E8",
-    피정: "#C9A96E",
-    강의: "#8BB8A0",
-    강론: "#9B8EC4",
-    특강: "#C47B6B",
-    피정의집: "#6B9BC4",
+    ...BASE_CATEGORY_COLORS,
 };
+
 
 const SORT_OPTIONS = [
     { label: "최신순", value: "latest" },

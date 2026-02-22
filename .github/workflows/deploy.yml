@@ -29,7 +29,8 @@ jobs:
       # Build and Deploy Backend
       - name: Build and Push Backend
         run: |
-          docker build -t us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }} -t us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:latest ./backend
+          docker build -t us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }} \
+            -t us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:latest ./backend
           docker push us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend --all-tags
 
       - name: Deploy Backend to Cloud Run
@@ -42,7 +43,6 @@ jobs:
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }}
-          flags: '--command=node --args=dist/main.js'
 
       - name: Show Backend URL
         run: echo "REAL_BACKEND_URL=${{ steps.deploy-backend.outputs.url }}"
@@ -64,11 +64,6 @@ jobs:
           service: 'amenguide-git'
           image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }}'
           region: ${{ env.REGION }}
-          flags: '--command=node --args=server.js'
 
       - name: Show Frontend URL
         run: echo "REAL_FRONTEND_URL=${{ steps.deploy-frontend.outputs.url }}"
-
-
-
-

@@ -108,38 +108,41 @@ export default function LuceDiFedeHome() {
             <MarqueeBar />
 
             {/* Featured Event Section - The Sacred Chasm */}
-            <section className="py-40 md:py-64 relative border-b border-white/[0.03]" style={{ backgroundColor: "#080705" }}>
-                <div className="sacred-rail">
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
-                        className="flex flex-col gap-6 mb-20"
-                    >
-                        <div className="flex items-center gap-6">
-                            <div className="h-px w-20" style={{ backgroundColor: "#C9A96E", opacity: 0.6 }} />
-                            <span
-                                style={{
-                                    fontFamily: "'Playfair Display', serif",
-                                    color: "#C9A96E",
-                                    fontSize: "13px",
-                                    letterSpacing: "0.4em",
-                                    textTransform: "uppercase",
-                                    opacity: 0.8
-                                }}
-                            >
-                                이달의 추천 행사
-                            </span>
-                        </div>
-                        <h2 className="text-[10px] tracking-[0.6em] text-white/20 uppercase pl-24">RECOMMENDED CURATION</h2>
-                    </motion.div>
+            {featuredEvent && (
+                <section className="py-40 md:py-64 relative border-b border-white/[0.03]" style={{ backgroundColor: "#080705" }}>
+                    <div className="sacred-rail">
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
+                            className="flex flex-col gap-6 mb-20"
+                        >
+                            <div className="flex items-center gap-6">
+                                <div className="h-px w-20" style={{ backgroundColor: "#C9A96E", opacity: 0.6 }} />
+                                <span
+                                    style={{
+                                        fontFamily: "'Playfair Display', serif",
+                                        color: "#C9A96E",
+                                        fontSize: "13px",
+                                        letterSpacing: "0.4em",
+                                        textTransform: "uppercase",
+                                        opacity: 0.8
+                                    }}
+                                >
+                                    이달의 추천 행사
+                                </span>
+                            </div>
+                            <h2 className="text-[10px] tracking-[0.6em] text-white/20 uppercase pl-24">RECOMMENDED CURATION</h2>
+                        </motion.div>
 
-                    <div className="relative">
-                        <EventCard event={featuredEvent} index={0} variant="featured" />
+                        <div className="relative">
+                            <EventCard event={featuredEvent} index={0} variant="featured" />
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
+
 
             {/* Stats Section */}
             <StatsSection />
