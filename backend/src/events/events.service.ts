@@ -102,37 +102,23 @@ export class EventsService {
   }
   async nuclearReset() {
     try {
-      await this.prisma.$executeRawUnsafe(
-        'DROP TABLE IF EXISTS "event" CASCADE;',
-      );
-      await this.prisma.$executeRawUnsafe(
-        'DROP TABLE IF EXISTS "Event" CASCADE;',
-      );
-      await this.prisma.$executeRawUnsafe(`
-                CREATE TABLE IF NOT EXISTS "Event" (
-                    "id" TEXT PRIMARY KEY,
-                    "title" TEXT NOT NULL,
-                    "date" TIMESTAMP,
-                    "location" TEXT,
-                    "latitude" DOUBLE PRECISION,
-                    "longitude" DOUBLE PRECISION,
-                    "originUrl" TEXT,
-                    "aiSummary" TEXT,
-                    "themeColor" TEXT,
-                    "category" TEXT,
-                    "createdAt" TIMESTAMP DEFAULT (now() at time zone 'utc'),
-                    "updatedAt" TIMESTAMP DEFAULT (now() at time zone 'utc')
-                );
-            `);
+      // Clear all potential variants to ensure clean PascalCase state
+      const tables = ['Bookmark', 'Event', 'User', 'bookmark', 'event', 'user'];
+      for (const table of tables) {
+        await this.prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "${table}" CASCADE;`);
+      }
+
+      await this.prisma.initDatabase();
 
       return {
         message:
-          "Database reset and 'Event' table created clean (aligned with Prisma).",
+          "Database reset and re-initialized with Definitive PascalCase schema.",
       };
     } catch (error) {
       return { error: error.message };
     }
   }
+
 
   async debugTables() {
     try {
