@@ -33,6 +33,7 @@ jobs:
           docker push us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend --all-tags
 
       - name: Deploy Backend to Cloud Run
+        id: deploy-backend
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: 'amenguide-backend'
@@ -41,8 +42,10 @@ jobs:
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }}
-          # Explicitly set command to clear any overrides
           flags: '--command=node --args=dist/main.js'
+
+      - name: Show Backend URL
+        run: echo "REAL_BACKEND_URL=${{ steps.deploy-backend.outputs.url }}"
 
       # Build and Deploy Frontend
       - name: Build and Push Frontend
@@ -55,13 +58,17 @@ jobs:
           docker push us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-git --all-tags
 
       - name: Deploy Frontend to Cloud Run
+        id: deploy-frontend
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: 'amenguide-git'
           image: 'us-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/amenguide-git:${{ github.sha }}'
           region: ${{ env.REGION }}
-          # Explicitly set command to node server.js to fix MODULE_NOT_FOUND and 404 issues
           flags: '--command=node --args=server.js'
+
+      - name: Show Frontend URL
+        run: echo "REAL_FRONTEND_URL=${{ steps.deploy-frontend.outputs.url }}"
+
 
 
 
