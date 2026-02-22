@@ -11,9 +11,8 @@ env:
   FRONTEND_SERVICE: amenguide-git
 
 jobs:
-  deploy:
+  deploy-backend:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,60 +25,52 @@ jobs:
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
 
-
-      - name: Authorize Docker for GCR
-        run: gcloud auth configure-docker --quiet
-
       # ─── BACKEND ──────────────────────────────────────────────────
-      - name: Build Backend Image
-        run: |
-          docker build \
-            -t gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:${{ github.sha }} \
-            -t gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:latest \
-            ./backend
-
-      - name: Push Backend Image
-        run: |
-          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:${{ github.sha }}
-          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:latest
-
       - name: Deploy Backend to Cloud Run
-        id: deploy-backend
-        uses: 'google-github-actions/deploy-cloudrun@v2'
-        with:
-          service: '${{ env.BACKEND_SERVICE }}'
-          image: 'gcr.io/${{ env.PROJECT_ID }}/amenguide-backend:${{ github.sha }}'
-          region: '${{ env.REGION }}'
-          env_vars: |
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-            SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }}
+        run: |
+          gcloud run deploy ${{ env.BACKEND_SERVICE }} \
+            --source ./backend \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }}" \
+            --quiet
 
       - name: Show Backend URL
-        run: echo "BACKEND=${{ steps.deploy-backend.outputs.url }}"
+        run: |
+          echo "BACKEND=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} --format='value(status.url)')"
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v2'
 
       # ─── FRONTEND ─────────────────────────────────────────────────
-      - name: Build Frontend Image
+      - name: Create frontend .env for build
         run: |
-          docker build \
-            --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
-            --build-arg NEXT_PUBLIC_KAKAO_MAP_API_KEY=${{ secrets.NEXT_PUBLIC_KAKAO_MAP_API_KEY }} \
-            -t gcr.io/${{ env.PROJECT_ID }}/amenguide-git:${{ github.sha }} \
-            -t gcr.io/${{ env.PROJECT_ID }}/amenguide-git:latest \
-            ./frontend
-
-      - name: Push Frontend Image
-        run: |
-          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-git:${{ github.sha }}
-          docker push gcr.io/${{ env.PROJECT_ID }}/amenguide-git:latest
+          echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" > ./frontend/.env.production
+          echo "NEXT_PUBLIC_KAKAO_MAP_API_KEY=${{ secrets.NEXT_PUBLIC_KAKAO_MAP_API_KEY }}" >> ./frontend/.env.production
 
       - name: Deploy Frontend to Cloud Run
-        id: deploy-frontend
-        uses: 'google-github-actions/deploy-cloudrun@v2'
-        with:
-          service: '${{ env.FRONTEND_SERVICE }}'
-          image: 'gcr.io/${{ env.PROJECT_ID }}/amenguide-git:${{ github.sha }}'
-          region: '${{ env.REGION }}'
+        run: |
+          gcloud run deploy ${{ env.FRONTEND_SERVICE }} \
+            --source ./frontend \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --quiet
 
       - name: Show Frontend URL
-        run: echo "FRONTEND=${{ steps.deploy-frontend.outputs.url }}"
+        run: |
+          echo "FRONTEND=$(gcloud run services describe ${{ env.FRONTEND_SERVICE }} --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} --format='value(status.url)')"
