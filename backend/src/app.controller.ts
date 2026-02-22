@@ -13,10 +13,11 @@ export class AppController {
   async getHello() {
     const diag = await this.eventsService.getDiagnostics();
     return {
-      message: 'Amenguide Backend is Live',
-      version: 'v1.2.9-trace-final',
+      message: 'Amenguide Definitive Backend is Live',
+      version: 'v2.0.0-GOLD',
       diagnostics: diag,
     };
+
 
   }
 }
