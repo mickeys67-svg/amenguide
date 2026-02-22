@@ -29,7 +29,8 @@ jobs:
       # Build and Deploy Backend
       - name: Build and Push Backend
         run: |
-          docker build -t us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }} \
+          docker build --no-cache \
+            -t us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:${{ github.sha }} \
             -t us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend:latest ./backend
           docker push us-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/amenguide-backend --all-tags
 
@@ -42,6 +43,7 @@ jobs:
           region: ${{ env.REGION }}
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }}
 
       - name: Show Backend URL

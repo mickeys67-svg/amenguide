@@ -128,7 +128,8 @@ export class EventsService {
 
   async getDiagnostics() {
     try {
-      const count = await this.prisma.event.count();
+      const rawCount = await this.prisma.event.count();
+      const count = Number(rawCount); // Prisma returns BigInt — must convert for JSON
       const dbUrl = process.env.DATABASE_URL || 'not-set';
       // Masking password for safety
       const maskedDbUrl = dbUrl.replace(/:([^:@]+)@/, ':****@');
@@ -140,7 +141,8 @@ export class EventsService {
         region: process.env.REGION || 'us-west1',
         timestamp: new Date().toISOString(),
         nodeEnv: process.env.NODE_ENV,
-        port: process.env.PORT
+        port: process.env.PORT,
+        openaiConfigured: !!process.env.OPENAI_API_KEY,
       };
     } catch (error) {
       return {
