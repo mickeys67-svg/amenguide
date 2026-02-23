@@ -2,7 +2,8 @@ name: Zero-Cost Scheduled Scraper
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Every 6 hours (schedule only, not on push)
+    - cron: '0 */6 * * *' # Every 6 hours
+  workflow_dispatch: # Allow manual trigger
 
 jobs:
   scrape:
