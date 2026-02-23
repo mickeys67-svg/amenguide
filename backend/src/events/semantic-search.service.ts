@@ -1,25 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SemanticSearchService {
   private readonly logger = new Logger(SemanticSearchService.name);
-  private openai: OpenAI;
+  private anthropic: Anthropic | null = null;
 
   constructor(private prisma: PrismaService) {
-    if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+    if (process.env.ANTHROPIC_API_KEY) {
+      this.anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
       });
     }
   }
 
   async search(query: string) {
-    if (!this.openai) {
-      this.logger.warn(
-        'Semantic search requested but OpenAI is not configured.',
-      );
+    if (!this.anthropic) {
+      this.logger.warn('Semantic search requested but ANTHROPIC_API_KEY is not configured.');
       return this.prisma.event.findMany({
         where: {
           OR: [
@@ -32,10 +30,8 @@ export class SemanticSearchService {
     }
 
     try {
-      // 1. Fetch all events for re-ranking (Simplified for prototype)
-      // Note: In production, we'd use pgvector/embeddings query
       const events = await this.prisma.event.findMany({
-        take: 50, // Limit to recent 50 for re-ranking performance
+        take: 50,
         orderBy: { createdAt: 'desc' },
       });
 
@@ -45,43 +41,36 @@ export class SemanticSearchService {
         .map((e) => `[ID: ${e.id}] ${e.title}: ${e.aiSummary}`)
         .join('\n');
 
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+      const message = await this.anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 256,
+        system: `You are a Catholic spiritual guide. Rank the provided events by relevance to the user's query.
+Return ONLY the IDs of the top 5 most relevant events, comma-separated. No explanation.
+Example: uuid1, uuid2, uuid3`,
         messages: [
           {
-            role: 'system',
-            content: `You are a Catholic spiritual guide. The user is looking for: "${query}".
-                        Rank the provided events by relevance to their spiritual need. 
-                        Return ONLY the IDs of the top 5 most relevant events, separated by commas. 
-                        Example output: uuid1, uuid2, uuid3`,
-          },
-          {
             role: 'user',
-            content: `Events list:\n${context}`,
+            content: `Query: "${query}"\n\nEvents:\n${context}`,
           },
         ],
-        temperature: 0, // Lower temperature for more deterministic output
       });
 
-      const rawContent = completion.choices[0].message.content || '';
-      const rankedIds = rawContent
+      const block = message.content[0];
+      if (block.type !== 'text') return [];
+
+      const rankedIds = block.text
         .split(',')
         .map((id) => id.trim())
         .filter((id) => id.length > 0);
 
-      // Re-order based on AI ranking
-      const results = events
+      return events
         .filter((e) => rankedIds.includes(e.id))
-        .sort((a, b) => rankedIds.indexOf(a.id) - rankedIds.indexOf(b.id));
-
-      return results.slice(0, 5);
+        .sort((a, b) => rankedIds.indexOf(a.id) - rankedIds.indexOf(b.id))
+        .slice(0, 5);
     } catch (error) {
       this.logger.error(`Semantic search failed: ${error.message}`);
-      // Graceful fallback to simple search on error
       return this.prisma.event.findMany({
-        where: {
-          OR: [{ title: { contains: query, mode: 'insensitive' } }],
-        },
+        where: { title: { contains: query, mode: 'insensitive' } },
         take: 5,
       });
     }

@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
 import { convert } from 'html-to-text';
 import * as crypto from 'crypto';
@@ -16,13 +16,13 @@ interface ScrapingResult {
 
 let dbClient: Client;
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const anthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
 // ─── AI 정제 ─────────────────────────────────────────────────────────────────
 async function refineWithAi(text: string, rawHtml?: string): Promise<ScrapingResult> {
-  if (!openai) {
+  if (!anthropic) {
     console.log('[AI] No API key. Using HTML title fallback.');
     let titleFallback = '은총의 초대';
     if (rawHtml) {
@@ -39,28 +39,26 @@ async function refineWithAi(text: string, rawHtml?: string): Promise<ScrapingRes
   }
 
   const contentForAi = text.slice(0, 8000);
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an elite Catholic event data analyst.
-Extract event details from the provided Korean Catholic webpage content into JSON:
+  const message = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: `You are an elite Catholic event data analyst.
+Extract event details from Korean Catholic webpage content into JSON.
+Return ONLY valid JSON (no markdown fences):
 - title (string): Clean, official event name in Korean.
-- date (ISO 8601 string): e.g. 2024-05-20T10:00:00. If unknown, use "1970-01-01T00:00:00".
-- location (string): Name of the church/venue and city in Korean. If truly unknown, use "장소 정보 없음".
+- date (ISO 8601 string): e.g. 2026-05-20T10:00:00. If unknown, use "1970-01-01T00:00:00".
+- location (string): Name of the church/venue and city in Korean. If unknown, use "장소 정보 없음".
 - aiSummary (Korean, 2-3 sentences): Warm, spiritually grace-filled tone (은총이 가득하고 따뜻한 어조).
-- themeColor (Hex): e.g. #E63946 Ruby, #457B9D Sapphire, #FFB703 Amber, #06D6A0 Emerald, #C9A96E Gold.
-Return ONLY valid JSON. No markdown fences.`,
-      },
+- themeColor (Hex): #E63946 Ruby, #457B9D Sapphire, #FFB703 Amber, #06D6A0 Emerald, #C9A96E Gold.`,
+    messages: [
       { role: 'user', content: `Webpage content:\n\n${contentForAi}` },
     ],
-    response_format: { type: 'json_object' },
   });
 
-  const content = completion.choices[0].message.content;
-  if (!content) throw new Error('AI returned no data.');
-  return JSON.parse(content) as ScrapingResult;
+  const block = message.content[0];
+  if (block.type !== 'text') throw new Error('AI returned no data.');
+  const raw = block.text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+  return JSON.parse(raw) as ScrapingResult;
 }
 
 // ─── HTML 가져오기 ───────────────────────────────────────────────────────────

@@ -1,68 +1,58 @@
 import { Injectable, Logger } from '@nestjs/common';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { ScrapingResult } from './interfaces/scraping-result.interface';
 
 @Injectable()
 export class AiRefinerService {
   private readonly logger = new Logger(AiRefinerService.name);
-  private openai: OpenAI;
+  private anthropic: Anthropic | null = null;
 
   constructor() {
-    if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+    if (process.env.ANTHROPIC_API_KEY) {
+      this.anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
       });
     } else {
-      this.logger.warn(
-        'OPENAI_API_KEY is missing. AI refinement will be unavailable.',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is missing. AI refinement will be unavailable.');
     }
   }
 
   async refine(text: string): Promise<ScrapingResult> {
-    if (!this.openai) {
-      throw new Error('AI service is not configured (missing API key).');
+    if (!this.anthropic) {
+      throw new Error('AI service is not configured (missing ANTHROPIC_API_KEY).');
     }
 
-    const contentForAi = text.slice(0, 8000); // 넉넉한 초기 텍스트 제공
+    const contentForAi = text.slice(0, 8000);
 
     try {
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an elite Catholic event data analyst and spiritual guide.
-            Your mission is to extract precise event details and craft a warm, inviting summary that resonates with the Catholic faithful.
-            
-            OUTPUT RULES:
-            1. Language: Use Korean for 'aiSummary'.
-            2. JSON Structure: Return ONLY a JSON object with fields: 
-               - title (string): Clean, official event name.
-               - date (string): STRICT ISO 8601 (YYYY-MM-DDTHH:mm:ss). If specific time is unknown, use 00:00:00.
-               - location (string): Name of the church/venue and city.
-               - aiSummary (string): 2-3 sentences in a "warm, welcoming, and spiritually grace-filled tone" (은총이 가득하고 따뜻한 어조). 
-                 Highlight the spiritual benefit (e.g., "영적 여정", "은총의 시간", "내면의 평화") to invite participation.
-               - themeColor (string): Hex code matching a stained glass palette (e.g., #E63946 for Ruby, #457B9D for Sapphire, #FFB703 for Amber, #06D6A0 for Emerald).
-            3. Precision: If the date is not found, use "1970-01-01T00:00:00".`,
+      const message = await this.anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: `You are an elite Catholic event data analyst and spiritual guide.
+Your mission is to extract precise event details and craft a warm, inviting summary that resonates with the Catholic faithful.
 
-          },
-          {
-            role: 'user',
-            content: `Raw Text Chunk:\n\n${contentForAi}`,
-          },
+OUTPUT RULES:
+1. Language: Use Korean for 'aiSummary'.
+2. Return ONLY a valid JSON object (no markdown fences) with these fields:
+   - title (string): Clean, official event name.
+   - date (string): STRICT ISO 8601 (YYYY-MM-DDTHH:mm:ss). If unknown, use "1970-01-01T00:00:00".
+   - location (string): Name of the church/venue and city. If unknown, use "장소 정보 없음".
+   - aiSummary (string): 2-3 sentences in a warm, welcoming, spiritually grace-filled tone (은총이 가득하고 따뜻한 어조).
+   - themeColor (string): Hex code (#E63946 Ruby, #457B9D Sapphire, #FFB703 Amber, #06D6A0 Emerald, #C9A96E Gold).
+3. If the date is not found, use "1970-01-01T00:00:00".`,
+        messages: [
+          { role: 'user', content: `Raw Text Chunk:\n\n${contentForAi}` },
         ],
-        response_format: { type: 'json_object' },
       });
 
-      const content = completion.choices[0].message.content;
-      if (!content) throw new Error('AI returned no data.');
+      const block = message.content[0];
+      if (block.type !== 'text') throw new Error('AI returned non-text response.');
 
-      const result = JSON.parse(content) as ScrapingResult;
+      // Strip accidental markdown fences
+      const raw = block.text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+      const result = JSON.parse(raw) as ScrapingResult;
 
-      // Manual Validation Layer (Spaghetti prevention via direct checks)
       this.validateResult(result);
-
       return result;
     } catch (error) {
       this.logger.error(`Precision extraction failed: ${error.message}`);
@@ -78,20 +68,14 @@ export class AiRefinerService {
       }
     }
 
-    // Date format sanity check (ISO 8601 subset)
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data.date)) {
-      this.logger.warn(
-        `AI returned non-ISO date: ${data.date}. Attempting to fix to 1970.`,
-      );
+      this.logger.warn(`AI returned non-ISO date: ${data.date}. Defaulting to 1970.`);
       data.date = '1970-01-01T00:00:00';
     }
 
-    // Ensure themeColor is a valid hex
     if (!/^#[0-9A-Fa-f]{6}$/.test(data.themeColor)) {
-      this.logger.warn(
-        `Invalid theme color: ${data.themeColor}. Defaulting to Ruby.`,
-      );
-      data.themeColor = '#E63946';
+      this.logger.warn(`Invalid theme color: ${data.themeColor}. Defaulting to Gold.`);
+      data.themeColor = '#C9A96E';
     }
   }
 }
