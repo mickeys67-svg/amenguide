@@ -11,6 +11,7 @@ interface ScrapingResult {
   location: string;
   aiSummary: string;
   themeColor: string;
+  category: string;
 }
 
 interface Source {
@@ -22,6 +23,7 @@ interface Source {
 }
 
 let dbClient: Client;
+let savedCount = 0;
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -30,6 +32,18 @@ const anthropic = process.env.ANTHROPIC_API_KEY
 // ─── 리소스 차단 (이미지/폰트/미디어/스타일시트) ─────────────────────────────
 // Globally best practice: block non-essential resources to speed up scraping 50-80%
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font', 'stylesheet']);
+
+// ─── AI 프롬프트 공통 시스템 메시지 ──────────────────────────────────────────
+const AI_SYSTEM_PROMPT = `You are a Korean Catholic event analyst. Extract event details from the input.
+ONLY extract if this is a real Catholic event/retreat/program with a specific date and/or location.
+If NOT a real upcoming event, return {"skip": true}.
+Otherwise return ONLY valid JSON (no markdown fences):
+- title (string): Official event name in Korean
+- date (string): ISO 8601 e.g. "2026-05-20T10:00:00". Use "1970-01-01T00:00:00" if unknown.
+- location (string): Venue name and city in Korean. Use "장소 미정" if unknown.
+- aiSummary (string): 2-3 Korean sentences, warm spiritual tone (은총이 가득한 따뜻한 어조)
+- themeColor (string): One of #E63946 #457B9D #FFB703 #06D6A0 #C9A96E
+- category (string): One of "피정" | "강의" | "미사" | "성지순례" | "청년" | "기타"`;
 
 // ─── 소스 목록 ────────────────────────────────────────────────────────────────
 const SOURCES: Source[] = [
@@ -98,7 +112,7 @@ const SOURCES: Source[] = [
   },
 ];
 
-// ─── AI 정제 ─────────────────────────────────────────────────────────────────
+// ─── AI 텍스트 정제 ───────────────────────────────────────────────────────────
 async function refineWithAi(text: string): Promise<ScrapingResult | null> {
   if (!anthropic) return null;
 
@@ -106,28 +120,100 @@ async function refineWithAi(text: string): Promise<ScrapingResult | null> {
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
-    system: `You are a Korean Catholic event analyst. Extract event details from Korean webpage content.
-ONLY extract if this is a real Catholic event/retreat/program with a specific date and/or location.
-If NOT a real upcoming event, return {"skip": true}.
-Otherwise return ONLY valid JSON (no markdown fences):
-- title (string): Official event name in Korean
-- date (string): ISO 8601 e.g. "2026-05-20T10:00:00". Use "1970-01-01T00:00:00" if unknown.
-- location (string): Venue name and city in Korean. Use "장소 미정" if unknown.
-- aiSummary (string): 2-3 Korean sentences, warm spiritual tone (은총이 가득한 따뜻한 어조)
-- themeColor (string): One of #E63946 #457B9D #FFB703 #06D6A0 #C9A96E`,
+    system: AI_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: `페이지 내용:\n\n${content}` }],
   });
 
   const block = message.content[0];
   if (block.type !== 'text') return null;
+  return parseAiResponse(block.text);
+}
 
-  const raw = block.text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+// ─── AI Vision 정제 (포스터 이미지) ──────────────────────────────────────────
+async function refineWithVision(imageData: { data: string; mimeType: string }): Promise<ScrapingResult | null> {
+  if (!anthropic) return null;
+
+  const validMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+  type ValidMime = (typeof validMimeTypes)[number];
+  const mimeType = validMimeTypes.includes(imageData.mimeType as ValidMime)
+    ? (imageData.mimeType as ValidMime)
+    : ('image/jpeg' as ValidMime);
+
+  const message = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 512,
+    system: AI_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mimeType, data: imageData.data },
+          },
+          { type: 'text', text: '이 이미지는 가톨릭 행사 포스터입니다. 행사 정보를 추출해주세요.' },
+        ],
+      },
+    ],
+  });
+
+  const block = message.content[0];
+  if (block.type !== 'text') return null;
+  return parseAiResponse(block.text);
+}
+
+// ─── JSON 파싱 공통 ───────────────────────────────────────────────────────────
+function parseAiResponse(raw: string): ScrapingResult | null {
+  const cleaned = raw.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(cleaned);
     if (parsed.skip) return null;
     return parsed as ScrapingResult;
   } catch {
-    console.error('[AI] JSON parse failed:', raw.slice(0, 100));
+    console.error('[AI] JSON parse failed:', cleaned.slice(0, 100));
+    return null;
+  }
+}
+
+// ─── 이미지 src 추출 (DOM에서 — 차단해도 src 속성은 존재) ──────────────────────
+async function extractImageUrls(page: import('playwright').Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const SKIP_PATTERNS = ['icon', 'logo', 'banner_small', 'btn_', 'arrow', 'bullet', 'bg_'];
+    return Array.from(document.querySelectorAll('img[src]'))
+      .map((img) => (img as HTMLImageElement).src)
+      .filter((src) => {
+        if (!src || (!src.startsWith('http') && !src.startsWith('//'))) return false;
+        const lower = src.toLowerCase();
+        return !SKIP_PATTERNS.some((p) => lower.includes(p));
+      });
+  });
+}
+
+// ─── 이미지 다운로드 → base64 ─────────────────────────────────────────────────
+async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+    if (!res.ok) return null;
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const mimeType = contentType.split(';')[0].trim();
+    if (!mimeType.startsWith('image/')) return null;
+
+    const buffer = await res.arrayBuffer();
+    const data = Buffer.from(buffer).toString('base64');
+    // Claude max image ~5MB encoded; skip anything larger
+    if (data.length > 6_000_000) {
+      console.log(`[VISION] Image too large (${Math.round(data.length / 1024)}KB base64), skipping`);
+      return null;
+    }
+    return { data, mimeType };
+  } catch (err) {
+    console.warn(`[VISION] Fetch failed: ${url}`, (err as Error).message);
     return null;
   }
 }
@@ -257,14 +343,32 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
     }
 
     const text = await extractText(page, url);
-
     const koreanChars = (text.match(/[가-힣]/g) || []).length;
-    if (koreanChars < 50) {
-      console.log(`[SCRAPER] Skip (Korean chars: ${koreanChars}): ${url}`);
-      return;
+
+    let result: ScrapingResult | null = null;
+
+    if (koreanChars >= 50) {
+      // Normal text-based extraction
+      result = await refineWithAi(text);
+    } else {
+      // Fallback: try Vision on poster images
+      const imageUrls = await extractImageUrls(page);
+      if (imageUrls.length > 0) {
+        console.log(`[VISION] Korean chars too few (${koreanChars}), trying ${imageUrls.length} image(s)`);
+        for (const imgUrl of imageUrls.slice(0, 3)) {
+          const imageData = await fetchImageAsBase64(imgUrl);
+          if (!imageData) continue;
+          console.log(`[VISION] Analyzing image: ${imgUrl.slice(0, 80)}`);
+          result = await refineWithVision(imageData);
+          if (result) break;
+        }
+      }
+      if (!result) {
+        console.log(`[SCRAPER] Skip (Korean chars: ${koreanChars}, no usable images): ${url}`);
+        return;
+      }
     }
 
-    const result = await refineWithAi(text);
     if (!result) {
       console.log(`[SCRAPER] Skip (AI filtered): ${url}`);
       return;
@@ -274,6 +378,8 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       console.log(`[SCRAPER] Skip (no event data): ${url}`);
       return;
     }
+
+    const category = result.category || '기타';
 
     await dbClient.query(
       `INSERT INTO "Event" (id, title, date, location, "aiSummary", "themeColor", "originUrl", category, "createdAt", "updatedAt")
@@ -286,10 +392,11 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
         result.aiSummary,
         result.themeColor,
         url,
-        '기타',
+        category,
       ],
     );
-    console.log(`[SCRAPER] ✅ Saved: ${result.title} (${result.location})`);
+    savedCount++;
+    console.log(`[SCRAPER] ✅ Saved: ${result.title} [${category}] (${result.location})`);
   } catch (err) {
     console.error(`[SCRAPER] Error: ${url}:`, (err as Error).message);
   }
@@ -329,7 +436,7 @@ async function main() {
       const page = await context.newPage();
 
       // Best practice: block non-essential resources (images, fonts, CSS, media)
-      // This reduces bandwidth and speeds up scraping by 50-80%
+      // Note: image src attributes are still in DOM even when blocked — used for Vision fallback
       await page.route('**/*', (route) => {
         if (BLOCKED_RESOURCE_TYPES.has(route.request().resourceType())) {
           route.abort();
@@ -351,7 +458,12 @@ async function main() {
     console.log('[BROWSER] Closed.');
   }
 
-  console.log('\n[SCRAPER] All done.');
+  console.log(`\n[SCRAPER] All done. Total saved: ${savedCount}`);
+
+  // ─── 0결과 모니터링: Actions가 실패로 감지 → 이메일 알림 ─────────────────
+  if (savedCount === 0) {
+    throw new Error('[ALERT] 0 events saved this run — site structures may have changed!');
+  }
 }
 
 main()
