@@ -25,4 +25,4 @@ COPY --from=build /app/prisma ./prisma
 EXPOSE 8080
 
 # Run the server directly
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
