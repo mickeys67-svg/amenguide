@@ -35,8 +35,8 @@ export function Footer() {
             style={{ backgroundColor: "#050403", borderTop: "1px solid rgba(201,169,110,0.12)" }}
         >
             {/* Top section */}
-            <div className="sacred-rail pt-20 pb-16">
-                <div className="grid md:grid-cols-2 gap-10 md:gap-32 mb-24 md:mb-32">
+            <div className="sacred-rail pt-14 pb-16">
+                <div className="grid md:grid-cols-2 gap-10 md:gap-16 mb-16 md:mb-20">
                     {/* Brand */}
                     <div>
                         <motion.div
@@ -45,7 +45,7 @@ export function Footer() {
                             viewport={{ once: true }}
                             transition={{ duration: 0.7 }}
                         >
-                            <div className="flex items-center gap-3 mb-6">
+                            <div className="flex items-center gap-3 mb-4">
                                 <div className="h-px w-10" style={{ backgroundColor: "#C9A96E" }} />
                                 <span
                                     style={{
@@ -97,7 +97,7 @@ export function Footer() {
                         className="flex flex-col justify-end"
                     >
                         <p
-                            className="mb-12"
+                            className="mb-5"
                             style={{
                                 fontFamily: "'Noto Serif KR', serif",
                                 color: "#F5F0E8",

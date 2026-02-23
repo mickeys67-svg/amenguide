@@ -112,14 +112,14 @@ export default function LuceDiFedeHome() {
 
             {/* Featured Event Section - The Sacred Chasm */}
             {featuredEvent && (
-                <section className="py-40 md:py-64 relative border-b border-white/[0.03]" style={{ backgroundColor: "#080705" }}>
+                <section className="py-16 md:py-24 relative border-b border-white/[0.03]" style={{ backgroundColor: "#080705" }}>
                     <div className="sacred-rail">
                         <motion.div
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
-                            className="flex flex-col gap-6 mb-20"
+                            className="flex flex-col gap-4 mb-10"
                         >
                             <div className="flex items-center gap-6">
                                 <div className="h-px w-20" style={{ backgroundColor: "#C9A96E", opacity: 0.6 }} />
@@ -166,7 +166,7 @@ export default function LuceDiFedeHome() {
                     onViewModeChange={setViewMode}
                 />
 
-                <div className="sacred-rail mt-32">
+                <div className="sacred-rail mt-10">
                     {/* Section title */}
                     <motion.div
                         key={activeFilter}
@@ -222,7 +222,7 @@ export default function LuceDiFedeHome() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.4 }}
-                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-16 md:gap-24"
+                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
                         >
                             {filteredEvents.map((event, i) => (
                                 <div key={event.id}>
@@ -292,7 +292,7 @@ export default function LuceDiFedeHome() {
             </section>
 
             {/* Map Section */}
-            <section className="py-48" style={{ backgroundColor: "#080705" }}>
+            <section className="py-16 md:py-20" style={{ backgroundColor: "#080705" }}>
                 <div className="sacred-rail">
                     <div className="grid lg:grid-cols-12 gap-12 items-center">
                         <div className="lg:col-span-4">
@@ -368,7 +368,7 @@ export default function LuceDiFedeHome() {
 
             {/* CTA Section */}
             <section
-                className="py-32 md:py-48 relative overflow-hidden bg-[#C9A96E]"
+                className="py-20 md:py-32 relative overflow-hidden bg-[#C9A96E]"
             >
                 <div className="sacred-rail relative z-10 text-center">
                     <motion.div

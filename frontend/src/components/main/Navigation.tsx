@@ -93,10 +93,8 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
 
                             <button
                                 type="button"
-                                className="hidden md:block px-6 py-2 rounded-full text-[12px] font-semibold transition-all duration-300"
+                                className="hidden md:block px-5 py-2 text-[11px] font-semibold tracking-[0.08em] uppercase border border-[#C9A96E]/50 text-[#C9A96E] hover:bg-[#C9A96E]/10 transition-colors cursor-pointer"
                                 style={{
-                                    backgroundColor: "#C9A96E",
-                                    color: "#080705",
                                     fontFamily: "'Noto Sans KR', sans-serif",
                                 }}
                             >
@@ -136,7 +134,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                                 <X size={24} />
                             </button>
                         </div>
-                        <div className="flex flex-col items-center justify-center flex-1 gap-10">
+                        <div className="flex flex-col items-center justify-center flex-1 gap-7">
                             {[{ label: "전체", value: "전체" }, ...navLinks].map((link, i) => (
                                 <motion.button
                                     type="button"
@@ -147,7 +145,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                                     onClick={() => { onFilterChange(link.value); setMenuOpen(false); }}
                                     style={{
                                         fontFamily: "'Noto Serif KR', serif",
-                                        fontSize: "32px",
+                                        fontSize: "28px",
                                         fontWeight: 700,
                                         color: activeFilter === link.value ? "#C9A96E" : "rgba(245, 240, 232, 0.7)",
                                         letterSpacing: "-0.02em",

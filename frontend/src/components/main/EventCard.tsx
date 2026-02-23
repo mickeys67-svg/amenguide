@@ -61,18 +61,18 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
 
                         {/* Content Wrapper - The Sacred Library Text */}
                         <div
-                            className="flex-1 flex flex-col justify-center py-16 md:py-32"
-                            style={{ minWidth: "45%", paddingLeft: "50px", paddingRight: "50px" }}
+                            className="flex-1 flex flex-col justify-center py-10 md:py-16"
+                            style={{ minWidth: "45%", paddingLeft: "48px", paddingRight: "48px" }}
                         >
                             <div className="max-w-[540px]">
-                                <div className="flex items-center gap-3 mb-14">
+                                <div className="flex items-center gap-3 mb-6">
                                     <div className="h-px w-16" style={{ backgroundColor: catColor }} />
                                     <span
                                         style={{
                                             fontFamily: "'Playfair Display', serif",
                                             color: catColor,
-                                            fontSize: "13px",
-                                            letterSpacing: "0.5em",
+                                            fontSize: "11px",
+                                            letterSpacing: "0.4em",
                                             fontWeight: 500
                                         }}
                                     >
@@ -80,25 +80,25 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                                     </span>
                                 </div>
                                 <h2
-                                    className="mb-12"
+                                    className="mb-4"
                                     style={{
                                         fontFamily: "'Noto Serif KR', serif",
                                         color: "#F5F0E8",
-                                        fontSize: "clamp(32px, 5vw, 52px)",
+                                        fontSize: "clamp(26px, 4vw, 44px)",
                                         fontWeight: 800,
-                                        lineHeight: 1.15,
-                                        letterSpacing: "-0.05em",
+                                        lineHeight: 1.2,
+                                        letterSpacing: "-0.04em",
                                     }}
                                 >
                                     {event.title}
                                 </h2>
                                 <p
-                                    className="mb-32"
+                                    className="mb-6"
                                     style={{
                                         fontFamily: "'Noto Sans KR', sans-serif",
-                                        color: "rgba(245,240,232,0.4)",
-                                        fontSize: "17px",
-                                        lineHeight: 2,
+                                        color: "rgba(245,240,232,0.45)",
+                                        fontSize: "15px",
+                                        lineHeight: 1.85,
                                         fontWeight: 300,
                                     }}
                                 >
@@ -107,8 +107,8 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
 
                             </div>
 
-                            <div className="mt-12">
-                                <div className="flex flex-col gap-8 mb-16">
+                            <div className="mt-6">
+                                <div className="flex flex-col gap-3 mb-8">
                                     <div className="flex items-center gap-2">
                                         <Calendar size={13} style={{ color: catColor }} />
                                         <span
@@ -358,25 +358,25 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                     style={{ padding: "20px" }}
                 >
                     <h3
-                        className="mb-12"
+                        className="mb-2"
                         style={{
                             fontFamily: "'Noto Serif KR', serif",
                             color: "#F5F0E8",
-                            fontSize: "19px",
+                            fontSize: "17px",
                             fontWeight: 700,
                             letterSpacing: "-0.01em",
-                            lineHeight: 1.4,
+                            lineHeight: 1.45,
                         }}
                     >
                         {event.title}
                     </h3>
                     <p
-                        className="mb-16 flex-1"
+                        className="mb-4 flex-1"
                         style={{
                             fontFamily: "'Noto Sans KR', sans-serif",
                             color: "rgba(245,240,232,0.4)",
                             fontSize: "13px",
-                            lineHeight: 1.8,
+                            lineHeight: 1.75,
                             fontWeight: 300,
                             display: "-webkit-box",
                             WebkitLineClamp: 3,
@@ -387,7 +387,7 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                         {event.description}
                     </p>
 
-                    <div className="flex flex-col gap-4 mb-12">
+                    <div className="flex flex-col gap-1.5 mb-4">
                         <div className="flex items-center gap-1.5">
                             <Calendar size={11} style={{ color: catColor, flexShrink: 0 }} />
                             <span
@@ -415,7 +415,7 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                     </div>
 
                     {/* Bottom row */}
-                    <div className="flex items-center justify-between pt-12" style={{ borderTop: "1px solid rgba(245,240,232,0.07)" }}>
+                    <div className="flex items-center justify-between pt-4" style={{ borderTop: "1px solid rgba(245,240,232,0.07)" }}>
                         <span
                             style={{
                                 fontFamily: "'Noto Sans KR', sans-serif",

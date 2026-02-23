@@ -75,7 +75,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
-                    className="w-full flex items-center gap-3 mb-32"
+                    className="w-full flex items-center gap-3 mb-16"
                 >
                     <div className="h-px w-12" style={{ backgroundColor: "#C9A96E" }} />
                     <span
@@ -101,7 +101,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                         letterSpacing: "-0.04em",
                     }}
                 >
-                    <div className="overflow-hidden mb-12">
+                    <div className="overflow-hidden mb-6">
                         <motion.span
                             initial={{ y: "100%", opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
@@ -111,7 +111,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                             은혜의
                         </motion.span>
                     </div>
-                    <div className="overflow-hidden mb-16">
+                    <div className="overflow-hidden mb-8">
                         <motion.span
                             initial={{ y: "100%", opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
