@@ -17,10 +17,13 @@ export class PrismaService
   }
 
   async onModuleInit() {
-
-    await this.$connect();
-    // Schema initialization moved to main.ts bootstrap for safety
-    console.log('PrismaService connected to database.');
+    // PrismaPg adapter uses a pg.Pool — connection is established lazily on first query.
+    // Do NOT await $connect() here: it blocks NestJS bootstrap → Cloud Run port never opens
+    // within the 60s deadline → deploy fails with "container failed to start".
+    this.$connect().catch((err) => {
+      console.error('PrismaService: initial DB connect failed (will retry on first query):', err.message);
+    });
+    console.log('PrismaService initialized (lazy pool via PrismaPg).');
   }
 
   /**

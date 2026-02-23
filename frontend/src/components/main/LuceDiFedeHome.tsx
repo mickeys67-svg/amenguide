@@ -49,7 +49,8 @@ export default function LuceDiFedeHome() {
                         featured: false,
                         latitude: e.latitude,
                         longitude: e.longitude,
-                        originUrl: e.originUrl
+                        originUrl: e.originUrl,
+                        createdAt: e.createdAt,
                     }));
                     setEvents(mappedEvents);
                 }
@@ -73,9 +74,9 @@ export default function LuceDiFedeHome() {
         // Apply sorting
         if (sortBy === "latest") {
             currentEvents.sort((a, b) => {
-                const idA = String(a.id);
-                const idB = String(b.id);
-                return idB.localeCompare(idA);
+                const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return tB - tA;
             });
         } else if (sortBy === "date") {
             currentEvents.sort((a, b) => {

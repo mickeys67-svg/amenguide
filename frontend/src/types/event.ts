@@ -16,6 +16,7 @@ export interface EventData {
     originUrl?: string;
     latitude?: number;
     longitude?: number;
+    createdAt?: string;
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
