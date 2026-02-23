@@ -162,7 +162,7 @@ async function scrapeUrl(url: string) {
 // ─── 메인 ─────────────────────────────────────────────────────────────────────
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set.');
-  if (!openai) console.warn('[WARN] OPENAI_API_KEY not set — AI fallback mode (poor quality data).');
+  if (!anthropic) console.warn('[WARN] ANTHROPIC_API_KEY not set — AI fallback mode (poor quality data).');
 
   console.log('[SCRAPER] Connecting to DB...');
   console.log('[SCRAPER] DB host:', process.env.DATABASE_URL.split('@')[1]?.split('/')[0] ?? 'unknown');
