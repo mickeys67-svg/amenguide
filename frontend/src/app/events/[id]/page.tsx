@@ -19,7 +19,7 @@ export default function EventDetailPage() {
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const data = await apiFetch<any>(`/events/${id}`);
+                const data = await apiFetch<EventData>(`/events/${id}`);
                 const mapped: EventData = {
                     id: data.id,
                     title: data.title,

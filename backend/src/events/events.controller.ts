@@ -1,6 +1,24 @@
-import { Controller, Get, Post, Body, Param, Query, Headers, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Headers, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { SemanticSearchService } from './semantic-search.service';
+
+// Domains allowed for on-demand scraping (prevents SSRF)
+const SCRAPE_ALLOWLIST = [
+  'bbs.catholic.or.kr',
+  'www.cbck.or.kr',
+  'cbck.or.kr',
+  'www.catholictimes.org',
+  'catholictimes.org',
+  'www.pbc.co.kr',
+  'pbc.co.kr',
+];
+
+function requireAdminKey(key: string) {
+  const adminKey = process.env.ADMIN_API_KEY;
+  if (!adminKey || key !== adminKey) {
+    throw new ForbiddenException('Invalid admin key');
+  }
+}
 
 @Controller('events')
 export class EventsController {
@@ -8,6 +26,8 @@ export class EventsController {
     private readonly eventsService: EventsService,
     private readonly semanticSearch: SemanticSearchService,
   ) { }
+
+  // ── Static routes first (must be before :id to avoid param capture) ──────
 
   @Get('health')
   async health() {
@@ -19,29 +39,48 @@ export class EventsController {
     return this.eventsService.getDiagnostics();
   }
 
-  @Get()
-  async findAll() {
-    return this.eventsService.findAll();
-  }
-
   @Get('semantic')
   async search(@Query('q') query: string) {
-    return this.semanticSearch.search(query);
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+    return this.semanticSearch.search(query.slice(0, 200));
   }
 
   @Get('nuclear-reset')
-  async nuclearReset() {
+  async nuclearReset(@Headers('x-admin-key') key: string) {
+    requireAdminKey(key);
     if (process.env.NODE_ENV === 'production') {
       return { error: 'Forbidden: nuclear-reset is disabled in production.' };
     }
     return this.eventsService.nuclearReset();
   }
 
-
   @Get('async-scrape')
-  async triggerAsyncScrape(@Query('url') url: string) {
+  async triggerAsyncScrape(
+    @Headers('x-admin-key') key: string,
+    @Query('url') url: string,
+  ) {
+    requireAdminKey(key);
+    if (!url) throw new BadRequestException('url query param is required');
+    try {
+      const { hostname } = new URL(url);
+      if (!SCRAPE_ALLOWLIST.includes(hostname)) {
+        throw new BadRequestException(`Domain not allowed: ${hostname}`);
+      }
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      throw new BadRequestException('Invalid URL');
+    }
     return this.eventsService.triggerAsyncScrape(url);
   }
+
+  @Get()
+  async findAll() {
+    return this.eventsService.findAll();
+  }
+
+  // ── Admin mutation ────────────────────────────────────────────────────────
 
   @Post('admin/events')
   async adminCreateEvent(
@@ -56,12 +95,14 @@ export class EventsController {
       category?: string;
     },
   ) {
-    const adminKey = process.env.ADMIN_API_KEY;
-    if (!adminKey || key !== adminKey) {
-      throw new ForbiddenException('Invalid admin key');
+    requireAdminKey(key);
+    if (!body.title?.trim()) {
+      throw new BadRequestException('title is required');
     }
     return this.eventsService.adminCreateEvent(body);
   }
+
+  // ── Dynamic :id last (avoids swallowing static routes above) ─────────────
 
   @Get(':id')
   async findOne(@Param('id') id: string) {

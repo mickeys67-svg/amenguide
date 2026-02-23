@@ -1,13 +1,16 @@
 import { motion } from "framer-motion";
 
-const STATS = [
-    { number: "247", label: "전국 피정의 집", sub: "직접 연결" },
-    { number: "1,832", label: "연간 등록 행사", sub: "2025 기준" },
-    { number: "63", label: "참여 교구 및 단체", sub: "전국 네트워크" },
-    { number: "∞", label: "하느님의 은혜", sub: "언제나 흘러넘치는" },
-];
+interface StatsSectionProps {
+    eventCount?: number;
+}
 
-export function StatsSection() {
+export function StatsSection({ eventCount }: StatsSectionProps) {
+    const STATS = [
+        { number: eventCount != null ? eventCount.toLocaleString() : "—", label: "등록된 행사", sub: "실시간 업데이트" },
+        { number: "247", label: "전국 피정의 집", sub: "직접 연결" },
+        { number: "63", label: "참여 교구 및 단체", sub: "전국 네트워크" },
+        { number: "∞", label: "하느님의 은혜", sub: "언제나 흘러넘치는" },
+    ];
     return (
         <section
             className="py-24 md:py-36 relative overflow-hidden"

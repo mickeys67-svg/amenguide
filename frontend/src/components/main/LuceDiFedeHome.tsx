@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Navigation } from "./Navigation";
 import { Hero } from "./Hero";
@@ -16,6 +17,7 @@ import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
 
 export default function LuceDiFedeHome() {
+    const router = useRouter();
     const [activeFilter, setActiveFilter] = useState("전체");
     const [sortBy, setSortBy] = useState("latest");
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -31,9 +33,9 @@ export default function LuceDiFedeHome() {
             setIsLoading(true);
             setError(null);
             try {
-                const data = await apiFetch<any[]>('/events');
+                const data = await apiFetch<EventData[]>('/events');
                 if (data && data.length > 0) {
-                    const mappedEvents: EventData[] = data.map((e: any) => ({
+                    const mappedEvents: EventData[] = data.map((e) => ({
                         id: e.id,
                         title: e.title,
                         subtitle: e.category || "",
@@ -146,7 +148,7 @@ export default function LuceDiFedeHome() {
 
 
             {/* Stats Section */}
-            <StatsSection />
+            <StatsSection eventCount={events.length} />
 
             {/* Events section */}
             <section
@@ -400,7 +402,8 @@ export default function LuceDiFedeHome() {
                         <motion.button
                             whileHover={{ scale: 1.04 }}
                             whileTap={{ scale: 0.97 }}
-                            className="px-10 py-4 bg-[#080705] text-[#C9A96E] text-[14px] font-semibold tracking-[0.12em] uppercase"
+                            onClick={() => router.push('/admin')}
+                            className="px-10 py-4 bg-[#080705] text-[#C9A96E] text-[14px] font-semibold tracking-[0.12em] uppercase cursor-pointer"
                         >
                             행사 등록하기 →
                         </motion.button>

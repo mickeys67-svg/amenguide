@@ -9,7 +9,22 @@ async function bootstrap() {
   console.log('--- AMENGUIDE BACKEND VERSION: v3.0.0-FINAL ---');
 
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+    'https://amenguide-git-775250805671.us-west1.run.app',
+  ].filter(Boolean) as string[];
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.some((o) => origin.startsWith(o))) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked: ${origin}`));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  });
 
   const port = process.env.PORT ?? 8080;
 

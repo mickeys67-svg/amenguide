@@ -1,14 +1,33 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 
-const LINKS = {
-    카테고리: ["피정", "강의", "강론", "특강", "피정의 집"],
-    정보: ["이용 안내", "행사 등록", "단체 파트너십", "공지사항", "자주 묻는 질문"],
-    연결: ["카카오 채널", "뉴스레터 구독", "RSS 피드", "앱 다운로드"],
+// href: null = 준비 중 (비활성), string = 실제 링크
+const LINKS: Record<string, { label: string; href: string | null }[]> = {
+    카테고리: [
+        { label: "피정", href: "/?category=피정" },
+        { label: "강의", href: "/?category=강의" },
+        { label: "강론", href: "/?category=강론" },
+        { label: "특강", href: "/?category=특강" },
+        { label: "피정의 집", href: "/?category=피정의집" },
+    ],
+    정보: [
+        { label: "행사 등록", href: "/admin" },
+        { label: "이용 안내", href: null },
+        { label: "단체 파트너십", href: null },
+        { label: "공지사항", href: null },
+        { label: "자주 묻는 질문", href: null },
+    ],
+    연결: [
+        { label: "카카오 채널", href: null },
+        { label: "뉴스레터 구독", href: null },
+    ],
 };
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
+    const [newsletterMsg, setNewsletterMsg] = React.useState("");
 
     return (
         <footer
@@ -103,6 +122,7 @@ export function Footer() {
                                 }}
                             />
                             <button
+                                onClick={() => setNewsletterMsg("뉴스레터 서비스는 준비 중입니다.")}
                                 className="flex items-center gap-1 pl-4 transition-opacity hover:opacity-70 text-[#C9A96E]"
                             >
                                 <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", letterSpacing: "0.08em" }}>
@@ -111,16 +131,15 @@ export function Footer() {
                                 <ArrowUpRight size={14} />
                             </button>
                         </div>
-                        <p
-                            className="mt-10"
-                            style={{
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                color: "rgba(245,240,232,0.25)",
-                                fontSize: "11px",
-                            }}
-                        >
-                            매주 새로운 피정 및 행사 정보를 이메일로 받아보세요
-                        </p>
+                        {newsletterMsg ? (
+                            <p className="mt-10" style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "#C9A96E", fontSize: "11px" }}>
+                                {newsletterMsg}
+                            </p>
+                        ) : (
+                            <p className="mt-10" style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "rgba(245,240,232,0.25)", fontSize: "11px" }}>
+                                매주 새로운 피정 및 행사 정보를 이메일로 받아보세요
+                            </p>
+                        )}
                     </motion.div>
                 </div>
 
@@ -147,18 +166,25 @@ export function Footer() {
                                 {category}
                             </p>
                             <ul className="flex flex-col gap-3">
-                                {links.map((link) => (
-                                    <li key={link}>
-                                        <a
-                                            href="#"
-                                            className="transition-all duration-200 group flex items-center gap-1 text-[rgba(245,240,232,0.4)] hover:text-[rgba(245,240,232,0.85)] font-light text-[13px]"
-                                            style={{
-                                                fontFamily: "'Noto Sans KR', sans-serif",
-                                                textDecoration: "none",
-                                            }}
-                                        >
-                                            {link}
-                                        </a>
+                                {links.map(({ label, href }) => (
+                                    <li key={label}>
+                                        {href ? (
+                                            <Link
+                                                href={href}
+                                                className="transition-all duration-200 flex items-center gap-1 text-[rgba(245,240,232,0.4)] hover:text-[rgba(245,240,232,0.85)] font-light text-[13px]"
+                                                style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
+                                            >
+                                                {label}
+                                            </Link>
+                                        ) : (
+                                            <span
+                                                className="flex items-center gap-1 text-[rgba(245,240,232,0.2)] font-light text-[13px] cursor-default"
+                                                style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
+                                                title="준비 중"
+                                            >
+                                                {label}
+                                            </span>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
