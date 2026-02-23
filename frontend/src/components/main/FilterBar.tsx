@@ -59,6 +59,7 @@ export function FilterBar({
                         const color = isActive ? CATEGORY_COLORS[f.value] : "transparent";
                         return (
                             <button
+                                type="button"
                                 key={f.value}
                                 onClick={() => onFilterChange(f.value)}
                                 className={`relative py-1.5 transition-all duration-300 shrink-0 rounded-sm ${i === 0 ? "pr-3 pl-0" : "px-3"}`}
@@ -101,6 +102,7 @@ export function FilterBar({
                     <div className="hidden md:flex items-center gap-2">
                         {SORT_OPTIONS.map((s) => (
                             <button
+                                type="button"
                                 key={s.value}
                                 onClick={() => onSortChange(s.value)}
                                 style={{
@@ -118,10 +120,11 @@ export function FilterBar({
                     {/* View mode */}
                     <div className="flex items-center gap-1">
                         <button
+                            type="button"
                             onClick={() => onViewModeChange("grid")}
                             className="p-1.5"
+                            aria-label="그리드 보기"
                             style={{ color: viewMode === "grid" ? "#C9A96E" : "rgba(245,240,232,0.3)" }}
-                            title="그리드 보기"
                         >
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                 <rect x="0" y="0" width="6" height="6" fill="currentColor" />
@@ -131,10 +134,11 @@ export function FilterBar({
                             </svg>
                         </button>
                         <button
+                            type="button"
                             onClick={() => onViewModeChange("list")}
                             className="p-1.5"
+                            aria-label="리스트 보기"
                             style={{ color: viewMode === "list" ? "#C9A96E" : "rgba(245,240,232,0.3)" }}
-                            title="리스트 보기"
                         >
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                 <rect x="0" y="0" width="14" height="2.5" fill="currentColor" />

@@ -431,9 +431,6 @@ export default function LuceDiFedeHome() {
             </section>
 
             <Footer />
-            <div className="fixed bottom-2 right-2 text-[8px] text-[rgba(245,240,232,0.05)] pointer-events-none select-none">
-                v1.2.1-f2b0aaf
-            </div>
             <SearchModal
                 isOpen={searchOpen}
                 onClose={() => setSearchOpen(false)}

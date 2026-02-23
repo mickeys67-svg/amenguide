@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 const items = [
-    "피정 안내", "강의 정보", "강론 일정", "특강 소식", "피정의 집", "묵상 자료", "성지 순례", "피정 신청",
+    "피정 안내", "강의 정보", "강론 일정", "특강 소식", "피정의집", "묵상 자료", "성지 순례", "피정 신청",
     "영적 독서", "전례 강의", "성경 공부", "쇄신 피정",
 ];
 
@@ -19,6 +19,7 @@ export function MarqueeBar() {
                 {[0, 1].map((dupeIdx) => (
                     <motion.div
                         key={dupeIdx}
+                        aria-hidden={dupeIdx === 1 ? "true" : undefined}
                         className="flex shrink-0 items-center gap-0"
                         animate={{ x: ["0%", "-100%"] }}
                         transition={{

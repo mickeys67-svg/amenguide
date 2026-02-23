@@ -28,6 +28,10 @@ html {
   scrollbar-gutter: stable;
 }
 
+button {
+  cursor: pointer;
+}
+
 :root {
   --background: #080705;
   --foreground: #F5F0E8;

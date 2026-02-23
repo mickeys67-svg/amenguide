@@ -55,6 +55,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                         <div className="hidden md:flex items-center gap-8">
                             {navLinks.map((link) => (
                                 <button
+                                    type="button"
                                     key={link.value}
                                     onClick={() => onFilterChange(link.value === activeFilter ? "전체" : link.value)}
                                     style={{
@@ -81,6 +82,8 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
 
                         <div className="flex items-center gap-4">
                             <button
+                                type="button"
+                                aria-label="검색"
                                 onClick={onSearchOpen}
                                 className="flex items-center justify-center w-9 h-9 rounded-full transition-all duration-300"
                                 style={{ border: "1px solid rgba(201, 169, 110, 0.4)", color: "#C9A96E" }}
@@ -89,6 +92,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             </button>
 
                             <button
+                                type="button"
                                 className="hidden md:block px-6 py-2 rounded-full text-[12px] font-semibold transition-all duration-300"
                                 style={{
                                     backgroundColor: "#C9A96E",
@@ -100,6 +104,8 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             </button>
 
                             <button
+                                type="button"
+                                aria-label="메뉴 열기"
                                 className="md:hidden flex items-center justify-center w-9 h-9"
                                 style={{ color: "#F5F0E8" }}
                                 onClick={() => setMenuOpen(true)}
@@ -126,13 +132,14 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             <span style={{ fontFamily: "'Noto Serif KR', serif", color: "#F5F0E8", fontSize: "18px", fontWeight: 700 }}>
                                 가톨릭 행사 허브
                             </span>
-                            <button onClick={() => setMenuOpen(false)} style={{ color: "#F5F0E8" }}>
+                            <button type="button" aria-label="메뉴 닫기" onClick={() => setMenuOpen(false)} style={{ color: "#F5F0E8" }}>
                                 <X size={24} />
                             </button>
                         </div>
                         <div className="flex flex-col items-center justify-center flex-1 gap-10">
                             {[{ label: "전체", value: "전체" }, ...navLinks].map((link, i) => (
                                 <motion.button
+                                    type="button"
                                     key={link.value}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}

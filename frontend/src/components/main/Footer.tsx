@@ -10,7 +10,7 @@ const LINKS: Record<string, { label: string; href: string | null }[]> = {
         { label: "강의", href: "/?category=강의" },
         { label: "강론", href: "/?category=강론" },
         { label: "특강", href: "/?category=특강" },
-        { label: "피정의 집", href: "/?category=피정의집" },
+        { label: "피정의집", href: "/?category=피정의집" },
     ],
     정보: [
         { label: "행사 등록", href: "/admin" },
@@ -112,6 +112,7 @@ export function Footer() {
                         >
                             <input
                                 type="email"
+                                aria-label="이메일 주소"
                                 placeholder="이메일 주소를 입력하세요"
                                 className="flex-1 bg-transparent py-3 outline-none"
                                 style={{
@@ -122,6 +123,7 @@ export function Footer() {
                                 }}
                             />
                             <button
+                                type="button"
                                 onClick={() => setNewsletterMsg("뉴스레터 서비스는 준비 중입니다.")}
                                 className="flex items-center gap-1 pl-4 transition-opacity hover:opacity-70 text-[#C9A96E]"
                             >

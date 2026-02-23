@@ -92,40 +92,36 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                 </motion.div>
 
                 {/* Main headline */}
-                <div className="overflow-hidden mb-12">
-                    <motion.h1
-                        initial={{ y: "100%", opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ duration: 1, delay: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-                        style={{
-                            fontFamily: "'Noto Serif KR', serif",
-                            color: "#F5F0E8",
-                            fontSize: "clamp(52px, 9vw, 130px)",
-                            fontWeight: 900,
-                            lineHeight: 1,
-                            letterSpacing: "-0.04em",
-                        }}
-                    >
-                        은혜의
-                    </motion.h1>
-                </div>
-                <div className="overflow-hidden mb-16">
-                    <motion.h1
-                        initial={{ y: "100%", opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ duration: 1, delay: 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
-                        style={{
-                            fontFamily: "'Noto Serif KR', serif",
-                            color: "#C9A96E",
-                            fontSize: "clamp(52px, 9vw, 130px)",
-                            fontWeight: 900,
-                            lineHeight: 1,
-                            letterSpacing: "-0.04em",
-                        }}
-                    >
-                        시간들
-                    </motion.h1>
-                </div>
+                <h1
+                    style={{
+                        fontFamily: "'Noto Serif KR', serif",
+                        fontSize: "clamp(52px, 9vw, 130px)",
+                        fontWeight: 900,
+                        lineHeight: 1,
+                        letterSpacing: "-0.04em",
+                    }}
+                >
+                    <div className="overflow-hidden mb-12">
+                        <motion.span
+                            initial={{ y: "100%", opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ duration: 1, delay: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                            style={{ display: "block", color: "#F5F0E8" }}
+                        >
+                            은혜의
+                        </motion.span>
+                    </div>
+                    <div className="overflow-hidden mb-16">
+                        <motion.span
+                            initial={{ y: "100%", opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ duration: 1, delay: 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
+                            style={{ display: "block", color: "#C9A96E" }}
+                        >
+                            시간들
+                        </motion.span>
+                    </div>
+                </h1>
 
                 {/* Subtitle row */}
                 <motion.div
