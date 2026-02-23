@@ -58,7 +58,6 @@ export default function Error({
                     fontFamily: "'Noto Sans KR', sans-serif",
                     color: "#C9A96E",
                     fontSize: "14px",
-                    borderBottom: "1px solid #C9A96E",
                     paddingBottom: "2px",
                     background: "none",
                     border: "none",
