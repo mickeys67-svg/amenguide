@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Headers, ForbiddenException } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { SemanticSearchService } from './semantic-search.service';
 
@@ -41,6 +41,26 @@ export class EventsController {
   @Get('async-scrape')
   async triggerAsyncScrape(@Query('url') url: string) {
     return this.eventsService.triggerAsyncScrape(url);
+  }
+
+  @Post('admin/events')
+  async adminCreateEvent(
+    @Headers('x-admin-key') key: string,
+    @Body() body: {
+      title: string;
+      date?: string;
+      location?: string;
+      aiSummary?: string;
+      themeColor?: string;
+      originUrl?: string;
+      category?: string;
+    },
+  ) {
+    const adminKey = process.env.ADMIN_API_KEY;
+    if (!adminKey || key !== adminKey) {
+      throw new ForbiddenException('Invalid admin key');
+    }
+    return this.eventsService.adminCreateEvent(body);
   }
 
   @Get(':id')

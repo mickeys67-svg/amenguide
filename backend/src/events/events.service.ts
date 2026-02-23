@@ -75,6 +75,28 @@ export class EventsService {
     });
   }
 
+  async adminCreateEvent(data: {
+    title: string;
+    date?: string;
+    location?: string;
+    aiSummary?: string;
+    themeColor?: string;
+    originUrl?: string;
+    category?: string;
+  }) {
+    return this.prisma.event.create({
+      data: {
+        title: data.title,
+        date: data.date ? new Date(data.date) : null,
+        location: data.location ?? null,
+        aiSummary: data.aiSummary ?? null,
+        themeColor: data.themeColor ?? '#457B9D',
+        originUrl: data.originUrl ?? null,
+        category: data.category ?? '기타',
+      },
+    });
+  }
+
   async scrapeOnDemand(url: string) {
     try {
       this.logger.log(`On-demand scraping initiated for: ${url}`);
