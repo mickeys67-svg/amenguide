@@ -44,7 +44,7 @@ export function FilterBar({
 }: FilterBarProps) {
     return (
         <div
-            className="sticky top-16 md:top-20 z-40 py-3"
+            className="sticky top-16 md:top-[72px] z-40 py-2.5"
             style={{
                 backgroundColor: "rgba(8,7,5,0.95)",
                 backdropFilter: "blur(16px)",
