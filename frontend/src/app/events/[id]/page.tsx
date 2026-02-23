@@ -173,18 +173,8 @@ export default function EventDetailPage() {
                                 {event.aiSummary || event.description || "상세 설명이 등록되지 않았습니다."}
                             </p>
 
-                            {/* Action row — ONE 원문보기 + heart + share */}
-                            <div className="flex items-center gap-2.5 mt-7">
-                                <button
-                                    type="button"
-                                    onClick={() => event.originUrl && window.open(event.originUrl, "_blank")}
-                                    disabled={!event.originUrl}
-                                    className="flex items-center gap-1.5 px-5 py-2.5 text-[12px] font-bold tracking-wide rounded-sm transition-opacity hover:opacity-85 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
-                                    style={{ backgroundColor: "#C9A96E", color: "#080705" }}
-                                >
-                                    원문 보기
-                                    <ExternalLink size={12} />
-                                </button>
+                            {/* Action row — heart + share only */}
+                            <div className="flex items-center gap-2 mt-7">
                                 <button
                                     type="button"
                                     className="p-2.5 border border-[rgba(245,240,232,0.1)] rounded-sm hover:border-[#C9A96E]/40 transition-colors cursor-pointer"
@@ -200,14 +190,15 @@ export default function EventDetailPage() {
                             </div>
                         </motion.div>
 
-                        {/* RIGHT — sticky info card (no duplicate button) */}
+                        {/* RIGHT — sticky info card + CTA */}
                         <motion.div
                             className="lg:col-span-4"
                             initial={{ opacity: 0, x: 12 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6, delay: 0.1 }}
                         >
-                            <div className="sticky top-28">
+                            <div className="sticky top-28 flex flex-col gap-3">
+                                {/* Info card */}
                                 <div
                                     className="p-5 rounded-sm"
                                     style={{
@@ -221,18 +212,18 @@ export default function EventDetailPage() {
                                     >
                                         행사 정보
                                     </p>
-                                    <ul className="space-y-3.5">
+                                    <ul className="space-y-4">
                                         <li className="flex items-start gap-2.5">
                                             <Calendar size={13} className="text-[#C9A96E] shrink-0 mt-0.5" />
                                             <div>
-                                                <p className="text-[10px] text-[rgba(245,240,232,0.25)] tracking-wider mb-0.5 uppercase">날짜</p>
-                                                <p className="text-[#F5F0E8] text-[13px]">{event.date}</p>
+                                                <p className="text-[10px] text-[rgba(245,240,232,0.25)] tracking-wider mb-1 uppercase">날짜</p>
+                                                <p className="text-[#F5F0E8] text-[13px] leading-snug">{event.date}</p>
                                             </div>
                                         </li>
                                         <li className="flex items-start gap-2.5">
                                             <MapPin size={13} className="text-[#C9A96E] shrink-0 mt-0.5" />
                                             <div>
-                                                <p className="text-[10px] text-[rgba(245,240,232,0.25)] tracking-wider mb-0.5 uppercase">장소</p>
+                                                <p className="text-[10px] text-[rgba(245,240,232,0.25)] tracking-wider mb-1 uppercase">장소</p>
                                                 <p className="text-[#F5F0E8] text-[13px] leading-snug">{event.location}</p>
                                             </div>
                                         </li>
@@ -242,12 +233,32 @@ export default function EventDetailPage() {
                                                 style={{ backgroundColor: "#C9A96E" }}
                                             />
                                             <div>
-                                                <p className="text-[10px] text-[rgba(245,240,232,0.25)] tracking-wider mb-0.5 uppercase">카테고리</p>
+                                                <p className="text-[10px] text-[rgba(245,240,232,0.25)] tracking-wider mb-1 uppercase">카테고리</p>
                                                 <p className="text-[#F5F0E8] text-[13px]">{event.category}</p>
                                             </div>
                                         </li>
                                     </ul>
                                 </div>
+
+                                {/* Primary CTA */}
+                                <button
+                                    type="button"
+                                    onClick={() => event.originUrl && window.open(event.originUrl, "_blank")}
+                                    disabled={!event.originUrl}
+                                    className="w-full flex items-center justify-center gap-2 py-3.5 text-[12px] font-bold tracking-[0.08em] rounded-sm transition-opacity hover:opacity-85 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
+                                    style={{ backgroundColor: "#C9A96E", color: "#080705" }}
+                                >
+                                    원문 보기
+                                    <ExternalLink size={13} />
+                                </button>
+
+                                {/* Notice */}
+                                <p
+                                    className="text-center text-[11px] leading-relaxed px-1"
+                                    style={{ color: "rgba(245,240,232,0.2)", fontFamily: "'Noto Sans KR', sans-serif" }}
+                                >
+                                    원문 사이트에서 신청 및 상세 일정을<br />확인하실 수 있습니다.
+                                </p>
                             </div>
                         </motion.div>
 
