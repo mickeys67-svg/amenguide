@@ -11,6 +11,15 @@ const SCRAPE_ALLOWLIST = [
   'catholictimes.org',
   'www.pbc.co.kr',
   'pbc.co.kr',
+  // 교구 사이트 (diocese sync + on-demand scrape)
+  'catholicbusan.or.kr',
+  'www.catholicbusan.or.kr',
+  'daegu-archdiocese.or.kr',
+  'www.daegu-archdiocese.or.kr',
+  'www.djcatholic.or.kr',
+  'djcatholic.or.kr',
+  'www.gjcatholic.or.kr',
+  'gjcatholic.or.kr',
 ];
 
 function requireAdminKey(key: string) {
@@ -73,6 +82,22 @@ export class EventsController {
       throw new BadRequestException('Invalid URL');
     }
     return this.eventsService.triggerAsyncScrape(url);
+  }
+
+  /**
+   * 교구 일정 대량 동기화 (백그라운드 실행)
+   * POST /events/admin/diocese-sync
+   * Header: x-admin-key: <ADMIN_API_KEY>
+   * Body: { monthsAhead?: number }  (기본값: 3)
+   */
+  @Post('admin/diocese-sync')
+  async dioceseSync(
+    @Headers('x-admin-key') key: string,
+    @Body() body: { monthsAhead?: number },
+  ) {
+    requireAdminKey(key);
+    const monthsAhead = Math.min(Math.max(Number(body?.monthsAhead ?? 3), 1), 12);
+    return this.eventsService.triggerDioceseSync(monthsAhead);
   }
 
   @Get()

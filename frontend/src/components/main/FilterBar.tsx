@@ -1,151 +1,174 @@
-import { motion } from "framer-motion";
-import { CATEGORY_COLORS as BASE_CATEGORY_COLORS } from "../../types/event";
-
-
-const FILTERS = [
-    { label: "전체", value: "전체" },
-    { label: "피정", value: "피정" },
-    { label: "강의", value: "강의" },
-    { label: "강론", value: "강론" },
-    { label: "특강", value: "특강" },
-    { label: "피정의집", value: "피정의집" },
-];
-
-const CATEGORY_COLORS: Record<string, string> = {
-    전체: "#F5F0E8",
-    ...BASE_CATEGORY_COLORS,
-};
-
-
-const SORT_OPTIONS = [
-    { label: "최신순", value: "latest" },
-    { label: "날짜순", value: "date" },
-    { label: "지역순", value: "region" },
-];
+"use client";
 
 interface FilterBarProps {
-    activeFilter: string;
-    onFilterChange: (filter: string) => void;
     sortBy: string;
     onSortChange: (sort: string) => void;
     totalCount: number;
     viewMode: "grid" | "list";
     onViewModeChange: (mode: "grid" | "list") => void;
+    geoLoading?: boolean;
+    geoError?: string | null;
+    userLocation?: { lat: number; lng: number } | null;
 }
 
 export function FilterBar({
-    activeFilter,
-    onFilterChange,
     sortBy,
     onSortChange,
     totalCount,
     viewMode,
     onViewModeChange,
+    geoLoading,
+    geoError,
+    userLocation,
 }: FilterBarProps) {
     return (
         <div
-            className="sticky top-16 md:top-[72px] z-40 py-2.5"
             style={{
-                backgroundColor: "rgba(8,7,5,0.95)",
-                backdropFilter: "blur(16px)",
-                borderBottom: "1px solid rgba(245,240,232,0.06)",
+                position: "sticky",
+                top: "60px",
+                zIndex: 40,
+                backgroundColor: "rgba(255,255,255,0.97)",
+                backdropFilter: "blur(14px)",
+                WebkitBackdropFilter: "blur(14px)",
+                borderBottom: "1px solid #E8E5DF",
             }}
         >
-            <div className="sacred-rail flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                {/* Category filters — scrollable on mobile */}
-                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-1 pb-0.5 no-scrollbar">
-                    {FILTERS.map((f, i) => {
-                        const isActive = activeFilter === f.value;
-                        const color = isActive ? CATEGORY_COLORS[f.value] : "transparent";
-                        return (
-                            <button
-                                type="button"
-                                key={f.value}
-                                onClick={() => onFilterChange(f.value)}
-                                className={`relative py-1.5 transition-all duration-300 shrink-0 rounded-sm ${i === 0 ? "pr-3 pl-0" : "px-3"}`}
-                                style={{
-                                    fontFamily: "'Noto Sans KR', sans-serif",
-                                    fontSize: "12px",
-                                    fontWeight: isActive ? 600 : 400,
-                                    color: isActive ? "#080705" : "rgba(245,240,232,0.5)",
-                                    letterSpacing: "0.05em",
-                                }}
-                            >
-                                {isActive && (
-                                    <motion.span
-                                        layoutId="filter-bg"
-                                        className="absolute inset-0 rounded-sm"
-                                        style={{ backgroundColor: color }}
-                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                    />
-                                )}
-                                <span className="relative z-10">{f.label}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* Right controls */}
-                <div className="flex items-center gap-3 shrink-0 ml-auto">
-                    {/* Count */}
-                    <span
-                        style={{
-                            fontFamily: "'Playfair Display', serif",
-                            color: "rgba(201,169,110,0.6)",
+            <div className="sacred-rail">
+                {/* ── 컨트롤 바 ──────────────────────────────────────────── */}
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingTop: "9px",
+                        paddingBottom: "9px",
+                    }}
+                >
+                    {/* 좌: 건수 + GPS 상태 */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{
+                            fontFamily: "'DM Mono', monospace",
                             fontSize: "12px",
-                        }}
-                    >
-                        {totalCount}건
-                    </span>
+                            color: "#9C9891",
+                            whiteSpace: "nowrap",
+                        }}>
+                            {totalCount}건의 행사
+                        </span>
 
-                    {/* Sort */}
-                    <div className="hidden md:flex items-center gap-2">
-                        {SORT_OPTIONS.map((s) => (
-                            <button
-                                type="button"
-                                key={s.value}
-                                onClick={() => onSortChange(s.value)}
-                                style={{
-                                    fontFamily: "'Noto Sans KR', sans-serif",
-                                    fontSize: "11px",
-                                    color: sortBy === s.value ? "#C9A96E" : "rgba(245,240,232,0.3)",
-                                    transition: "color 0.2s",
-                                }}
-                            >
-                                {s.label}
-                            </button>
-                        ))}
+                        {sortBy === "distance" && userLocation && !geoLoading && (
+                            <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "3px",
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "11px",
+                                color: "#0B6B70",
+                                backgroundColor: "rgba(11,107,112,0.09)",
+                                padding: "2px 9px",
+                                borderRadius: "100px",
+                                whiteSpace: "nowrap",
+                            }}>
+                                📍 내 위치 기준
+                            </span>
+                        )}
+
+                        {geoLoading && (
+                            <span style={{
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "11px",
+                                color: "#9C9891",
+                            }}>
+                                위치 확인 중…
+                            </span>
+                        )}
+
+                        {geoError && (
+                            <span style={{
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "11px",
+                                color: "#C83A1E",
+                                whiteSpace: "nowrap",
+                            }}>
+                                ⚠ {geoError}
+                            </span>
+                        )}
                     </div>
 
-                    {/* View mode */}
-                    <div className="flex items-center gap-1">
-                        <button
-                            type="button"
-                            onClick={() => onViewModeChange("grid")}
-                            className="p-1.5"
-                            aria-label="그리드 보기"
-                            style={{ color: viewMode === "grid" ? "#C9A96E" : "rgba(245,240,232,0.3)" }}
+                    {/* 우: 정렬 + 뷰 토글 */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+
+                        {/* 정렬 select */}
+                        <select
+                            value={sortBy}
+                            onChange={(e) => onSortChange(e.target.value)}
+                            style={{
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "12px",
+                                color: sortBy === "distance" ? "#0B6B70" : "#52504B",
+                                backgroundColor: sortBy === "distance"
+                                    ? "rgba(11,107,112,0.07)"
+                                    : "transparent",
+                                border: "1.5px solid",
+                                borderColor: sortBy === "distance" ? "rgba(11,107,112,0.3)" : "#E8E5DF",
+                                borderRadius: "8px",
+                                padding: "5px 28px 5px 10px",
+                                cursor: "pointer",
+                                outline: "none",
+                                appearance: "none",
+                                WebkitAppearance: "none",
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239C9891' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+                                backgroundRepeat: "no-repeat",
+                                backgroundPosition: "right 9px center",
+                                transition: "all 0.15s ease",
+                            }}
                         >
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                <rect x="0" y="0" width="6" height="6" fill="currentColor" />
-                                <rect x="8" y="0" width="6" height="6" fill="currentColor" />
-                                <rect x="0" y="8" width="6" height="6" fill="currentColor" />
-                                <rect x="8" y="8" width="6" height="6" fill="currentColor" />
-                            </svg>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onViewModeChange("list")}
-                            className="p-1.5"
-                            aria-label="리스트 보기"
-                            style={{ color: viewMode === "list" ? "#C9A96E" : "rgba(245,240,232,0.3)" }}
-                        >
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                <rect x="0" y="0" width="14" height="2.5" fill="currentColor" />
-                                <rect x="0" y="5.5" width="14" height="2.5" fill="currentColor" />
-                                <rect x="0" y="11" width="14" height="2.5" fill="currentColor" />
-                            </svg>
-                        </button>
+                            <option value="date">날짜 가까운순</option>
+                            <option value="latest">최근 등록순</option>
+                            <option value="distance">📍 거리순</option>
+                        </select>
+
+                        {/* 구분선 */}
+                        <div style={{ width: "1px", height: "16px", backgroundColor: "#E8E5DF" }} />
+
+                        {/* 뷰 모드 토글 */}
+                        {(["grid", "list"] as const).map((mode) => (
+                            <button
+                                key={mode}
+                                type="button"
+                                onClick={() => onViewModeChange(mode)}
+                                aria-label={mode === "grid" ? "그리드 보기" : "리스트 보기"}
+                                style={{
+                                    width: "30px",
+                                    height: "30px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderRadius: "6px",
+                                    border: "none",
+                                    color: viewMode === mode ? "#0B2040" : "#9C9891",
+                                    backgroundColor: viewMode === mode
+                                        ? "rgba(11,32,64,0.07)"
+                                        : "transparent",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease",
+                                }}
+                            >
+                                {mode === "grid" ? (
+                                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                        <rect x="0"   y="0"   width="5.5" height="5.5" rx="1" fill="currentColor" />
+                                        <rect x="7.5" y="0"   width="5.5" height="5.5" rx="1" fill="currentColor" />
+                                        <rect x="0"   y="7.5" width="5.5" height="5.5" rx="1" fill="currentColor" />
+                                        <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1" fill="currentColor" />
+                                    </svg>
+                                ) : (
+                                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                        <rect x="0" y="0"  width="13" height="2.5" rx="1" fill="currentColor" />
+                                        <rect x="0" y="5"  width="13" height="2.5" rx="1" fill="currentColor" />
+                                        <rect x="0" y="10" width="13" height="2.5" rx="1" fill="currentColor" />
+                                    </svg>
+                                )}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>

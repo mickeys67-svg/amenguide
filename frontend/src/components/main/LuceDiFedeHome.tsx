@@ -1,28 +1,124 @@
 "use client";
 
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Navigation } from "./Navigation";
 import { Hero } from "./Hero";
-import { MarqueeBar } from "./MarqueeBar";
 import { FilterBar } from "./FilterBar";
 import { EventCard } from "./EventCard";
-import { StatsSection } from "./StatsSection";
 import { Footer } from "./Footer";
 import { SearchModal } from "./SearchModal";
 import CustomMap from "../map/CustomMap";
-import StainedGlassShader from "../effects/StainedGlassShader";
 import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
+import { ArrowRight, MapPin } from "lucide-react";
+
+/* ── 아이콘 SVG (카테고리별) ─────────────────────────────────────────────── */
+const CATEGORY_ICONS: Record<string, ReactNode> = {
+    피정: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+    ),
+    미사: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2v20M2 12h20"/>
+        </svg>
+    ),
+    강의: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+    ),
+    순례: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        </svg>
+    ),
+    청년: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+    ),
+    문화: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+    ),
+    선교: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+    ),
+};
+
+// ── 두 좌표 간 거리 계산 (km) — Haversine formula ─────────────────────────
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLng = (lng2 - lng1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const CATEGORY_QUICK = [
+    { label: "피정", color: "#1B4080", desc: "피정 · 묵상 · 영성수련" },
+    { label: "미사", color: "#8B1A1A", desc: "미사 · 전례 · 기도회"   },
+    { label: "강의", color: "#1A6B40", desc: "강좌 · 성경 · 교리"     },
+    { label: "순례", color: "#7B5230", desc: "성지순례 · 도보순례"    },
+    { label: "청년", color: "#0B6B70", desc: "청년 · 청소년 · Youth"  },
+    { label: "문화", color: "#6E2882", desc: "음악회 · 공연 · 전시"   },
+    { label: "선교", color: "#C83A1E", desc: "선교 · 봉사 · 사회사목" },
+];
 
 export default function LuceDiFedeHome() {
     const router = useRouter();
     const [activeFilter, setActiveFilter] = useState("전체");
-    const [sortBy, setSortBy] = useState("latest");
+    const [sortBy, setSortBy] = useState("date");
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [searchOpen, setSearchOpen] = useState(false);
     const eventsRef = useRef<HTMLDivElement>(null);
+
+    // ── GPS 상태 ────────────────────────────────────────────────────────────
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [geoLoading, setGeoLoading] = useState(false);
+    const [geoError, setGeoError] = useState<string | null>(null);
+
+    const handleSortChange = (sort: string) => {
+        if (sort !== "distance") {
+            setSortBy(sort);
+            setGeoError(null);
+            return;
+        }
+        // 이미 위치 획득 완료 → 바로 적용
+        if (userLocation) {
+            setSortBy("distance");
+            return;
+        }
+        if (!navigator.geolocation) {
+            setGeoError("브라우저가 위치 기능을 지원하지 않습니다");
+            return;
+        }
+        setGeoLoading(true);
+        setGeoError(null);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                setGeoLoading(false);
+                setSortBy("distance");
+            },
+            () => {
+                setGeoError("위치 권한이 거부되었습니다");
+                setGeoLoading(false);
+            },
+            { timeout: 10000, maximumAge: 300_000 },
+        );
+    };
 
     const [events, setEvents] = useState<EventData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -33,16 +129,17 @@ export default function LuceDiFedeHome() {
             setIsLoading(true);
             setError(null);
             try {
-                const data = await apiFetch<EventData[]>('/events');
+                const data = await apiFetch<EventData[]>("/events");
                 if (data && data.length > 0) {
                     const mappedEvents: EventData[] = data.map((e) => ({
                         id: e.id,
                         title: e.title,
                         subtitle: e.category || "",
                         category: e.category || "피정",
-                        date: e.date ? new Date(e.date).toLocaleDateString('ko-KR') : "연중 상시",
+                        date: e.date ? new Date(e.date).toLocaleDateString("ko-KR") : "연중 상시",
+                        rawDate: e.date || undefined,
                         location: e.location || "장소미정",
-                        organizer: "Luce di Fede",
+                        organizer: "Catholica",
                         description: e.aiSummary || "",
                         aiSummary: e.aiSummary,
                         image: RETREAT_IMG,
@@ -56,9 +153,10 @@ export default function LuceDiFedeHome() {
                     }));
                     setEvents(mappedEvents);
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : "Failed to load events.";
                 console.error("Fetch failed:", err);
-                setError(err.message || "Failed to load events.");
+                setError(msg);
             } finally {
                 setIsLoading(false);
             }
@@ -66,168 +164,340 @@ export default function LuceDiFedeHome() {
         fetchEvents();
     }, []);
 
-    const featuredEvent = events.find(e => e.featured) || events[0];
-
     const filteredEvents = useMemo(() => {
-        let currentEvents = activeFilter === "전체"
-            ? [...events]
-            : events.filter((e) => e.category === activeFilter);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        // Apply sorting
+        let list = events.filter((e) => {
+            if (!e.rawDate) return true;
+            const d = new Date(e.rawDate);
+            d.setHours(0, 0, 0, 0);
+            return d >= today;
+        });
+
+        if (activeFilter !== "전체") {
+            list = list.filter((e) => e.category === activeFilter);
+        }
+
         if (sortBy === "latest") {
-            currentEvents.sort((a, b) => {
+            list.sort((a, b) => {
                 const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                 const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                 return tB - tA;
             });
-        } else if (sortBy === "date") {
-            currentEvents.sort((a, b) => {
-                if (a.date === "연중 상시") return 1;
-                if (b.date === "연중 상시") return -1;
-                return a.date.localeCompare(b.date);
+        } else if (sortBy === "distance" && userLocation) {
+            list.sort((a, b) => {
+                const hasA = a.latitude != null && a.longitude != null;
+                const hasB = b.latitude != null && b.longitude != null;
+                if (!hasA && !hasB) return 0;
+                if (!hasA) return 1;   // 좌표 없으면 뒤로
+                if (!hasB) return -1;
+                const dA = haversineKm(userLocation.lat, userLocation.lng, a.latitude!, a.longitude!);
+                const dB = haversineKm(userLocation.lat, userLocation.lng, b.latitude!, b.longitude!);
+                return dA - dB;
             });
-        } else if (sortBy === "region") {
-            currentEvents.sort((a, b) => (a.location || "").localeCompare(b.location || ""));
+        } else {
+            // 기본: 날짜 가까운순
+            list.sort((a, b) => {
+                if (!a.rawDate) return 1;
+                if (!b.rawDate) return -1;
+                return new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime();
+            });
         }
 
-        return currentEvents;
-    }, [activeFilter, sortBy, events]);
+        return list;
+    }, [activeFilter, sortBy, events, userLocation]);
 
-    const handleScrollDown = () => {
+    const countByCategory = useMemo(() => {
+        const map: Record<string, number> = {};
+        CATEGORY_QUICK.forEach((c) => {
+            map[c.label] = events.filter((e) => e.category === c.label).length;
+        });
+        return map;
+    }, [events]);
+
+    const scrollToEvents = () =>
         eventsRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
 
     return (
-        <div style={{ backgroundColor: "#080705", minHeight: "100vh" }}>
-            <StainedGlassShader />
+        <div style={{ backgroundColor: "#F8F7F4", minHeight: "100vh" }}>
             <Navigation
                 activeFilter={activeFilter}
                 onFilterChange={setActiveFilter}
                 onSearchOpen={() => setSearchOpen(true)}
             />
 
-            <Hero eventCount={events.length} onScrollDown={handleScrollDown} />
+            {/* ════════════════════════════════════
+                HERO — 밝고 시원한 스플릿 레이아웃
+            ════════════════════════════════════ */}
+            <Hero eventCount={events.length} onScrollDown={scrollToEvents} />
 
-            <MarqueeBar />
+            {/* ════════════════════════════════════
+                EVENTS SECTION
+            ════════════════════════════════════ */}
+            <section ref={eventsRef} style={{ backgroundColor: "#F8F7F4", paddingBottom: "96px" }}>
 
-            {/* Featured Event Section - The Sacred Chasm */}
-            {featuredEvent && (
-                <section className="py-16 md:py-24 relative border-b border-white/[0.03]" style={{ backgroundColor: "#080705" }}>
+                {/* ── 카테고리 타일 ──────────────────────────────────────── */}
+                <div style={{ backgroundColor: "#FFFFFF", borderBottom: "1px solid #E8E5DF" }}>
                     <div className="sacred-rail">
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
-                            className="flex flex-col gap-4 mb-10"
-                        >
-                            <div className="flex items-center gap-6">
-                                <div className="h-px w-20" style={{ backgroundColor: "#C9A96E", opacity: 0.6 }} />
-                                <span
-                                    style={{
-                                        fontFamily: "'Playfair Display', serif",
-                                        color: "#C9A96E",
-                                        fontSize: "13px",
-                                        letterSpacing: "0.4em",
-                                        textTransform: "uppercase",
-                                        opacity: 0.8
-                                    }}
-                                >
-                                    이달의 추천 행사
-                                </span>
-                            </div>
-                            <h2 className="text-[10px] tracking-[0.6em] text-white/20 uppercase pl-24">RECOMMENDED CURATION</h2>
-                        </motion.div>
+                        {/* 반응형 타일 그리드
+                            Desktop  (>900px) : 7열 1행
+                            Tablet   (600-900): 4열 wrap
+                            Mobile   (<600px) : 가로 스크롤 (flex)
+                        */}
+                        <style>{`
+                            .cat-tiles {
+                                display: flex;
+                                overflow-x: auto;
+                                scrollbar-width: none;
+                                gap: 10px;
+                                padding: 20px 0;
+                            }
+                            .cat-tiles::-webkit-scrollbar { display: none; }
+                            .cat-tile {
+                                flex: 0 0 auto;
+                                width: clamp(100px, 13vw, 152px);
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                gap: 10px;
+                                padding: 18px 10px 14px;
+                                border-radius: 14px;
+                                border: 1.5px solid #E8E5DF;
+                                background: #FFFFFF;
+                                cursor: pointer;
+                                transition: all 0.18s ease;
+                                text-align: center;
+                                position: relative;
+                                overflow: hidden;
+                            }
+                            .cat-tile:hover {
+                                transform: translateY(-2px);
+                                box-shadow: 0 8px 24px rgba(0,0,0,0.09);
+                            }
+                            .cat-tile.active {
+                                border-color: transparent;
+                                color: #FFFFFF;
+                                box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+                            }
+                            @media (min-width: 620px) {
+                                .cat-tiles {
+                                    display: grid;
+                                    grid-template-columns: repeat(4, 1fr);
+                                    overflow-x: visible;
+                                }
+                            }
+                            @media (min-width: 940px) {
+                                .cat-tiles {
+                                    grid-template-columns: repeat(7, 1fr);
+                                }
+                            }
+                        `}</style>
 
-                        <div className="relative">
-                            <EventCard event={featuredEvent} index={0} variant="featured" />
+                        <div className="cat-tiles">
+                            {CATEGORY_QUICK.map((cat) => {
+                                const isActive = activeFilter === cat.label;
+                                const count = countByCategory[cat.label] ?? 0;
+                                return (
+                                    <button
+                                        key={cat.label}
+                                        type="button"
+                                        className={`cat-tile${isActive ? " active" : ""}`}
+                                        onClick={() => setActiveFilter(
+                                            isActive ? "전체" : cat.label
+                                        )}
+                                        style={{
+                                            backgroundColor: isActive ? cat.color : "#FFFFFF",
+                                            color: isActive ? "#FFFFFF" : cat.color,
+                                            border: `1.5px solid ${isActive ? cat.color : "#E8E5DF"}`,
+                                        }}
+                                    >
+                                        {/* 아이콘 */}
+                                        <span style={{ opacity: isActive ? 1 : 0.85 }}>
+                                            {CATEGORY_ICONS[cat.label]}
+                                        </span>
+
+                                        {/* 레이블 */}
+                                        <span style={{
+                                            fontFamily: "'Noto Sans KR', sans-serif",
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            letterSpacing: "-0.01em",
+                                            color: "inherit",
+                                            lineHeight: 1,
+                                        }}>
+                                            {cat.label}
+                                        </span>
+
+                                        {/* 카운트 */}
+                                        <span style={{
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: "18px",
+                                            fontWeight: 700,
+                                            lineHeight: 1,
+                                            color: isActive ? "rgba(255,255,255,0.9)" : cat.color,
+                                        }}>
+                                            {count}
+                                        </span>
+
+                                        {/* 활성 상태 top accent bar */}
+                                        {isActive && (
+                                            <span style={{
+                                                position: "absolute",
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                height: "3px",
+                                                backgroundColor: "rgba(255,255,255,0.4)",
+                                                borderRadius: "14px 14px 0 0",
+                                            }} />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
-                </section>
-            )}
+                </div>
 
+                {/* 전체 보기 버튼 — 카테고리 선택 시 표시 */}
+                {activeFilter !== "전체" && (
+                    <div className="sacred-rail" style={{ paddingTop: "14px" }}>
+                        <button
+                            type="button"
+                            onClick={() => setActiveFilter("전체")}
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "12px",
+                                color: "#52504B",
+                                background: "none",
+                                border: "1.5px solid #E8E5DF",
+                                borderRadius: "100px",
+                                padding: "4px 12px",
+                                cursor: "pointer",
+                            }}
+                        >
+                            ✕ 필터 해제 · 전체 보기
+                        </button>
+                    </div>
+                )}
 
-            {/* Stats Section */}
-            <StatsSection eventCount={events.length} />
-
-            {/* Events section */}
-            <section
-                ref={eventsRef}
-                className="pb-24"
-                style={{ backgroundColor: "#080705" }}
-            >
                 <FilterBar
-                    activeFilter={activeFilter}
-                    onFilterChange={setActiveFilter}
                     sortBy={sortBy}
-                    onSortChange={setSortBy}
+                    onSortChange={handleSortChange}
                     totalCount={filteredEvents.length}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
+                    geoLoading={geoLoading}
+                    geoError={geoError}
+                    userLocation={userLocation}
                 />
 
-                <div className="sacred-rail mt-10">
-                    {/* Section title */}
+                <div className="sacred-rail" style={{ paddingTop: "44px" }}>
+                    {/* Section heading */}
                     <motion.div
                         key={activeFilter}
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="mb-12"
+                        transition={{ duration: 0.35 }}
+                        style={{ marginBottom: "28px" }}
                     >
-                        <h2
-                            style={{
-                                fontFamily: "'Noto Serif KR', serif",
-                                color: "#F5F0E8",
-                                fontSize: "clamp(28px, 4vw, 52px)",
-                                fontWeight: 900,
-                                letterSpacing: "-0.03em",
-                                lineHeight: 1.1,
-                            }}
-                        >
-                            {activeFilter === "전체" ? (
-                                <>
-                                    모든 행사<span style={{ color: "#C9A96E" }}>.</span>
-                                </>
-                            ) : (
-                                <>
-                                    {activeFilter}<span style={{ color: "#C9A96E" }}>.</span>
-                                </>
-                            )}
+                        <h2 style={{
+                            fontFamily: "'Noto Serif KR', serif",
+                            fontWeight: 700,
+                            fontSize: "clamp(24px, 3vw, 38px)",
+                            color: "#100F0F",
+                            letterSpacing: "-0.02em",
+                            lineHeight: 1.2,
+                        }}>
+                            {activeFilter === "전체" ? "모든 행사" : activeFilter}
                         </h2>
-                        <p
-                            className="mt-8 text-[rgba(245,240,232,0.35)] text-[13px] font-light"
-                        >
-                            총 {filteredEvents.length}개의 행사
+                        <p style={{
+                            fontFamily: "'DM Mono', monospace",
+                            fontSize: "12px",
+                            color: "#9C9891",
+                            marginTop: "5px",
+                        }}>
+                            {filteredEvents.length} results
                         </p>
                     </motion.div>
 
-                    {/* Events */}
+                    {/* Loading */}
                     {isLoading ? (
-                        <div className="flex justify-center py-32">
+                        <div style={{ display: "flex", justifyContent: "center", padding: "96px 0" }}>
                             <motion.div
                                 animate={{ rotate: 360 }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                className="w-10 h-10 border-2 border-[#C9A96E]/20 border-t-[#C9A96E] rounded-full"
+                                transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                                style={{
+                                    width: "36px", height: "36px",
+                                    borderRadius: "50%",
+                                    border: "2px solid #E8E5DF",
+                                    borderTopColor: "#0B2040",
+                                }}
                             />
                         </div>
                     ) : error ? (
-                        <div className="text-center py-24 text-[rgba(245,240,232,0.4)]">
-                            <p>{error}</p>
-                            <button onClick={() => window.location.reload()} className="mt-4 text-[#C9A96E] border-b border-[#C9A96E]">다시 시도</button>
+                        <div style={{ textAlign: "center", padding: "80px 0" }}>
+                            <p style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "#9C9891", fontSize: "15px" }}>
+                                {error}
+                            </p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                style={{
+                                    marginTop: "16px",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "14px",
+                                    color: "#0B2040",
+                                    textDecoration: "underline",
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                다시 시도
+                            </button>
                         </div>
+                    ) : filteredEvents.length === 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            style={{ textAlign: "center", padding: "80px 0" }}
+                        >
+                            <p style={{
+                                fontFamily: "'Noto Serif KR', serif",
+                                fontSize: "26px",
+                                fontWeight: 600,
+                                color: "#D0CDC7",
+                            }}>
+                                등록된 행사가 없습니다
+                            </p>
+                            <p style={{
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "14px",
+                                color: "#9C9891",
+                                marginTop: "10px",
+                            }}>
+                                다른 카테고리를 선택해 보세요
+                            </p>
+                        </motion.div>
                     ) : viewMode === "grid" ? (
                         <motion.div
                             key={`grid-${activeFilter}`}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ duration: 0.4 }}
-                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
+                            transition={{ duration: 0.35 }}
+                            style={{
+                                display: "grid",
+                                /* 고정 3컬럼 — 카드 높이 균일 */
+                                gridTemplateColumns: "repeat(3, 1fr)",
+                                gridAutoRows: "1fr",
+                                gap: "22px",
+                            }}
                         >
                             {filteredEvents.map((event, i) => (
-                                <div key={event.id}>
-                                    <EventCard event={event} index={i} variant="grid" />
-                                </div>
+                                <EventCard key={event.id} event={event} index={i} variant="grid" />
                             ))}
                         </motion.div>
                     ) : (
@@ -235,26 +505,25 @@ export default function LuceDiFedeHome() {
                             key={`list-${activeFilter}`}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ duration: 0.4 }}
+                            transition={{ duration: 0.35 }}
                         >
                             {/* List header */}
                             <div
-                                className="hidden md:grid gap-6 pb-3 mb-2 border-b border-[rgba(245,240,232,0.1)]"
+                                className="hidden md:grid pb-3 mb-1"
                                 style={{
-                                    gridTemplateColumns: "40px 12px 1fr 80px 120px 100px 20px",
+                                    gridTemplateColumns: "32px 1fr 80px 120px 110px 20px",
+                                    gap: "16px",
+                                    borderBottom: "1px solid #E8E5DF",
                                 }}
                             >
-                                {["NO.", "", "행사명", "카테고리", "날짜", "장소", ""].map((h, i) => (
-                                    <span
-                                        key={i}
-                                        style={{
-                                            fontFamily: "'Playfair Display', serif",
-                                            color: "rgba(201,169,110,0.4)",
-                                            fontSize: "10px",
-                                            letterSpacing: "0.15em",
-                                            textTransform: "uppercase",
-                                        }}
-                                    >
+                                {["NO.", "행사명", "카테고리", "날짜", "장소", ""].map((h, idx) => (
+                                    <span key={idx} style={{
+                                        fontFamily: "'DM Mono', monospace",
+                                        fontSize: "10px",
+                                        color: "#9C9891",
+                                        letterSpacing: "0.1em",
+                                        textTransform: "uppercase",
+                                    }}>
                                         {h}
                                     </span>
                                 ))}
@@ -264,169 +533,147 @@ export default function LuceDiFedeHome() {
                             ))}
                         </motion.div>
                     )}
-
-                    {filteredEvents.length === 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="text-center py-24"
-                        >
-                            <p
-                                style={{
-                                    fontFamily: "'Noto Serif KR', serif",
-                                    color: "rgba(245,240,232,0.3)",
-                                    fontSize: "24px",
-                                    fontWeight: 600,
-                                }}
-                            >
-                                등록된 행사가 없습니다
-                            </p>
-                            <p
-                                className="mt-3 text-[rgba(245,240,232,0.2)] text-[14px]"
-                            >
-                                다른 카테고리를 선택해 보세요
-                            </p>
-                        </motion.div>
-                    )}
                 </div>
             </section>
 
-            {/* Map Section */}
-            <section className="py-16 md:py-20" style={{ backgroundColor: "#080705" }}>
+            {/* ════════════════════════════════════
+                MAP SECTION
+            ════════════════════════════════════ */}
+            <section style={{ backgroundColor: "#0B2040", padding: "72px 0" }}>
                 <div className="sacred-rail">
-                    <div className="grid lg:grid-cols-12 gap-12 items-center">
-                        <div className="lg:col-span-4">
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.8 }}
-                                className="flex items-center gap-4 mb-16"
-                            >
-                                <div className="h-px w-10" style={{ backgroundColor: "#C9A96E" }} />
-                                <span
-                                    style={{
-                                        fontFamily: "'Playfair Display', serif",
-                                        color: "#C9A96E",
-                                        fontSize: "11px",
-                                        letterSpacing: "0.25em",
-                                        textTransform: "uppercase",
-                                    }}
-                                >
-                                    Map
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "20px" }}>
+                            <div>
+                                <span style={{
+                                    fontFamily: "'DM Mono', monospace",
+                                    fontSize: "10px",
+                                    letterSpacing: "0.2em",
+                                    textTransform: "uppercase",
+                                    color: "rgba(255,255,255,0.35)",
+                                    display: "block",
+                                    marginBottom: "12px",
+                                }}>
+                                    Location
                                 </span>
-                            </motion.div>
-                            <h2
-                                className="mb-6"
-                                style={{
+                                <h2 style={{
                                     fontFamily: "'Noto Serif KR', serif",
-                                    color: "#F5F0E8",
-                                    fontSize: "clamp(28px, 4vw, 42px)",
-                                    fontWeight: 900,
+                                    fontSize: "clamp(24px, 3.5vw, 40px)",
+                                    fontWeight: 700,
+                                    color: "#FFFFFF",
                                     letterSpacing: "-0.02em",
-                                    lineHeight: 1.2,
-                                }}
-                            >
-                                가까운 곳의<br />
-                                <span style={{ color: "#C9A96E" }}>은총</span>을 찾아보세요
-                            </h2>
-                            <p
-                                style={{
+                                    lineHeight: 1.25,
+                                }}>
+                                    주변의 행사를<br />지도에서 찾아보세요
+                                </h2>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", opacity: 0.45 }}>
+                                <MapPin size={13} color="white" />
+                                <span style={{
                                     fontFamily: "'Noto Sans KR', sans-serif",
-                                    color: "rgba(245,240,232,0.35)",
-                                    fontSize: "15px",
-                                    lineHeight: 1.8,
+                                    fontSize: "12px",
+                                    color: "#FFFFFF",
                                     fontWeight: 300,
-                                    marginBottom: "80px",
-                                }}
-                            >
-                                현재 위치를 중심으로 내 주변의 성지, 피정의 집, 그리고 진행 중인 기도 모임을 지도에서 한눈에 확인할 수 있습니다.
-                            </p>
-                            <motion.button
-                                whileHover={{ x: 5 }}
-                                className="flex items-center gap-2 group"
-                                style={{ color: "#F5F0E8" }}
-                            >
-                                <span
-                                    style={{
-                                        fontFamily: "'Noto Sans KR', sans-serif",
-                                        fontSize: "14px",
-                                        borderBottom: "1px solid #C9A96E",
-                                        paddingBottom: "2px",
-                                    }}
-                                >
-                                    전체 지도 보기
+                                }}>
+                                    마커를 클릭하면 행사 상세정보를 볼 수 있습니다
                                 </span>
-                            </motion.button>
+                            </div>
                         </div>
-                        <div className="lg:col-span-8 rounded-lg overflow-hidden border border-[#C9A96E]/10 h-[500px]">
+                        <div
+                            style={{
+                                height: "420px",
+                                borderRadius: "16px",
+                                overflow: "hidden",
+                                boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
+                            }}
+                        >
                             <CustomMap events={filteredEvents} />
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* CTA Section */}
-            <section
-                className="py-20 md:py-32 relative overflow-hidden bg-[#C9A96E]"
-            >
-                <div className="sacred-rail relative z-10 text-center">
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        <p
-                            className="mb-4 text-[rgba(8,7,5,0.5)] italic text-[14px] tracking-[0.15em]"
-                            style={{
-                                fontFamily: "'Playfair Display', serif",
-                            }}
+            {/* ════════════════════════════════════
+                CTA SECTION
+            ════════════════════════════════════ */}
+            <section style={{ backgroundColor: "#FFFFFF", padding: "96px 0" }}>
+                <div className="sacred-rail">
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "20px" }}>
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.6 }}
                         >
-                            행사 주최자이신가요?
-                        </p>
-                        <h2
-                            className="mb-8 text-[#080705] font-black tracking-[-0.04em] leading-[1.1]"
-                            style={{
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "28px" }}>
+                                <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
+                                <span style={{
+                                    fontFamily: "'DM Mono', monospace",
+                                    fontSize: "10px",
+                                    letterSpacing: "0.22em",
+                                    textTransform: "uppercase",
+                                    color: "#C9A96E",
+                                }}>
+                                    For Organizers
+                                </span>
+                                <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
+                            </div>
+                            <h2 style={{
                                 fontFamily: "'Noto Serif KR', serif",
-                                fontSize: "clamp(32px, 5vw, 72px)",
-                            }}
-                        >
-                            행사를 등록하세요
-                        </h2>
-                        <p
-                            className="mb-12 mx-auto text-[rgba(8,7,5,0.6)] text-[15px] leading-[1.8] max-w-[480px] font-light"
-                        >
-                            피정, 강의, 강론, 특강 등 가톨릭 관련 행사를 무료로 등록하고 더 많은 신자들에게 알리세요.
-                        </p>
-                        <motion.button
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => router.push('/admin')}
-                            className="px-10 py-4 bg-[#080705] text-[#C9A96E] text-[14px] font-semibold tracking-[0.12em] uppercase cursor-pointer"
-                        >
-                            행사 등록하기 →
-                        </motion.button>
-                    </motion.div>
-                </div>
-
-                {/* Decorative */}
-                <div
-                    className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden"
-                >
-                    <span
-                        style={{
-                            fontFamily: "'Playfair Display', serif",
-                            fontSize: "clamp(140px, 22vw, 320px)",
-                            fontWeight: 900,
-                            color: "rgba(8,7,5,0.05)",
-                            whiteSpace: "nowrap",
-                            letterSpacing: "-0.06em",
-                            lineHeight: 1,
-                        }}
-                    >
-                        REGISTER
-                    </span>
+                                fontWeight: 900,
+                                fontSize: "clamp(30px, 5vw, 60px)",
+                                color: "#100F0F",
+                                letterSpacing: "-0.03em",
+                                lineHeight: 1.15,
+                                marginBottom: "16px",
+                            }}>
+                                행사를 등록하세요.
+                            </h2>
+                            <p style={{
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "15px",
+                                color: "#52504B",
+                                fontWeight: 300,
+                                lineHeight: 1.9,
+                                maxWidth: "420px",
+                                margin: "0 auto 36px",
+                            }}>
+                                피정, 강의, 강론, 특강 등 가톨릭 관련 행사를 무료로 등록하고
+                                더 많은 신자들에게 알리세요.
+                            </p>
+                            <button
+                                onClick={() => router.push("/admin")}
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    padding: "16px 36px",
+                                    backgroundColor: "#0B2040",
+                                    color: "#FFFFFF",
+                                    borderRadius: "10px",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    transition: "background 0.2s, transform 0.15s",
+                                    letterSpacing: "0.02em",
+                                }}
+                                onMouseEnter={e => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.backgroundColor = "#183568";
+                                    el.style.transform = "translateY(-1px)";
+                                }}
+                                onMouseLeave={e => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.backgroundColor = "#0B2040";
+                                    el.style.transform = "translateY(0)";
+                                }}
+                            >
+                                행사 등록하기
+                                <ArrowRight size={15} />
+                            </button>
+                        </motion.div>
+                    </div>
                 </div>
             </section>
 

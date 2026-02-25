@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BaseScraperService } from '../scrapers/base-scraper.service';
 import { AiRefinerService } from '../scrapers/ai-refiner.service';
 import { SacredWhisperService } from '../scrapers/sacred-whisper.service';
+import { DioceseSyncService } from '../scrapers/diocese-sync.service';
 
 
 @Injectable()
@@ -14,12 +15,27 @@ export class EventsService {
     private baseScraper: BaseScraperService,
     private aiRefiner: AiRefinerService,
     private sacredWhisper: SacredWhisperService,
+    private dioceseSync: DioceseSyncService,
   ) { }
 
   async triggerAsyncScrape(url: string) {
     this.logger.log(`Received async scrape request for URL: ${url}`);
     this.sacredWhisper.process(url); // Don't await
     return { message: 'Sacred Whisper initiated in background.', url };
+  }
+
+  async triggerDioceseSync(monthsAhead = 3) {
+    this.logger.log(`Diocese sync triggered (monthsAhead=${monthsAhead})`);
+    // Run in background — return immediately
+    this.dioceseSync.runAll(monthsAhead).then((result) => {
+      this.logger.log(`Diocese sync finished: ${JSON.stringify(result)}`);
+    }).catch((err) => {
+      this.logger.error(`Diocese sync error: ${err.message}`);
+    });
+    return {
+      message: '교구 일정 동기화가 백그라운드에서 시작되었습니다.',
+      monthsAhead,
+    };
   }
 
   async scrapeAndSave(url: string) {
@@ -40,7 +56,7 @@ export class EventsService {
           aiSummary: result.aiSummary,
           themeColor: result.themeColor,
           originUrl: url,
-          category: '기타', // Default category
+          category: '선교', // Default category
         },
       });
     } catch (error) {
@@ -51,8 +67,22 @@ export class EventsService {
 
   async findAll() {
     try {
+      // 1개월 이전 행사는 제외 (과거 이벤트 노출 방지)
+      // date = null 인 이벤트는 날짜 미정이므로 포함
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
       return await this.prisma.event.findMany({
-        orderBy: { createdAt: 'desc' },
+        where: {
+          OR: [
+            { date: null },
+            { date: { gte: oneMonthAgo } },
+          ],
+        },
+        orderBy: [
+          { date: 'asc' },    // 다가오는 행사 먼저
+          { createdAt: 'desc' },
+        ],
       });
     } catch (error) {
       if (error.message.includes('does not exist')) {
@@ -60,9 +90,20 @@ export class EventsService {
           'Table "event" not found, attempting on-the-fly creation.',
         );
         await this.nuclearReset();
-        // Retry once
+        // Retry once — 메인 경로와 동일한 필터 + 정렬 적용
+        const retryOneMonthAgo = new Date();
+        retryOneMonthAgo.setMonth(retryOneMonthAgo.getMonth() - 1);
         return await this.prisma.event.findMany({
-          orderBy: { createdAt: 'desc' },
+          where: {
+            OR: [
+              { date: null },
+              { date: { gte: retryOneMonthAgo } },
+            ],
+          },
+          orderBy: [
+            { date: 'asc' },
+            { createdAt: 'desc' },
+          ],
         });
       }
       throw error;
@@ -92,7 +133,7 @@ export class EventsService {
         aiSummary: data.aiSummary ?? null,
         themeColor: data.themeColor ?? '#457B9D',
         originUrl: data.originUrl ?? null,
-        category: data.category ?? '기타',
+        category: data.category ?? '선교',
       },
     });
   }

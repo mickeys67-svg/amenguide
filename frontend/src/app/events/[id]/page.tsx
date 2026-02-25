@@ -3,10 +3,10 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Calendar, ArrowLeft, Share2, Heart, ExternalLink } from "lucide-react";
+import { MapPin, Calendar, ArrowLeft, Share2, ExternalLink } from "lucide-react";
 import { Navigation } from "../../../components/main/Navigation";
 import { Footer } from "../../../components/main/Footer";
-import { EventData, RETREAT_IMG } from "../../../types/event";
+import { EventData, CATEGORY_COLORS, CATEGORY_IMAGES, RETREAT_IMG } from "../../../types/event";
 import { apiFetch } from "../../../utils/api";
 
 export default function EventDetailPage() {
@@ -26,10 +26,10 @@ export default function EventDetailPage() {
                     category: data.category || "기타",
                     date: data.date ? new Date(data.date).toLocaleDateString("ko-KR") : "연중 상시",
                     location: data.location || "장소 미정",
-                    organizer: "Luce di Fede",
+                    organizer: "Catholica",
                     description: data.aiSummary || "",
                     aiSummary: data.aiSummary,
-                    image: RETREAT_IMG,
+                    image: "",
                     duration: "상세참조",
                     tags: [],
                     originUrl: data.originUrl,
@@ -44,29 +44,70 @@ export default function EventDetailPage() {
         if (id) fetchEvent();
     }, [id]);
 
+    /* Loading */
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#080705" }}>
+            <div
+                style={{
+                    minHeight: "100vh",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#F8F7F4",
+                }}
+            >
                 <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="w-8 h-8 border-2 border-[#C9A96E]/20 border-t-[#C9A96E] rounded-full"
+                    transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
+                    style={{
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        border: "2px solid #E8E5DF",
+                        borderTopColor: "#0B2040",
+                    }}
                 />
             </div>
         );
     }
 
+    /* Not found */
     if (!event) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: "#080705" }}>
-                <p style={{ color: "#F5F0E8", fontFamily: "'Noto Serif KR', serif", fontSize: "24px" }}>
+            <div
+                style={{
+                    minHeight: "100vh",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "24px",
+                    backgroundColor: "#F8F7F4",
+                }}
+            >
+                <p
+                    style={{
+                        fontFamily: "'Noto Serif KR', serif",
+                        color: "#100F0F",
+                        fontSize: "24px",
+                        fontWeight: 700,
+                    }}
+                >
                     행사를 찾을 수 없습니다
                 </p>
                 <button
                     type="button"
                     onClick={() => router.push("/")}
-                    className="px-10 py-3.5 text-[15px] font-semibold cursor-pointer"
-                    style={{ backgroundColor: "#C9A96E", color: "#080705" }}
+                    style={{
+                        padding: "12px 32px",
+                        backgroundColor: "#0B2040",
+                        color: "#FFFFFF",
+                        fontFamily: "'Noto Sans KR', sans-serif",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                    }}
                 >
                     홈으로 돌아가기
                 </button>
@@ -74,250 +115,532 @@ export default function EventDetailPage() {
         );
     }
 
+    const catColor = CATEGORY_COLORS[event.category] || "#0B2040";
+
     return (
-        <div style={{ backgroundColor: "#080705", minHeight: "100vh" }}>
+        <div style={{ backgroundColor: "#F8F7F4", minHeight: "100vh" }}>
             <Navigation activeFilter="전체" onFilterChange={() => {}} onSearchOpen={() => {}} />
 
-            {/* ── 헤더 밴드 ── */}
+            {/* ── Hero header with image ── */}
             <div
-                className="pt-20 md:pt-[72px]"
-                style={{ backgroundColor: "#0A0906", borderBottom: "1px solid rgba(201,169,110,0.08)" }}
+                style={{
+                    position: "relative",
+                    height: "clamp(280px, 40vw, 420px)",
+                    overflow: "hidden",
+                    backgroundColor: "#080705",
+                }}
             >
-                <div className="max-w-[1200px] mx-auto px-8 md:px-16 py-10">
-
-                    {/* Back */}
+                {/* Background image */}
+                <img
+                    src={CATEGORY_IMAGES[event.category] || RETREAT_IMG}
+                    alt={event.title}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.35 }}
+                />
+                {/* Gradient overlay */}
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        background:
+                            "linear-gradient(to bottom, rgba(8,7,5,0.2) 0%, rgba(8,7,5,0.75) 70%, rgba(8,7,5,0.95) 100%)",
+                    }}
+                />
+                {/* Gold rule */}
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "60px",
+                        left: 0,
+                        right: 0,
+                        height: "1px",
+                        backgroundColor: "#C9A96E",
+                        opacity: 0.4,
+                    }}
+                />
+                {/* Content */}
+                <div
+                    className="sacred-rail"
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "flex-end",
+                        paddingBottom: "40px",
+                        paddingTop: "80px",
+                    }}
+                >
+                    {/* Back button */}
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="flex items-center gap-2 mb-8 cursor-pointer transition-colors hover:text-[#F5F0E8]"
-                        style={{ color: "rgba(245,240,232,0.4)", fontSize: "14px", fontFamily: "'Noto Sans KR', sans-serif" }}
+                        className="flex items-center gap-2"
+                        style={{
+                            color: "rgba(245,240,232,0.5)",
+                            fontSize: "13px",
+                            fontFamily: "'Noto Sans KR', sans-serif",
+                            marginBottom: "20px",
+                            transition: "color 0.15s ease",
+                            width: "fit-content",
+                        }}
+                        onMouseEnter={(e) =>
+                            ((e.currentTarget as HTMLElement).style.color = "#C9A96E")
+                        }
+                        onMouseLeave={(e) =>
+                            ((e.currentTarget as HTMLElement).style.color = "rgba(245,240,232,0.5)")
+                        }
                     >
-                        <ArrowLeft size={16} />
+                        <ArrowLeft size={14} />
                         목록으로 돌아가기
                     </button>
 
-                    {/* Category + Title */}
                     <motion.div
-                        initial={{ opacity: 0, y: 14 }}
+                        initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
+                        transition={{ duration: 0.6 }}
                     >
+                        {/* Category badge */}
                         <span
-                            className="inline-block px-3.5 py-1 text-[12px] font-bold tracking-widest rounded-sm mb-5"
-                            style={{ backgroundColor: "#C9A96E", color: "#080705" }}
+                            style={{
+                                display: "inline-block",
+                                padding: "4px 14px",
+                                borderRadius: "100px",
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                letterSpacing: "0.04em",
+                                backgroundColor: "rgba(201,169,110,0.15)",
+                                color: "#C9A96E",
+                                border: "1px solid rgba(201,169,110,0.4)",
+                                marginBottom: "14px",
+                            }}
                         >
                             {event.category}
                         </span>
+
+                        {/* Title */}
                         <h1
                             style={{
                                 fontFamily: "'Noto Serif KR', serif",
                                 color: "#F5F0E8",
-                                fontSize: "clamp(26px, 3vw, 44px)",
+                                fontSize: "clamp(22px, 3.2vw, 44px)",
                                 fontWeight: 900,
-                                lineHeight: 1.35,
+                                lineHeight: 1.25,
                                 letterSpacing: "-0.02em",
-                                maxWidth: "800px",
+                                marginBottom: "18px",
+                                maxWidth: "820px",
                             }}
                         >
                             {event.title}
                         </h1>
-                    </motion.div>
 
-                    {/* Meta */}
-                    <div className="flex flex-wrap items-center gap-8 mt-6">
-                        <div className="flex items-center gap-3">
-                            <Calendar size={17} className="text-[#C9A96E]" />
-                            <span style={{ fontSize: "16px", color: "rgba(245,240,232,0.6)", fontFamily: "'Noto Sans KR', sans-serif" }}>
-                                {event.date}
-                            </span>
+                        {/* Meta row */}
+                        <div className="flex flex-wrap items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <Calendar size={14} style={{ color: "#C9A96E", flexShrink: 0 }} />
+                                <span style={{ fontFamily: "'DM Mono', monospace", color: "rgba(245,240,232,0.65)", fontSize: "13px" }}>
+                                    {event.date}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <MapPin size={14} style={{ color: "#C9A96E", flexShrink: 0 }} />
+                                <span style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "rgba(245,240,232,0.65)", fontSize: "13px" }}>
+                                    {event.location}
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <MapPin size={17} className="text-[#C9A96E]" />
-                            <span style={{ fontSize: "16px", color: "rgba(245,240,232,0.6)", fontFamily: "'Noto Sans KR', sans-serif" }}>
-                                {event.location}
-                            </span>
-                        </div>
-                    </div>
+                    </motion.div>
                 </div>
             </div>
 
-            {/* ── 대표 이미지 — 뷰포트 전체 폭 ── */}
-            <motion.div
-                className="w-full overflow-hidden"
-                style={{ maxHeight: "520px" }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.7, delay: 0.1 }}
+            {/* ── Content + Sidebar ── */}
+            <main
+                className="sacred-rail"
+                style={{ paddingTop: "56px", paddingBottom: "96px" }}
             >
-                <img
-                    src={event.image || RETREAT_IMG}
-                    alt={event.title}
-                    className="w-full object-cover"
-                    style={{
-                        height: "clamp(280px, 36vw, 520px)",
-                        filter: "brightness(0.75) saturate(0.6) contrast(1.05)",
-                    }}
-                />
-            </motion.div>
+                <div className="grid lg:grid-cols-[1fr_300px] gap-12 lg:gap-16">
 
-            {/* ── 본문 + 사이드바 ── */}
-            <main className="max-w-[1200px] mx-auto px-8 md:px-16 py-14 pb-24">
-                <div className="grid lg:grid-cols-[1fr_340px] gap-12 lg:gap-16">
-
-                    {/* LEFT — 본문 */}
+                    {/* Left — main body */}
                     <motion.div
-                        initial={{ opacity: 0, y: 14 }}
+                        initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
+                        transition={{ duration: 0.55, delay: 0.1 }}
                     >
+                        {/* Colored accent bar */}
+                        <div
+                            style={{
+                                height: "3px",
+                                width: "48px",
+                                borderRadius: "2px",
+                                backgroundColor: catColor,
+                                marginBottom: "28px",
+                            }}
+                        />
+
+                        {/* Description body */}
                         <p
                             style={{
                                 fontFamily: "'Noto Sans KR', sans-serif",
-                                color: "rgba(245,240,232,0.75)",
-                                fontSize: "17px",
+                                color: "#100F0F",
+                                fontSize: "16px",
                                 lineHeight: 2.1,
                                 fontWeight: 300,
+                                maxWidth: "66ch",
                             }}
                         >
                             {event.aiSummary || event.description || "상세 설명이 등록되지 않았습니다."}
                         </p>
 
-                        {/* 모바일 전용 CTA */}
-                        <div className="flex items-center gap-3 mt-10 lg:hidden">
+                        {/* Mobile CTA */}
+                        <div
+                            className="flex items-center gap-3 mt-10 lg:hidden"
+                        >
                             <button
                                 type="button"
                                 onClick={() => event.originUrl && window.open(event.originUrl, "_blank")}
                                 disabled={!event.originUrl}
-                                className="flex items-center justify-center gap-2 flex-1 py-4 text-[16px] font-bold rounded-sm transition-opacity hover:opacity-85 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
-                                style={{ backgroundColor: "#C9A96E", color: "#080705" }}
+                                style={{
+                                    flex: 1,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: "8px",
+                                    padding: "14px",
+                                    backgroundColor: "#0B2040",
+                                    color: "#FFFFFF",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    borderRadius: "10px",
+                                    cursor: event.originUrl ? "pointer" : "not-allowed",
+                                    opacity: event.originUrl ? 1 : 0.35,
+                                    transition: "background 0.15s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (event.originUrl)
+                                        (e.currentTarget as HTMLElement).style.backgroundColor = "#183568";
+                                }}
+                                onMouseLeave={(e) =>
+                                    ((e.currentTarget as HTMLElement).style.backgroundColor = "#0B2040")
+                                }
                             >
-                                원문 보기 <ExternalLink size={16} />
+                                원문 보기 <ExternalLink size={14} />
                             </button>
-                            <button type="button" className="p-4 border border-[rgba(245,240,232,0.12)] rounded-sm hover:border-[#C9A96E]/40 transition-colors cursor-pointer">
-                                <Heart size={18} className="text-[rgba(245,240,232,0.4)]" />
-                            </button>
-                            <button type="button" className="p-4 border border-[rgba(245,240,232,0.12)] rounded-sm hover:border-[#C9A96E]/40 transition-colors cursor-pointer">
-                                <Share2 size={18} className="text-[rgba(245,240,232,0.4)]" />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (navigator.share) {
+                                        navigator.share({ title: event.title, url: window.location.href });
+                                    }
+                                }}
+                                style={{
+                                    width: "48px",
+                                    height: "48px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderRadius: "10px",
+                                    border: "1px solid #E8E5DF",
+                                    color: "#52504B",
+                                    transition: "all 0.15s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.borderColor = catColor;
+                                    el.style.color = catColor;
+                                }}
+                                onMouseLeave={(e) => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.borderColor = "#E8E5DF";
+                                    el.style.color = "#52504B";
+                                }}
+                            >
+                                <Share2 size={16} />
                             </button>
                         </div>
                     </motion.div>
 
-                    {/* RIGHT — 스티키 사이드바 */}
+                    {/* Right — sticky sidebar */}
                     <motion.div
-                        initial={{ opacity: 0, x: 16 }}
+                        initial={{ opacity: 0, x: 12 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.6, delay: 0.3 }}
+                        transition={{ duration: 0.55, delay: 0.2 }}
                         className="hidden lg:block"
                     >
-                        <div className="sticky top-28 flex flex-col gap-5">
-
-                            {/* 행사 정보 카드 */}
+                        <div
+                            style={{
+                                position: "sticky",
+                                top: "80px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "12px",
+                            }}
+                        >
+                            {/* Info card */}
                             <div
-                                className="rounded-sm"
                                 style={{
-                                    border: "1px solid rgba(201,169,110,0.18)",
-                                    backgroundColor: "#0D0C09",
+                                    backgroundColor: "#FFFFFF",
+                                    border: "1px solid #E8E5DF",
+                                    borderRadius: "12px",
+                                    overflow: "hidden",
                                 }}
                             >
+                                {/* Card header */}
                                 <div
-                                    className="px-7 py-4"
-                                    style={{ borderBottom: "1px solid rgba(201,169,110,0.1)" }}
+                                    style={{
+                                        padding: "14px 20px",
+                                        borderBottom: "1px solid #E8E5DF",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "10px",
+                                    }}
                                 >
-                                    <p
+                                    <div
                                         style={{
-                                            fontFamily: "'Playfair Display', serif",
-                                            color: "rgba(201,169,110,0.7)",
-                                            fontSize: "12px",
-                                            letterSpacing: "0.2em",
+                                            width: "3px",
+                                            height: "16px",
+                                            borderRadius: "2px",
+                                            backgroundColor: catColor,
+                                        }}
+                                    />
+                                    <span
+                                        style={{
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: "10px",
+                                            letterSpacing: "0.12em",
                                             textTransform: "uppercase",
+                                            color: "#9C9891",
                                         }}
                                     >
                                         행사 정보
-                                    </p>
+                                    </span>
                                 </div>
 
-                                <ul className="px-7 py-6 space-y-6">
-                                    <li className="flex items-start gap-4">
+                                <ul style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "18px" }}>
+                                    {/* Date */}
+                                    <li style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
                                         <div
-                                            className="w-9 h-9 rounded-sm flex items-center justify-center shrink-0"
-                                            style={{ backgroundColor: "rgba(201,169,110,0.1)" }}
+                                            style={{
+                                                width: "32px",
+                                                height: "32px",
+                                                borderRadius: "8px",
+                                                backgroundColor: catColor + "10",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
+                                            }}
                                         >
-                                            <Calendar size={16} className="text-[#C9A96E]" />
+                                            <Calendar size={14} style={{ color: catColor }} />
                                         </div>
                                         <div>
-                                            <p style={{ fontSize: "11px", color: "rgba(245,240,232,0.3)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "6px", fontFamily: "'Noto Sans KR', sans-serif" }}>날짜</p>
-                                            <p style={{ fontSize: "16px", color: "#F5F0E8", lineHeight: 1.4, fontFamily: "'Noto Sans KR', sans-serif" }}>{event.date}</p>
+                                            <p
+                                                style={{
+                                                    fontFamily: "'DM Mono', monospace",
+                                                    fontSize: "9px",
+                                                    letterSpacing: "0.12em",
+                                                    textTransform: "uppercase",
+                                                    color: "#9C9891",
+                                                    marginBottom: "4px",
+                                                }}
+                                            >
+                                                날짜
+                                            </p>
+                                            <p
+                                                style={{
+                                                    fontFamily: "'DM Mono', monospace",
+                                                    fontSize: "14px",
+                                                    color: "#100F0F",
+                                                    lineHeight: 1.4,
+                                                }}
+                                            >
+                                                {event.date}
+                                            </p>
                                         </div>
                                     </li>
-                                    <li className="flex items-start gap-4">
+
+                                    {/* Location */}
+                                    <li style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
                                         <div
-                                            className="w-9 h-9 rounded-sm flex items-center justify-center shrink-0"
-                                            style={{ backgroundColor: "rgba(201,169,110,0.1)" }}
+                                            style={{
+                                                width: "32px",
+                                                height: "32px",
+                                                borderRadius: "8px",
+                                                backgroundColor: catColor + "10",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
+                                            }}
                                         >
-                                            <MapPin size={16} className="text-[#C9A96E]" />
+                                            <MapPin size={14} style={{ color: catColor }} />
                                         </div>
                                         <div>
-                                            <p style={{ fontSize: "11px", color: "rgba(245,240,232,0.3)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "6px", fontFamily: "'Noto Sans KR', sans-serif" }}>장소</p>
-                                            <p style={{ fontSize: "16px", color: "#F5F0E8", lineHeight: 1.5, fontFamily: "'Noto Sans KR', sans-serif" }}>{event.location}</p>
+                                            <p
+                                                style={{
+                                                    fontFamily: "'DM Mono', monospace",
+                                                    fontSize: "9px",
+                                                    letterSpacing: "0.12em",
+                                                    textTransform: "uppercase",
+                                                    color: "#9C9891",
+                                                    marginBottom: "4px",
+                                                }}
+                                            >
+                                                장소
+                                            </p>
+                                            <p
+                                                style={{
+                                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                                    fontSize: "14px",
+                                                    color: "#100F0F",
+                                                    lineHeight: 1.5,
+                                                }}
+                                            >
+                                                {event.location}
+                                            </p>
                                         </div>
                                     </li>
-                                    <li className="flex items-start gap-4">
+
+                                    {/* Category */}
+                                    <li style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
                                         <div
-                                            className="w-9 h-9 rounded-sm flex items-center justify-center shrink-0"
-                                            style={{ backgroundColor: "rgba(201,169,110,0.1)" }}
+                                            style={{
+                                                width: "32px",
+                                                height: "32px",
+                                                borderRadius: "8px",
+                                                backgroundColor: catColor + "10",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
+                                            }}
                                         >
-                                            <span className="w-3.5 h-3.5 rounded-sm" style={{ backgroundColor: "#C9A96E" }} />
+                                            <div
+                                                style={{
+                                                    width: "10px",
+                                                    height: "10px",
+                                                    borderRadius: "3px",
+                                                    backgroundColor: catColor,
+                                                }}
+                                            />
                                         </div>
                                         <div>
-                                            <p style={{ fontSize: "11px", color: "rgba(245,240,232,0.3)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "6px", fontFamily: "'Noto Sans KR', sans-serif" }}>카테고리</p>
-                                            <p style={{ fontSize: "16px", color: "#F5F0E8", fontFamily: "'Noto Sans KR', sans-serif" }}>{event.category}</p>
+                                            <p
+                                                style={{
+                                                    fontFamily: "'DM Mono', monospace",
+                                                    fontSize: "9px",
+                                                    letterSpacing: "0.12em",
+                                                    textTransform: "uppercase",
+                                                    color: "#9C9891",
+                                                    marginBottom: "4px",
+                                                }}
+                                            >
+                                                카테고리
+                                            </p>
+                                            <p
+                                                style={{
+                                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                                    fontSize: "14px",
+                                                    color: catColor,
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                {event.category}
+                                            </p>
                                         </div>
                                     </li>
                                 </ul>
                             </div>
 
-                            {/* 원문 보기 CTA */}
+                            {/* Primary CTA */}
                             <button
                                 type="button"
                                 onClick={() => event.originUrl && window.open(event.originUrl, "_blank")}
                                 disabled={!event.originUrl}
-                                className="w-full flex items-center justify-center gap-3 py-5 text-[16px] font-bold tracking-wide rounded-sm transition-opacity hover:opacity-85 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
-                                style={{ backgroundColor: "#C9A96E", color: "#080705" }}
+                                style={{
+                                    width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: "8px",
+                                    padding: "16px",
+                                    backgroundColor: "#0B2040",
+                                    color: "#FFFFFF",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    borderRadius: "10px",
+                                    letterSpacing: "0.02em",
+                                    cursor: event.originUrl ? "pointer" : "not-allowed",
+                                    opacity: event.originUrl ? 1 : 0.35,
+                                    transition: "background 0.15s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (event.originUrl)
+                                        (e.currentTarget as HTMLElement).style.backgroundColor = "#183568";
+                                }}
+                                onMouseLeave={(e) =>
+                                    ((e.currentTarget as HTMLElement).style.backgroundColor = "#0B2040")
+                                }
                             >
                                 원문 보기
-                                <ExternalLink size={16} />
+                                <ExternalLink size={14} />
                             </button>
 
-                            {/* 저장 / 공유 */}
-                            <div className="flex gap-3">
-                                <button
-                                    type="button"
-                                    className="flex-1 flex items-center justify-center gap-2.5 py-3.5 border border-[rgba(245,240,232,0.1)] rounded-sm hover:border-[#C9A96E]/50 transition-colors cursor-pointer"
-                                    style={{ color: "rgba(245,240,232,0.5)", fontSize: "14px", fontFamily: "'Noto Sans KR', sans-serif" }}
-                                >
-                                    <Heart size={16} />
-                                    저장
-                                </button>
-                                <button
-                                    type="button"
-                                    className="flex-1 flex items-center justify-center gap-2.5 py-3.5 border border-[rgba(245,240,232,0.1)] rounded-sm hover:border-[#C9A96E]/50 transition-colors cursor-pointer"
-                                    style={{ color: "rgba(245,240,232,0.5)", fontSize: "14px", fontFamily: "'Noto Sans KR', sans-serif" }}
-                                >
-                                    <Share2 size={16} />
-                                    공유
-                                </button>
-                            </div>
-
-                            {/* 안내 */}
-                            <p
-                                className="text-center text-[12px] leading-relaxed"
-                                style={{ color: "rgba(245,240,232,0.2)", fontFamily: "'Noto Sans KR', sans-serif" }}
+                            {/* Share */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (navigator.share) {
+                                        navigator.share({ title: event.title, url: window.location.href });
+                                    }
+                                }}
+                                style={{
+                                    width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: "8px",
+                                    padding: "14px",
+                                    backgroundColor: "transparent",
+                                    color: "#52504B",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "13px",
+                                    fontWeight: 400,
+                                    borderRadius: "10px",
+                                    border: "1px solid #E8E5DF",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.borderColor = catColor;
+                                    el.style.color = catColor;
+                                }}
+                                onMouseLeave={(e) => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.borderColor = "#E8E5DF";
+                                    el.style.color = "#52504B";
+                                }}
                             >
-                                원문 사이트에서 신청 및<br />상세 일정을 확인하실 수 있습니다.
+                                <Share2 size={14} />
+                                공유하기
+                            </button>
+
+                            <p
+                                style={{
+                                    textAlign: "center",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    color: "#9C9891",
+                                    fontSize: "11px",
+                                    lineHeight: 1.7,
+                                }}
+                            >
+                                원문 사이트에서 신청 및<br />
+                                상세 일정을 확인하실 수 있습니다.
                             </p>
                         </div>
                     </motion.div>
-
                 </div>
             </main>
 

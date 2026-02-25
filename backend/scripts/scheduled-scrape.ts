@@ -24,6 +24,7 @@ interface Source {
 
 let dbClient: Client;
 let savedCount = 0;
+let processedCount = 0; // 중복·과거 제외 전 시도 수
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -33,17 +34,49 @@ const anthropic = process.env.ANTHROPIC_API_KEY
 // Globally best practice: block non-essential resources to speed up scraping 50-80%
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font', 'stylesheet']);
 
+// ─── URL 정규화 ────────────────────────────────────────────────────────────────
+// 굿뉴스 BBS: "num=" 파라미터는 목록 순번으로, 새 글이 올라올 때마다 밀려서
+// 동일 게시글이 다른 URL로 인식되어 중복 저장됨 → num= 제거 후 저장
+function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'bbs.catholic.or.kr') {
+      u.searchParams.delete('num'); // 순번 파라미터 제거
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+// ─── 과거 이벤트 필터 ─────────────────────────────────────────────────────────
+// 1년 전 이전 날짜로 저장된 이벤트는 지난 행사 — 수집 제외
+const ONE_YEAR_AGO = new Date();
+ONE_YEAR_AGO.setFullYear(ONE_YEAR_AGO.getFullYear() - 1);
+
 // ─── AI 프롬프트 공통 시스템 메시지 ──────────────────────────────────────────
-const AI_SYSTEM_PROMPT = `You are a Korean Catholic event analyst. Extract event details from the input.
-ONLY extract if this is a real Catholic event/retreat/program with a specific date and/or location.
-If NOT a real upcoming event, return {"skip": true}.
+// 오늘 날짜를 포함하여 AI 가 과거/미래 구분을 명확히 할 수 있도록 함
+function buildAiPrompt(): string {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return `You are a Korean Catholic event analyst. Today is ${today}.
+Extract event details from the input.
+ONLY extract if this is a FUTURE or very recent (within 2 weeks past) Catholic event, retreat, lecture, pilgrimage, or program.
+SKIP and return {"skip": true} if the content is:
+- A past event older than 2 weeks from today
+- An internal administrative meeting or committee session
+- A news article about an already-completed event
+- A press release without a specific upcoming event date
 Otherwise return ONLY valid JSON (no markdown fences):
 - title (string): Official event name in Korean
 - date (string): ISO 8601 e.g. "2026-05-20T10:00:00". Use "1970-01-01T00:00:00" if unknown.
 - location (string): Venue name and city in Korean. Use "장소 미정" if unknown.
 - aiSummary (string): 2-3 Korean sentences, warm spiritual tone (은총이 가득한 따뜻한 어조)
 - themeColor (string): One of #E63946 #457B9D #FFB703 #06D6A0 #C9A96E
-- category (string): One of "피정" | "강의" | "미사" | "성지순례" | "청년" | "기타"`;
+- category (string): One of "피정" | "미사" | "강의" | "순례" | "청년" | "문화" | "선교"
+  피정=피정·묵상·영성수련·성령쇄신, 미사=미사·전례·기도회·연도·강론, 강의=강좌·성경·교리·특강·세미나,
+  순례=성지순례·도보순례·성당탐방, 청년=청년·청소년·Youth·성소,
+  문화=음악회·공연·전시·합창·연극, 선교=선교·봉사·레지오·복음화·사회사목`;
+}
 
 // ─── 소스 목록 ────────────────────────────────────────────────────────────────
 const SOURCES: Source[] = [
@@ -61,30 +94,14 @@ const SOURCES: Source[] = [
     maxItems: 8,
   },
   {
-    name: '굿뉴스 자유게시판',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4770',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4770'),
-    maxItems: 5,
-  },
-  {
-    name: '굿뉴스 교류게시판',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4778',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4778'),
-    maxItems: 5,
-  },
-  {
     name: '굿뉴스 선교게시판',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4783',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4783'),
-    maxItems: 5,
+    maxItems: 6,
   },
   // ── CBCK 한국 천주교 주교회의 ──────────────────────────────────────────────
-  {
-    name: 'CBCK 회의와 행사',
-    listUrl: 'https://www.cbck.or.kr/Events',
-    linkFilter: (h) => /cbck\.or\.kr\/(Events|Meeting|Notice)\/\d+/.test(h),
-    maxItems: 8,
-  },
+  // ⚠️ CBCK /Events 는 내부 행정회의만 있어 제외.
+  // 소식/보도자료는 공개 행사 안내 포함 가능 → 유지
   {
     name: 'CBCK 소식',
     listUrl: 'https://www.cbck.or.kr/Notice?gb=K1200',
@@ -110,6 +127,43 @@ const SOURCES: Source[] = [
     linkFilter: (h) => h.includes('pbc.co.kr') && h.includes('news_view'),
     maxItems: 6,
   },
+  // ── 교구 사이트 ───────────────────────────────────────────────────────────
+  {
+    name: '대구대교구 일정',
+    listUrl: 'https://daegu-archdiocese.or.kr/page/news.html?srl=schedule',
+    linkFilter: (h) =>
+      h.includes('daegu-archdiocese.or.kr') &&
+      /view|news_view|idx=|no=|seq=/.test(h),
+    maxItems: 10,
+    waitSelector: '.calendar, .schedule, table',
+  },
+  {
+    name: '광주대교구 행사',
+    listUrl: 'https://www.gjcatholic.or.kr/nota/event',
+    // 메인 도메인 + 서브도메인(youth/samog/vocatio) 모두 포함
+    linkFilter: (h) =>
+      /gjcatholic\.or\.kr\/nota\/event\/\d+/.test(h) ||
+      /(?:youth|samog|vocatio|cateb)\.gjcatholic\.or\.kr\/(?:picture|leaflet|board)\/\d+/.test(h),
+    maxItems: 10,
+    waitSelector: '.board-list, ul.list, .event-list, table',
+  },
+  {
+    name: '대전교구 행사공지',
+    listUrl: 'http://www.djcatholic.or.kr/home/news/monthplan.php',
+    // 실제 URL 패턴: /home/news/monthplan.php?enter=v&idx=XXXXX
+    linkFilter: (h) =>
+      h.includes('djcatholic.or.kr') &&
+      h.includes('enter=v') &&
+      h.includes('idx='),
+    maxItems: 8,
+    waitSelector: '.board, table, .list, tbody',
+  },
+  {
+    name: '굿뉴스 피정',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4780',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4780'),
+    maxItems: 8,
+  },
 ];
 
 // ─── AI 텍스트 정제 ───────────────────────────────────────────────────────────
@@ -120,7 +174,7 @@ async function refineWithAi(text: string): Promise<ScrapingResult | null> {
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
-    system: AI_SYSTEM_PROMPT,
+    system: buildAiPrompt(),
     messages: [{ role: 'user', content: `페이지 내용:\n\n${content}` }],
   });
 
@@ -142,7 +196,7 @@ async function refineWithVision(imageData: { data: string; mimeType: string }): 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
-    system: AI_SYSTEM_PROMPT,
+    system: buildAiPrompt(),
     messages: [
       {
         role: 'user',
@@ -331,14 +385,16 @@ async function extractText(page: import('playwright').Page, url: string): Promis
 
 // ─── 스크래핑 + DB 저장 ────────────────────────────────────────────────────────
 async function scrapeAndSave(page: import('playwright').Page, url: string): Promise<void> {
-  console.log(`[SCRAPER] Processing: ${url}`);
+  const canonicalUrl = normalizeUrl(url); // num= 등 순번 파라미터 제거
+  processedCount++;
+  console.log(`[SCRAPER] Processing: ${canonicalUrl}`);
   try {
     const dup = await dbClient.query(
       'SELECT id FROM "Event" WHERE "originUrl" = $1 LIMIT 1',
-      [url],
+      [canonicalUrl],
     );
     if (dup.rowCount && dup.rowCount > 0) {
-      console.log(`[SCRAPER] Skip (duplicate): ${url}`);
+      console.log(`[SCRAPER] Skip (duplicate): ${canonicalUrl}`);
       return;
     }
 
@@ -374,12 +430,26 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       return;
     }
 
-    if (result.date.startsWith('1970') && result.location === '장소 미정') {
-      console.log(`[SCRAPER] Skip (no event data): ${url}`);
+    // 1970 더미 날짜 → 날짜 불명 이벤트 (DB에 null로 저장)
+    const isUnknownDate = result.date.startsWith('1970');
+
+    if (isUnknownDate && result.location === '장소 미정') {
+      // 날짜·장소 모두 미정 → 저장 가치 없음
+      console.log(`[SCRAPER] Skip (no event data): ${canonicalUrl}`);
       return;
     }
 
-    const category = result.category || '기타';
+    // 과거 이벤트 필터: 1년 전 이전 행사는 수집 제외 (날짜 불명 이벤트는 제외하지 않음)
+    if (!isUnknownDate) {
+      const eventDate = new Date(result.date);
+      if (eventDate < ONE_YEAR_AGO) {
+        console.log(`[SCRAPER] Skip (past event ${result.date}): ${canonicalUrl}`);
+        return;
+      }
+    }
+
+    const validCategories = ['피정', '미사', '강의', '순례', '청년', '문화', '선교'];
+    const category = validCategories.includes(result.category) ? result.category : '선교';
 
     await dbClient.query(
       `INSERT INTO "Event" (id, title, date, location, "aiSummary", "themeColor", "originUrl", category, "createdAt", "updatedAt")
@@ -387,11 +457,11 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       [
         crypto.randomUUID(),
         result.title,
-        new Date(result.date),
+        isUnknownDate ? null : new Date(result.date), // 1970 더미 날짜는 null로 저장
         result.location,
         result.aiSummary,
         result.themeColor,
-        url,
+        canonicalUrl, // 정규화된 URL 저장
         category,
       ],
     );
@@ -415,10 +485,43 @@ async function main() {
   await dbClient.connect();
   console.log('[DB] Connected.');
 
-  const cleaned = await dbClient.query(
-    `DELETE FROM "Event" WHERE (location = '장소 미정' OR location IS NULL) AND date < '1971-01-01' AND LENGTH(id) < 20`,
+  // ── 정리 1: 날짜/장소 없는 더미 레코드 제거
+  const cleanedDummy = await dbClient.query(
+    `DELETE FROM "Event" WHERE (location = '장소 미정' OR location IS NULL) AND date < '1971-01-01'`,
   );
-  if ((cleaned.rowCount ?? 0) > 0) console.log(`[CLEANUP] Removed ${cleaned.rowCount} records.`);
+  if ((cleanedDummy.rowCount ?? 0) > 0)
+    console.log(`[CLEANUP] 더미 레코드 ${cleanedDummy.rowCount}개 제거.`);
+
+  // ── 정리 2: 행사 종료 2일 후 삭제 (만료 데이터 제거)
+  // date IS NULL 인 날짜미정 이벤트는 제외 (보존)
+  const twoDaysAgo = new Date();
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  const cleanedExpired = await dbClient.query(
+    `DELETE FROM "Event" WHERE date IS NOT NULL AND date < $1`,
+    [twoDaysAgo],
+  );
+  if ((cleanedExpired.rowCount ?? 0) > 0)
+    console.log(`[CLEANUP] 종료 2일 지난 이벤트 ${cleanedExpired.rowCount}개 삭제.`);
+
+  // ── 정리 3: BBS num= 파라미터 기반 중복 제거
+  // originUrl 에서 num= 제거 후 동일 URL 이 여러 건인 경우 최신 1건만 남김
+  const cleanedDups = await dbClient.query(`
+    DELETE FROM "Event"
+    WHERE id IN (
+      SELECT id FROM (
+        SELECT id,
+               ROW_NUMBER() OVER (
+                 PARTITION BY REGEXP_REPLACE("originUrl", '[?&]num=\\d+', '')
+                 ORDER BY "createdAt" DESC
+               ) AS rn
+        FROM "Event"
+        WHERE "originUrl" LIKE '%bbs.catholic.or.kr%'
+      ) ranked
+      WHERE rn > 1
+    )
+  `);
+  if ((cleanedDups.rowCount ?? 0) > 0)
+    console.log(`[CLEANUP] BBS 중복 이벤트 ${cleanedDups.rowCount}개 제거.`);
 
   console.log('[BROWSER] Launching Chromium...');
   const browser = await chromium.launch({
@@ -458,11 +561,16 @@ async function main() {
     console.log('[BROWSER] Closed.');
   }
 
-  console.log(`\n[SCRAPER] All done. Total saved: ${savedCount}`);
+  console.log(`\n[SCRAPER] All done. Processed: ${processedCount}, Saved: ${savedCount}`);
 
-  // ─── 0결과 모니터링: Actions가 실패로 감지 → 이메일 알림 ─────────────────
+  // ─── 0결과 모니터링 ──────────────────────────────────────────────────────
+  // processedCount = 0 → 소스 사이트 구조 변경 의심 (실제 장애) → throw
+  // processedCount > 0 but savedCount = 0 → 정상 (모두 중복 또는 과거 행사) → warn only
+  if (processedCount === 0) {
+    throw new Error('[ALERT] No URLs processed — source site structures may have changed!');
+  }
   if (savedCount === 0) {
-    throw new Error('[ALERT] 0 events saved this run — site structures may have changed!');
+    console.warn('[WARN] 0 new events saved this run (all duplicates or past events). Normal if DB is up to date.');
   }
 }
 
