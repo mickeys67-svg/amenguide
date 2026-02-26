@@ -132,16 +132,16 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                             marginBottom: "36px",
                         }}
                     >
-                        피정, 강의, 강론, 특강 — 흩어진 천주교<br />
-                        행사 정보를 한 화면에서 탐색하세요.
+                        피정, 미사, 강의, 순례 — 전국 가톨릭 행사를<br />
+                        한곳에서 탐색하세요.
                     </motion.p>
 
-                    {/* CTA buttons */}
+                    {/* CTA — 단일 버튼 (탐색 시작) */}
                     <motion.div
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.88 }}
-                        style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}
+                        style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}
                     >
                         <button
                             onClick={onScrollDown}
@@ -172,41 +172,19 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                                 el.style.transform = "translateY(0)";
                             }}
                         >
-                            행사 둘러보기
+                            탐색 시작
                             <ArrowRight size={15} />
                         </button>
 
-                        <button
-                            onClick={onScrollDown}
-                            style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                padding: "14px 24px",
-                                backgroundColor: "transparent",
-                                color: "#52504B",
-                                borderRadius: "10px",
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "14px",
-                                fontWeight: 400,
-                                border: "1.5px solid #E8E5DF",
-                                cursor: "pointer",
-                                transition: "all 0.2s",
-                                letterSpacing: "0.01em",
-                            }}
-                            onMouseEnter={e => {
-                                const el = e.currentTarget as HTMLElement;
-                                el.style.borderColor = "#0B2040";
-                                el.style.color = "#0B2040";
-                            }}
-                            onMouseLeave={e => {
-                                const el = e.currentTarget as HTMLElement;
-                                el.style.borderColor = "#E8E5DF";
-                                el.style.color = "#52504B";
-                            }}
-                        >
-                            행사 검색
-                        </button>
+                        {/* 보조 안내 텍스트 */}
+                        <span style={{
+                            fontFamily: "'Noto Sans KR', sans-serif",
+                            fontSize: "12px",
+                            color: "#9C9891",
+                            fontWeight: 300,
+                        }}>
+                            🔍 검색은 우측 상단 아이콘
+                        </span>
                     </motion.div>
 
                     {/* stat pills */}
@@ -224,7 +202,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                     >
                         {[
                             { num: String(eventCount),  label: "예정 행사"  },
-                            { num: "5",                  label: "카테고리"   },
+                            { num: "7",                  label: "카테고리"   },
                             { num: "무료",               label: "행사 등록"  },
                         ].map(({ num, label }) => (
                             <div key={label}>

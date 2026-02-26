@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Menu, X, LogIn } from "lucide-react";
+import { Search, Menu, X, LogIn, Compass, Map } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface NavigationProps {
@@ -11,11 +11,17 @@ interface NavigationProps {
     onSearchOpen: () => void;
 }
 
-// 반응형 메뉴에서 사용할 링크 — 카테고리 아님, 페이지 링크
-const NAV_LINKS = [
-    { label: "행사 찾기", href: "/" },
-    { label: "지도 보기", href: "/#map" },
-];
+// ── 반응형 breakpoint (Tailwind 신뢰 불가 → CSS 직접 제어) ──────────────
+const NAV_STYLE = `
+    .nav-desktop-links { display: flex; align-items: center; gap: 4px; }
+    .nav-login-btn      { display: flex; }
+    .nav-hamburger      { display: none; }
+    @media (max-width: 767px) {
+        .nav-desktop-links { display: none; }
+        .nav-login-btn      { display: none; }
+        .nav-hamburger      { display: flex; }
+    }
+`;
 
 export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: NavigationProps) {
     const [scrolled, setScrolled] = useState(false);
@@ -28,14 +34,20 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
         return () => window.removeEventListener("scroll", onScroll);
     }, []);
 
-    // 메뉴 열릴 때 body 스크롤 잠금
     useEffect(() => {
         document.body.style.overflow = menuOpen ? "hidden" : "";
         return () => { document.body.style.overflow = ""; };
     }, [menuOpen]);
 
+    const scrollTo = (id: string) => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+        setMenuOpen(false);
+    };
+
     return (
         <>
+            <style>{NAV_STYLE}</style>
+
             <nav
                 style={{
                     position: "fixed",
@@ -48,13 +60,15 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                     transition: "border-color 0.25s ease, box-shadow 0.25s ease",
                 }}
             >
-                <div className="sacred-rail h-full flex items-center gap-6">
-
+                <div
+                    className="sacred-rail"
+                    style={{ height: "100%", display: "flex", alignItems: "center", gap: "24px" }}
+                >
                     {/* ── Logo ── */}
                     <button
                         type="button"
                         onClick={() => { onFilterChange("전체"); router.push("/"); }}
-                        style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}
+                        style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0, border: "none", background: "none", cursor: "pointer" }}
                     >
                         <svg width="17" height="21" viewBox="0 0 17 21" fill="none">
                             <rect x="7" y="0" width="3" height="21" rx="1.5" fill="#0B2040" />
@@ -63,46 +77,38 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                         <div>
                             <span style={{
                                 fontFamily: "'Noto Serif KR', serif",
-                                fontSize: "15.5px",
-                                fontWeight: 700,
-                                color: "#0B2040",
-                                letterSpacing: "0.12em",
-                                display: "block",
-                                lineHeight: 1,
-                            }}>
-                                CATHOLICA
-                            </span>
+                                fontSize: "15.5px", fontWeight: 700,
+                                color: "#0B2040", letterSpacing: "0.12em",
+                                display: "block", lineHeight: 1,
+                            }}>CATHOLICA</span>
                             <span style={{
                                 fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "9px",
-                                color: "#9C9891",
-                                letterSpacing: "0.04em",
-                                display: "block",
-                                marginTop: "3px",
-                                lineHeight: 1,
-                            }}>
-                                가톨릭 행사 허브
-                            </span>
+                                fontSize: "9px", color: "#9C9891",
+                                letterSpacing: "0.04em", display: "block",
+                                marginTop: "3px", lineHeight: 1,
+                            }}>가톨릭 행사 허브</span>
                         </div>
                     </button>
 
-                    {/* ── Spacer ── */}
                     <div style={{ flex: 1 }} />
 
-                    {/* ── Desktop nav links (md 이상) ── */}
-                    <nav className="hidden md:flex items-center gap-1" aria-label="메인 내비게이션">
-                        {NAV_LINKS.map((link) => (
-                            <a
-                                key={link.href}
-                                href={link.href}
+                    {/* ── 데스크탑 링크 (768px+) ── */}
+                    <nav className="nav-desktop-links" aria-label="메인 내비게이션">
+                        {[
+                            { label: "탐색", id: "events", icon: <Compass size={13} strokeWidth={2} /> },
+                            { label: "지도", id: "map",    icon: <Map size={13} strokeWidth={2} /> },
+                        ].map(({ label, id, icon }) => (
+                            <button
+                                key={id}
+                                type="button"
+                                onClick={() => scrollTo(id)}
                                 style={{
+                                    display: "flex", alignItems: "center", gap: "5px",
                                     fontFamily: "'Noto Sans KR', sans-serif",
-                                    fontSize: "13.5px",
-                                    fontWeight: 400,
-                                    color: "#52504B",
-                                    padding: "5px 14px",
-                                    borderRadius: "6px",
-                                    textDecoration: "none",
+                                    fontSize: "13.5px", fontWeight: 400,
+                                    color: "#52504B", padding: "5px 14px",
+                                    borderRadius: "6px", background: "transparent",
+                                    border: "none", cursor: "pointer",
                                     transition: "all 0.15s ease",
                                 }}
                                 onMouseEnter={e => {
@@ -116,15 +122,16 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                                     el.style.background = "transparent";
                                 }}
                             >
-                                {link.label}
-                            </a>
+                                {icon}
+                                {label}
+                            </button>
                         ))}
                     </nav>
 
                     {/* ── Actions ── */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
 
-                        {/* 검색 */}
+                        {/* 검색 아이콘 (전체 사이즈 노출) */}
                         <button
                             type="button"
                             aria-label="검색"
@@ -132,12 +139,9 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             style={{
                                 width: "36px", height: "36px",
                                 display: "flex", alignItems: "center", justifyContent: "center",
-                                borderRadius: "8px",
-                                color: "#52504B",
-                                border: "none",
-                                backgroundColor: "transparent",
-                                cursor: "pointer",
-                                transition: "all 0.15s ease",
+                                borderRadius: "8px", border: "none",
+                                backgroundColor: "transparent", color: "#52504B",
+                                cursor: "pointer", transition: "all 0.15s ease",
                             }}
                             onMouseEnter={e => {
                                 const el = e.currentTarget as HTMLElement;
@@ -153,23 +157,18 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             <Search size={16} strokeWidth={2} />
                         </button>
 
-                        {/* 로그인 버튼 (데스크탑) */}
+                        {/* 로그인 (768px+) */}
                         <button
                             type="button"
                             onClick={() => router.push("/login")}
-                            className="hidden md:flex"
+                            className="nav-login-btn"
                             style={{
-                                alignItems: "center",
-                                gap: "6px",
-                                padding: "7px 16px",
-                                borderRadius: "8px",
+                                alignItems: "center", gap: "6px",
+                                padding: "7px 16px", borderRadius: "8px",
                                 fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                backgroundColor: "#0B2040",
-                                color: "#FFFFFF",
-                                border: "none",
-                                cursor: "pointer",
+                                fontSize: "13px", fontWeight: 600,
+                                backgroundColor: "#0B2040", color: "#FFFFFF",
+                                border: "none", cursor: "pointer",
                                 transition: "background 0.15s ease",
                                 letterSpacing: "0.01em",
                             }}
@@ -180,19 +179,17 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             로그인
                         </button>
 
-                        {/* 햄버거 (모바일 — md 미만) */}
+                        {/* 햄버거 (모바일 ~767px) */}
                         <button
                             type="button"
                             aria-label="메뉴 열기"
                             onClick={() => setMenuOpen(true)}
-                            className="md:hidden"
+                            className="nav-hamburger"
                             style={{
                                 width: "36px", height: "36px",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                color: "#100F0F",
-                                border: "none",
-                                backgroundColor: "transparent",
-                                cursor: "pointer",
+                                alignItems: "center", justifyContent: "center",
+                                color: "#100F0F", border: "none",
+                                backgroundColor: "transparent", cursor: "pointer",
                                 borderRadius: "8px",
                             }}
                         >
@@ -202,31 +199,20 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                 </div>
             </nav>
 
-            {/* ── 모바일 드롭다운 메뉴 (md 미만) ── */}
+            {/* ── 모바일 드롭다운 ── */}
             <AnimatePresence>
                 {menuOpen && (
                     <>
-                        {/* 딤 배경 */}
                         <motion.div
-                            style={{
-                                position: "fixed", inset: 0, zIndex: 99,
-                                backgroundColor: "rgba(0,0,0,0.2)",
-                            }}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
+                            style={{ position: "fixed", inset: 0, zIndex: 99, backgroundColor: "rgba(0,0,0,0.2)" }}
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             transition={{ duration: 0.18 }}
                             onClick={() => setMenuOpen(false)}
                         />
-
-                        {/* 드롭다운 패널 (nav 바 바로 아래) */}
                         <motion.div
                             style={{
-                                position: "fixed",
-                                top: "60px", left: 0, right: 0,
-                                zIndex: 100,
-                                backgroundColor: "#FFFFFF",
-                                borderBottom: "1px solid #E8E5DF",
+                                position: "fixed", top: "60px", left: 0, right: 0, zIndex: 100,
+                                backgroundColor: "#FFFFFF", borderBottom: "1px solid #E8E5DF",
                                 boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
                                 padding: "8px 0 16px",
                             }}
@@ -236,66 +222,54 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             transition={{ duration: 0.18, ease: "easeOut" }}
                         >
                             <div className="sacred-rail">
-                                {/* 페이지 링크 */}
-                                <div style={{ display: "flex", flexDirection: "column" }}>
-                                    {NAV_LINKS.map((link) => (
-                                        <a
-                                            key={link.href}
-                                            href={link.href}
-                                            onClick={() => setMenuOpen(false)}
-                                            style={{
-                                                fontFamily: "'Noto Sans KR', sans-serif",
-                                                fontSize: "15px",
-                                                color: "#100F0F",
-                                                fontWeight: 400,
-                                                padding: "14px 0",
-                                                borderBottom: "1px solid #F0EFE9",
-                                                textDecoration: "none",
-                                            }}
-                                        >
-                                            {link.label}
-                                        </a>
-                                    ))}
-                                </div>
-
-                                {/* 로그인 / 회원가입 */}
+                                {[
+                                    { label: "탐색", id: "events", desc: "카테고리별 행사 탐색" },
+                                    { label: "지도", id: "map",    desc: "지도에서 주변 행사 찾기" },
+                                ].map(({ label, id, desc }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => scrollTo(id)}
+                                        style={{
+                                            width: "100%", display: "flex", alignItems: "center",
+                                            justifyContent: "space-between",
+                                            padding: "14px 0",
+                                            borderBottom: "1px solid #F0EFE9",
+                                            border: "none", borderBottomWidth: "1px",
+                                            borderBottomStyle: "solid", borderBottomColor: "#F0EFE9",
+                                            background: "none", cursor: "pointer",
+                                            textAlign: "left",
+                                        }}
+                                    >
+                                        <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "15px", color: "#100F0F", fontWeight: 500 }}>
+                                            {label}
+                                        </span>
+                                        <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891" }}>
+                                            {desc}
+                                        </span>
+                                    </button>
+                                ))}
                                 <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
                                     <button
                                         type="button"
                                         onClick={() => { router.push("/login"); setMenuOpen(false); }}
                                         style={{
-                                            flex: 1,
-                                            padding: "12px",
-                                            borderRadius: "8px",
-                                            fontFamily: "'Noto Sans KR', sans-serif",
-                                            fontSize: "14px",
-                                            fontWeight: 600,
-                                            backgroundColor: "#0B2040",
-                                            color: "#FFFFFF",
-                                            border: "none",
-                                            cursor: "pointer",
+                                            flex: 1, padding: "12px", borderRadius: "8px",
+                                            fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 600,
+                                            backgroundColor: "#0B2040", color: "#FFFFFF",
+                                            border: "none", cursor: "pointer",
                                         }}
-                                    >
-                                        로그인
-                                    </button>
+                                    >로그인</button>
                                     <button
                                         type="button"
                                         onClick={() => { router.push("/register"); setMenuOpen(false); }}
                                         style={{
-                                            flex: 1,
-                                            padding: "12px",
-                                            borderRadius: "8px",
-                                            fontFamily: "'Noto Sans KR', sans-serif",
-                                            fontSize: "14px",
-                                            fontWeight: 400,
-                                            backgroundColor: "transparent",
-                                            color: "#0B2040",
-                                            border: "1.5px solid #D0CDC7",
-                                            cursor: "pointer",
+                                            flex: 1, padding: "12px", borderRadius: "8px",
+                                            fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 400,
+                                            backgroundColor: "transparent", color: "#0B2040",
+                                            border: "1.5px solid #D0CDC7", cursor: "pointer",
                                         }}
-                                    >
-                                        회원가입
-                                    </button>
+                                    >회원가입</button>
                                 </div>
                             </div>
                         </motion.div>

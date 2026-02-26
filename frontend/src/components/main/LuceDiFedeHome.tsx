@@ -244,7 +244,7 @@ export default function LuceDiFedeHome() {
             {/* ════════════════════════════════════
                 EVENTS SECTION
             ════════════════════════════════════ */}
-            <section ref={eventsRef} style={{ backgroundColor: "#F8F7F4", paddingBottom: "96px" }}>
+            <section ref={eventsRef} id="events" style={{ backgroundColor: "#F8F7F4", paddingBottom: "96px" }}>
 
                 {/* ── 카테고리 타일 ──────────────────────────────────────── */}
                 <div style={{ backgroundColor: "#FFFFFF", borderBottom: "1px solid #E8E5DF" }}>
@@ -548,7 +548,7 @@ export default function LuceDiFedeHome() {
             {/* ════════════════════════════════════
                 MAP SECTION
             ════════════════════════════════════ */}
-            <section style={{ backgroundColor: "#0B2040", padding: "72px 0" }}>
+            <section id="map" style={{ backgroundColor: "#0B2040", padding: "72px 0" }}>
                 <div className="sacred-rail">
                     <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }}>
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "20px" }}>
