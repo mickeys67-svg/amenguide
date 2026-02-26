@@ -209,9 +209,18 @@ export default function LuceDiFedeHome() {
     }, [activeFilter, sortBy, events, userLocation]);
 
     const countByCategory = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // filteredEvents 와 동일한 날짜 기준 — 과거 행사 제외
+        const upcoming = events.filter((e) => {
+            if (!e.rawDate) return true;
+            const d = new Date(e.rawDate);
+            d.setHours(0, 0, 0, 0);
+            return d >= today;
+        });
         const map: Record<string, number> = {};
         CATEGORY_QUICK.forEach((c) => {
-            map[c.label] = events.filter((e) => e.category === c.label).length;
+            map[c.label] = upcoming.filter((e) => e.category === c.label).length;
         });
         return map;
     }, [events]);
@@ -593,16 +602,17 @@ export default function LuceDiFedeHome() {
             </section>
 
             {/* ════════════════════════════════════
-                CTA SECTION
+                LOGIN CTA SECTION
             ════════════════════════════════════ */}
             <section style={{ backgroundColor: "#FFFFFF", padding: "96px 0" }}>
                 <div className="sacred-rail">
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "20px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.6 }}
+                            style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "28px" }}>
                                 <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
@@ -613,20 +623,21 @@ export default function LuceDiFedeHome() {
                                     textTransform: "uppercase",
                                     color: "#C9A96E",
                                 }}>
-                                    For Organizers
+                                    Members
                                 </span>
                                 <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
                             </div>
                             <h2 style={{
                                 fontFamily: "'Noto Serif KR', serif",
                                 fontWeight: 900,
-                                fontSize: "clamp(30px, 5vw, 60px)",
+                                fontSize: "clamp(28px, 5vw, 56px)",
                                 color: "#100F0F",
                                 letterSpacing: "-0.03em",
                                 lineHeight: 1.15,
                                 marginBottom: "16px",
                             }}>
-                                행사를 등록하세요.
+                                로그인하고<br />
+                                <span style={{ color: "#C9A96E" }}>더 많은 기능을</span> 사용하세요.
                             </h2>
                             <p style={{
                                 fontFamily: "'Noto Sans KR', sans-serif",
@@ -634,44 +645,77 @@ export default function LuceDiFedeHome() {
                                 color: "#52504B",
                                 fontWeight: 300,
                                 lineHeight: 1.9,
-                                maxWidth: "420px",
-                                margin: "0 auto 36px",
+                                maxWidth: "400px",
+                                marginBottom: "36px",
                             }}>
-                                피정, 강의, 강론, 특강 등 가톨릭 관련 행사를 무료로 등록하고
-                                더 많은 신자들에게 알리세요.
+                                즐겨찾기, 행사 알림, 맞춤 추천 등<br />
+                                로그인 회원 전용 서비스를 이용하세요.
                             </p>
-                            <button
-                                onClick={() => router.push("/admin")}
-                                style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                    padding: "16px 36px",
-                                    backgroundColor: "#0B2040",
-                                    color: "#FFFFFF",
-                                    borderRadius: "10px",
-                                    fontFamily: "'Noto Sans KR', sans-serif",
-                                    fontSize: "14px",
-                                    fontWeight: 600,
-                                    border: "none",
-                                    cursor: "pointer",
-                                    transition: "background 0.2s, transform 0.15s",
-                                    letterSpacing: "0.02em",
-                                }}
-                                onMouseEnter={e => {
-                                    const el = e.currentTarget as HTMLElement;
-                                    el.style.backgroundColor = "#183568";
-                                    el.style.transform = "translateY(-1px)";
-                                }}
-                                onMouseLeave={e => {
-                                    const el = e.currentTarget as HTMLElement;
-                                    el.style.backgroundColor = "#0B2040";
-                                    el.style.transform = "translateY(0)";
-                                }}
-                            >
-                                행사 등록하기
-                                <ArrowRight size={15} />
-                            </button>
+                            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
+                                <button
+                                    onClick={() => router.push("/login")}
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        padding: "14px 32px",
+                                        backgroundColor: "#0B2040",
+                                        color: "#FFFFFF",
+                                        borderRadius: "10px",
+                                        fontFamily: "'Noto Sans KR', sans-serif",
+                                        fontSize: "14px",
+                                        fontWeight: 600,
+                                        border: "none",
+                                        cursor: "pointer",
+                                        transition: "background 0.2s, transform 0.15s",
+                                        letterSpacing: "0.02em",
+                                    }}
+                                    onMouseEnter={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.backgroundColor = "#183568";
+                                        el.style.transform = "translateY(-1px)";
+                                    }}
+                                    onMouseLeave={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.backgroundColor = "#0B2040";
+                                        el.style.transform = "translateY(0)";
+                                    }}
+                                >
+                                    로그인
+                                    <ArrowRight size={15} />
+                                </button>
+                                <button
+                                    onClick={() => router.push("/register")}
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        padding: "14px 32px",
+                                        backgroundColor: "transparent",
+                                        color: "#0B2040",
+                                        borderRadius: "10px",
+                                        fontFamily: "'Noto Sans KR', sans-serif",
+                                        fontSize: "14px",
+                                        fontWeight: 500,
+                                        border: "1.5px solid #D0CDC7",
+                                        cursor: "pointer",
+                                        transition: "border-color 0.2s, transform 0.15s",
+                                        letterSpacing: "0.01em",
+                                    }}
+                                    onMouseEnter={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.borderColor = "#0B2040";
+                                        el.style.transform = "translateY(-1px)";
+                                    }}
+                                    onMouseLeave={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.borderColor = "#D0CDC7";
+                                        el.style.transform = "translateY(0)";
+                                    }}
+                                >
+                                    회원가입
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 </div>
