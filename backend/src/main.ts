@@ -13,6 +13,7 @@ async function bootstrap() {
     process.env.FRONTEND_URL,
     'http://localhost:3000',
     'https://amenguide-git-775250805671.us-west1.run.app',
+    'https://amenguide-git-wcnovu4ydq-uw.a.run.app',
   ].filter(Boolean) as string[];
   app.enableCors({
     origin: (origin, callback) => {
