@@ -12,7 +12,7 @@ import { SearchModal } from "./SearchModal";
 import CustomMap from "../map/CustomMap";
 import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight, MapPin, PlusCircle, LogIn } from "lucide-react";
 
 /* ── 아이콘 SVG (카테고리별) ─────────────────────────────────────────────── */
 const CATEGORY_ICONS: Record<string, ReactNode> = {
@@ -607,63 +607,283 @@ export default function LuceDiFedeHome() {
             </section>
 
             {/* ════════════════════════════════════
-                LOGIN CTA SECTION
+                CTA SECTION — 행사 등록 + 로그인
             ════════════════════════════════════ */}
-            <section style={{ backgroundColor: "#FFFFFF", padding: "96px 0" }}>
+            <style>{`
+                .cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+                @media (max-width: 720px) { .cta-grid { grid-template-columns: 1fr; } }
+            `}</style>
+            <section style={{ backgroundColor: "#F8F7F4", padding: "96px 0" }}>
                 <div className="sacred-rail">
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+
+                    {/* 섹션 eyebrow */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "48px", justifyContent: "center" }}>
+                        <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
+                        <span style={{
+                            fontFamily: "'DM Mono', monospace",
+                            fontSize: "10px",
+                            letterSpacing: "0.22em",
+                            textTransform: "uppercase" as const,
+                            color: "#C9A96E",
+                        }}>
+                            Get Started
+                        </span>
+                        <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
+                    </div>
+
+                    <div className="cta-grid">
+
+                        {/* ── 카드 1: 행사 등록 ────────────────────────── */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={{ opacity: 0, y: 24 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            transition={{ duration: 0.6 }}
-                            style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
+                            transition={{ duration: 0.55, delay: 0 }}
+                            style={{
+                                backgroundColor: "#0B2040",
+                                borderRadius: "20px",
+                                padding: "clamp(32px, 5vw, 52px)",
+                                display: "flex",
+                                flexDirection: "column" as const,
+                                gap: "0px",
+                                position: "relative" as const,
+                                overflow: "hidden" as const,
+                            }}
                         >
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "28px" }}>
-                                <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
-                                <span style={{
-                                    fontFamily: "'DM Mono', monospace",
-                                    fontSize: "10px",
-                                    letterSpacing: "0.22em",
-                                    textTransform: "uppercase",
-                                    color: "#C9A96E",
-                                }}>
-                                    Members
-                                </span>
-                                <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
+                            {/* 배경 장식 */}
+                            <div style={{
+                                position: "absolute",
+                                top: "-40px", right: "-40px",
+                                width: "180px", height: "180px",
+                                borderRadius: "50%",
+                                backgroundColor: "rgba(201,169,110,0.08)",
+                                pointerEvents: "none",
+                            }} />
+                            <div style={{
+                                position: "absolute",
+                                bottom: "-20px", right: "60px",
+                                width: "100px", height: "100px",
+                                borderRadius: "50%",
+                                backgroundColor: "rgba(201,169,110,0.05)",
+                                pointerEvents: "none",
+                            }} />
+
+                            {/* 아이콘 */}
+                            <div style={{
+                                width: "52px", height: "52px",
+                                borderRadius: "14px",
+                                backgroundColor: "rgba(201,169,110,0.15)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                marginBottom: "28px",
+                                color: "#C9A96E",
+                            }}>
+                                <PlusCircle size={26} />
                             </div>
+
+                            {/* 배지 */}
+                            <span style={{
+                                display: "inline-block",
+                                fontFamily: "'DM Mono', monospace",
+                                fontSize: "10px",
+                                letterSpacing: "0.18em",
+                                textTransform: "uppercase" as const,
+                                color: "#C9A96E",
+                                marginBottom: "14px",
+                            }}>
+                                행사 주최자
+                            </span>
+
+                            {/* 제목 */}
                             <h2 style={{
                                 fontFamily: "'Noto Serif KR', serif",
                                 fontWeight: 900,
-                                fontSize: "clamp(28px, 5vw, 56px)",
+                                fontSize: "clamp(22px, 3.5vw, 34px)",
+                                color: "#FFFFFF",
+                                letterSpacing: "-0.03em",
+                                lineHeight: 1.25,
+                                marginBottom: "16px",
+                            }}>
+                                행사를 등록하고<br />
+                                <span style={{ color: "#C9A96E" }}>더 많은 신자와</span> 만나세요
+                            </h2>
+
+                            {/* 설명 */}
+                            <p style={{
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "14px",
+                                color: "rgba(255,255,255,0.65)",
+                                fontWeight: 300,
+                                lineHeight: 1.9,
+                                marginBottom: "32px",
+                                flexGrow: 1,
+                            }}>
+                                피정, 미사, 강의, 순례 등 교회 행사를 등록하면<br />
+                                전국 신자들에게 소개됩니다.<br />
+                                무료로 시작할 수 있습니다.
+                            </p>
+
+                            {/* 기능 목록 */}
+                            <ul style={{
+                                listStyle: "none",
+                                display: "flex",
+                                flexDirection: "column" as const,
+                                gap: "8px",
+                                marginBottom: "32px",
+                            }}>
+                                {["무료 행사 등록", "전국 신자 노출", "행사 정보 수정·삭제"].map(item => (
+                                    <li key={item} style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        fontFamily: "'Noto Sans KR', sans-serif",
+                                        fontSize: "13px",
+                                        color: "rgba(255,255,255,0.7)",
+                                        fontWeight: 300,
+                                    }}>
+                                        <span style={{ color: "#C9A96E", fontSize: "16px", lineHeight: 1 }}>✓</span>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+
+                            {/* 버튼 */}
+                            <button
+                                onClick={() => router.push("/register-event")}
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    padding: "15px 28px",
+                                    backgroundColor: "#C9A96E",
+                                    color: "#0B2040",
+                                    borderRadius: "10px",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "14px",
+                                    fontWeight: 700,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    transition: "background 0.2s, transform 0.15s",
+                                    letterSpacing: "0.02em",
+                                    alignSelf: "flex-start" as const,
+                                }}
+                                onMouseEnter={e => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.backgroundColor = "#b8944f";
+                                    el.style.transform = "translateY(-2px)";
+                                }}
+                                onMouseLeave={e => {
+                                    const el = e.currentTarget as HTMLElement;
+                                    el.style.backgroundColor = "#C9A96E";
+                                    el.style.transform = "translateY(0)";
+                                }}
+                            >
+                                <PlusCircle size={15} />
+                                행사 등록하기
+                            </button>
+                        </motion.div>
+
+                        {/* ── 카드 2: 로그인 / 회원가입 ───────────────── */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 24 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.55, delay: 0.12 }}
+                            style={{
+                                backgroundColor: "#FFFFFF",
+                                borderRadius: "20px",
+                                border: "1.5px solid #E8E5DF",
+                                padding: "clamp(32px, 5vw, 52px)",
+                                display: "flex",
+                                flexDirection: "column" as const,
+                                gap: "0px",
+                            }}
+                        >
+                            {/* 아이콘 */}
+                            <div style={{
+                                width: "52px", height: "52px",
+                                borderRadius: "14px",
+                                backgroundColor: "rgba(11,32,64,0.07)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                marginBottom: "28px",
+                                color: "#0B2040",
+                            }}>
+                                <LogIn size={24} />
+                            </div>
+
+                            {/* 배지 */}
+                            <span style={{
+                                display: "inline-block",
+                                fontFamily: "'DM Mono', monospace",
+                                fontSize: "10px",
+                                letterSpacing: "0.18em",
+                                textTransform: "uppercase" as const,
+                                color: "#9C9891",
+                                marginBottom: "14px",
+                            }}>
+                                Members
+                            </span>
+
+                            {/* 제목 */}
+                            <h2 style={{
+                                fontFamily: "'Noto Serif KR', serif",
+                                fontWeight: 900,
+                                fontSize: "clamp(22px, 3.5vw, 34px)",
                                 color: "#100F0F",
                                 letterSpacing: "-0.03em",
-                                lineHeight: 1.15,
+                                lineHeight: 1.25,
                                 marginBottom: "16px",
                             }}>
                                 로그인하고<br />
-                                <span style={{ color: "#C9A96E" }}>더 많은 기능을</span> 사용하세요.
+                                <span style={{ color: "#C9A96E" }}>더 많은 기능을</span> 사용하세요
                             </h2>
+
+                            {/* 설명 */}
                             <p style={{
                                 fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "15px",
+                                fontSize: "14px",
                                 color: "#52504B",
                                 fontWeight: 300,
                                 lineHeight: 1.9,
-                                maxWidth: "400px",
-                                marginBottom: "36px",
+                                marginBottom: "32px",
+                                flexGrow: 1,
                             }}>
                                 즐겨찾기, 행사 알림, 맞춤 추천 등<br />
                                 로그인 회원 전용 서비스를 이용하세요.
                             </p>
-                            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
+
+                            {/* 기능 목록 */}
+                            <ul style={{
+                                listStyle: "none",
+                                display: "flex",
+                                flexDirection: "column" as const,
+                                gap: "8px",
+                                marginBottom: "32px",
+                            }}>
+                                {["관심 행사 즐겨찾기", "행사 일정 알림", "맞춤 행사 추천"].map(item => (
+                                    <li key={item} style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        fontFamily: "'Noto Sans KR', sans-serif",
+                                        fontSize: "13px",
+                                        color: "#52504B",
+                                        fontWeight: 300,
+                                    }}>
+                                        <span style={{ color: "#C9A96E", fontSize: "16px", lineHeight: 1 }}>✓</span>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+
+                            {/* 버튼 */}
+                            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" as const }}>
                                 <button
                                     onClick={() => router.push("/login")}
                                     style={{
                                         display: "inline-flex",
                                         alignItems: "center",
                                         gap: "8px",
-                                        padding: "14px 32px",
+                                        padding: "15px 28px",
                                         backgroundColor: "#0B2040",
                                         color: "#FFFFFF",
                                         borderRadius: "10px",
@@ -678,7 +898,7 @@ export default function LuceDiFedeHome() {
                                     onMouseEnter={e => {
                                         const el = e.currentTarget as HTMLElement;
                                         el.style.backgroundColor = "#183568";
-                                        el.style.transform = "translateY(-1px)";
+                                        el.style.transform = "translateY(-2px)";
                                     }}
                                     onMouseLeave={e => {
                                         const el = e.currentTarget as HTMLElement;
@@ -695,7 +915,7 @@ export default function LuceDiFedeHome() {
                                         display: "inline-flex",
                                         alignItems: "center",
                                         gap: "8px",
-                                        padding: "14px 32px",
+                                        padding: "15px 28px",
                                         backgroundColor: "transparent",
                                         color: "#0B2040",
                                         borderRadius: "10px",
@@ -710,7 +930,7 @@ export default function LuceDiFedeHome() {
                                     onMouseEnter={e => {
                                         const el = e.currentTarget as HTMLElement;
                                         el.style.borderColor = "#0B2040";
-                                        el.style.transform = "translateY(-1px)";
+                                        el.style.transform = "translateY(-2px)";
                                     }}
                                     onMouseLeave={e => {
                                         const el = e.currentTarget as HTMLElement;
@@ -722,6 +942,7 @@ export default function LuceDiFedeHome() {
                                 </button>
                             </div>
                         </motion.div>
+
                     </div>
                 </div>
             </section>
