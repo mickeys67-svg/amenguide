@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, AlertCircle, Shield, PlusCircle, RotateCcw, Calendar, MapPin, Link, FileText, Palette, Tag } from "lucide-react";
+import { Logo } from "@/components/common/Logo";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-wcnovu4ydq-uw.a.run.app";
 
@@ -77,10 +78,10 @@ export default function AdminPage() {
                     <div style={{ width: "100%", maxWidth: "400px" }}>
                         {/* 로고 */}
                         <div style={{ textAlign: "center", marginBottom: "40px" }}>
-                            <div style={{ width: "56px", height: "56px", borderRadius: "16px", backgroundColor: "rgba(201,169,110,0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                                <Shield size={26} color="#C9A96E" />
+                            <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+                                <Logo variant="light" size={40} />
                             </div>
-                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.22em", color: "#C9A96E", textTransform: "uppercase" }}>Catholica Admin</p>
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.22em", color: "#C9A96E", textTransform: "uppercase" }}>Admin Panel</p>
                             <h1 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "24px", color: "#FFFFFF", letterSpacing: "-0.02em", marginTop: "8px" }}>관리자 인증</h1>
                         </div>
 
@@ -151,14 +152,12 @@ export default function AdminPage() {
 
                     {/* 헤더 */}
                     <div style={{ marginBottom: "40px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-                            <div style={{ width: "32px", height: "32px", borderRadius: "8px", backgroundColor: "rgba(201,169,110,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <Shield size={15} color="#C9A96E" />
-                            </div>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.12em", color: "#C9A96E", textTransform: "uppercase" }}>Admin</span>
+                        <Logo variant="light" size={26} showSubtitle={false} />
+                        <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.18em", color: "#C9A96E", textTransform: "uppercase" as const }}>Admin Panel</p>
+                            <h2 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "17px", color: "#FFFFFF", marginTop: "6px" }}>관리자 패널</h2>
+                            <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "3px", fontWeight: 300 }}>행사 관리 시스템</p>
                         </div>
-                        <h2 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "18px", color: "#FFFFFF", marginTop: "12px" }}>관리자 패널</h2>
-                        <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px", fontWeight: 300 }}>Catholica 행사 관리 시스템</p>
                     </div>
 
                     {/* 메뉴 */}

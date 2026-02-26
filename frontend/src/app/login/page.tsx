@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowRight, ChevronDown } from "lucide-react";
+import { Logo } from "@/components/common/Logo";
 
 /* ── 소셜 로그인 SVG 아이콘 ─────────────────────────────────────────── */
 const KakaoIcon = () => (
@@ -122,14 +123,7 @@ export default function LoginPage() {
                     <div style={{ position: "absolute", bottom: "60px", left: "-60px", width: "220px", height: "220px", borderRadius: "50%", border: "1px solid rgba(201,169,110,0.08)", pointerEvents: "none" }} />
 
                     {/* 로고 */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{ width: "36px", height: "36px", backgroundColor: "rgba(201,169,110,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" strokeWidth="2" strokeLinecap="round">
-                                <line x1="12" y1="2" x2="12" y2="22"/><line x1="4" y1="8" x2="20" y2="8"/>
-                            </svg>
-                        </div>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", letterSpacing: "0.14em", color: "rgba(255,255,255,0.9)", textTransform: "uppercase" }}>Catholica</span>
-                    </div>
+                    <Logo variant="light" size={32} />
 
                     {/* 카피 */}
                     <div>

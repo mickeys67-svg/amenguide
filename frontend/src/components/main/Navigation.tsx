@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Menu, X, LogIn, Compass, Map } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/common/Logo";
 
 interface NavigationProps {
     activeFilter: string;
@@ -71,30 +72,12 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                     style={{ height: "100%", display: "flex", alignItems: "center", gap: "24px" }}
                 >
                     {/* ── Logo ── */}
-                    <button
-                        type="button"
+                    <Logo
+                        variant="dark"
+                        size={28}
+                        style={{ flexShrink: 0 }}
                         onClick={() => { onFilterChange("전체"); router.push("/"); }}
-                        style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0, border: "none", background: "none", cursor: "pointer" }}
-                    >
-                        <svg width="17" height="21" viewBox="0 0 17 21" fill="none">
-                            <rect x="7" y="0" width="3" height="21" rx="1.5" fill="#0B2040" />
-                            <rect x="0" y="4.5" width="17" height="3" rx="1.5" fill="#0B2040" />
-                        </svg>
-                        <div>
-                            <span style={{
-                                fontFamily: "'Noto Serif KR', serif",
-                                fontSize: "15.5px", fontWeight: 700,
-                                color: "#0B2040", letterSpacing: "0.12em",
-                                display: "block", lineHeight: 1,
-                            }}>CATHOLICA</span>
-                            <span style={{
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "9px", color: "#9C9891",
-                                letterSpacing: "0.04em", display: "block",
-                                marginTop: "3px", lineHeight: 1,
-                            }}>가톨릭 행사 허브</span>
-                        </div>
-                    </button>
+                    />
 
                     <div style={{ flex: 1 }} />
 
