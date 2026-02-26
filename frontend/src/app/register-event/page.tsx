@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, MapPin, Calendar, Link, FileText, Tag } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, MapPin, Calendar, Link, FileText, Upload, X, ImageIcon } from "lucide-react";
 
 const CATEGORIES = [
     { label: "피정",   color: "#1B4080", bg: "rgba(27,64,128,0.1)" },
@@ -12,9 +12,11 @@ const CATEGORIES = [
     { label: "청년",   color: "#0B6B70", bg: "rgba(11,107,112,0.1)" },
     { label: "문화",   color: "#7C3AED", bg: "rgba(124,58,237,0.1)" },
     { label: "선교",   color: "#C9A96E", bg: "rgba(201,169,110,0.12)" },
+    { label: "특강",   color: "#C83A1E", bg: "rgba(200,58,30,0.08)" },
+    { label: "강론",   color: "#6E2882", bg: "rgba(110,40,130,0.08)" },
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-wcnovu4ydq-uw.a.run.app";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-775250805671.us-west1.run.app";
 
 interface FormState {
     title: string;
@@ -30,7 +32,7 @@ interface FormState {
 
 export default function RegisterEventPage() {
     const router = useRouter();
-    const [step, setStep] = useState(1); // 1=기본정보, 2=상세정보, 3=제출완료
+    const [step, setStep] = useState(1);
     const [form, setForm] = useState<FormState>({
         title: "", category: "피정", date: "", endDate: "",
         location: "", description: "", originUrl: "",
@@ -38,6 +40,14 @@ export default function RegisterEventPage() {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Image upload state
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [imageUploading, setImageUploading] = useState(false);
+    const [imageDragging, setImageDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
         setForm(prev => ({ ...prev, [key]: e.target.value }));
@@ -55,14 +65,67 @@ export default function RegisterEventPage() {
         setStep(s => s + 1);
     };
 
+    // ── 이미지 처리 ────────────────────────────────────────────────────
+    const handleImageFile = useCallback(async (file: File) => {
+        if (!file.type.startsWith("image/")) { setError("이미지 파일만 업로드할 수 있습니다."); return; }
+        if (file.size > 5 * 1024 * 1024) { setError("이미지는 5MB 이하여야 합니다."); return; }
+
+        setImageFile(file);
+        setImageUrl(null);
+        const reader = new FileReader();
+        reader.onload = e => setImagePreview(e.target?.result as string);
+        reader.readAsDataURL(file);
+
+        // GCS 업로드 시도
+        setImageUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch(`${API_BASE}/events/upload-image`, { method: "POST", body: fd });
+            const data = await res.json();
+            if (data.url) setImageUrl(data.url);
+        } catch { /* GCS 미설정 — imageUrl remains null, preview still shown */ }
+        finally { setImageUploading(false); }
+    }, []);
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault(); setImageDragging(false);
+        const file = e.dataTransfer.files[0];
+        if (file) handleImageFile(file);
+    };
+
+    const removeImage = () => {
+        setImageFile(null); setImagePreview(null); setImageUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    // ── 최종 제출 ──────────────────────────────────────────────────────
     const handleSubmit = async () => {
         setLoading(true); setError(null);
         try {
-            // 실제 API 연결 시 엔드포인트 교체
-            await new Promise(r => setTimeout(r, 1000));
-            setStep(3);
+            const res = await fetch(`${API_BASE}/events/submit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: form.title,
+                    category: form.category,
+                    date: form.date || undefined,
+                    location: form.location,
+                    description: form.description || undefined,
+                    originUrl: form.originUrl || undefined,
+                    imageUrl: imageUrl ?? undefined,
+                    submitterName: form.organizerName || undefined,
+                    submitterContact: form.organizerContact || undefined,
+                }),
+            });
+            if (res.ok) {
+                setStep(3);
+            } else {
+                const data = await res.json();
+                setError(data.message ?? "등록 중 오류가 발생했습니다.");
+            }
         } catch {
-            setError("등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            setError("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
         } finally {
             setLoading(false);
         }
@@ -125,6 +188,14 @@ export default function RegisterEventPage() {
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
                 .fade-in { animation: fadeIn 0.35s ease; }
+                .upload-zone {
+                    border: 2px dashed #D0CDC7; border-radius: 14px;
+                    padding: 36px 24px; text-align: center; cursor: pointer;
+                    transition: all 0.2s; background: #FFFFFF;
+                }
+                .upload-zone:hover, .upload-zone.dragging {
+                    border-color: #0B2040; background: rgba(11,32,64,0.03);
+                }
             `}</style>
 
             <div style={{ minHeight: "100vh", backgroundColor: "#F8F7F4" }}>
@@ -133,14 +204,11 @@ export default function RegisterEventPage() {
                 <header style={{ backgroundColor: "#FFFFFF", borderBottom: "1px solid #E8E5DF", padding: "0 40px", height: "60px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
                         <button onClick={() => router.push("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", color: "#52504B", fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px" }}>
-                            <ArrowLeft size={16} />
-                            <span>홈으로</span>
+                            <ArrowLeft size={16} /><span>홈으로</span>
                         </button>
                         <div style={{ width: "1px", height: "20px", backgroundColor: "#E8E5DF" }} />
                         <span style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "16px", color: "#100F0F" }}>행사 등록</span>
                     </div>
-
-                    {/* 스텝 인디케이터 */}
                     {step < 3 && (
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             {[["1", "기본 정보"], ["2", "상세 정보"]].map(([num, label], i) => {
@@ -173,41 +241,27 @@ export default function RegisterEventPage() {
                             </div>
 
                             <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-
-                                {/* 제목 */}
                                 <div>
                                     <label className="ev-label">행사 제목 *</label>
                                     <div className="field-wrap">
-                                        <FileText size={16} className="field-icon" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "#9C9891" }} />
+                                        <FileText size={16} style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "#9C9891" }} />
                                         <input className="ev-input" type="text" placeholder="예: 2026 봄 피정 프로그램" value={form.title} onChange={set("title")} />
                                     </div>
                                 </div>
 
-                                {/* 카테고리 */}
                                 <div>
                                     <label className="ev-label">카테고리 *</label>
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                                         {CATEGORIES.map(cat => (
-                                            <button
-                                                key={cat.label}
-                                                type="button"
-                                                className="cat-chip"
+                                            <button key={cat.label} type="button" className="cat-chip"
                                                 onClick={() => setForm(prev => ({ ...prev, category: cat.label }))}
-                                                style={{
-                                                    backgroundColor: form.category === cat.label ? cat.bg : "#FFFFFF",
-                                                    borderColor: form.category === cat.label ? cat.color : "#E8E5DF",
-                                                    color: form.category === cat.label ? cat.color : "#52504B",
-                                                    fontWeight: form.category === cat.label ? 600 : 400,
-                                                }}
-                                            >
-                                                {form.category === cat.label && <Check size={12} />}
-                                                {cat.label}
+                                                style={{ backgroundColor: form.category === cat.label ? cat.bg : "#FFFFFF", borderColor: form.category === cat.label ? cat.color : "#E8E5DF", color: form.category === cat.label ? cat.color : "#52504B", fontWeight: form.category === cat.label ? 600 : 400 }}>
+                                                {form.category === cat.label && <Check size={12} />}{cat.label}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
 
-                                {/* 날짜 */}
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                                     <div>
                                         <label className="ev-label">시작 날짜 *</label>
@@ -225,7 +279,6 @@ export default function RegisterEventPage() {
                                     </div>
                                 </div>
 
-                                {/* 장소 */}
                                 <div>
                                     <label className="ev-label">장소 *</label>
                                     <div className="field-wrap">
@@ -235,16 +288,10 @@ export default function RegisterEventPage() {
                                 </div>
                             </div>
 
-                            {error && (
-                                <div style={{ backgroundColor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: "10px", padding: "12px 16px", marginTop: "24px" }}>
-                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px", color: "#DC2626" }}>{error}</p>
-                                </div>
-                            )}
+                            {error && <div style={{ backgroundColor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: "10px", padding: "12px 16px", marginTop: "24px" }}><p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px", color: "#DC2626" }}>{error}</p></div>}
 
                             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "36px" }}>
-                                <button className="ev-btn-primary" onClick={handleNext}>
-                                    다음 단계 <ArrowRight size={16} />
-                                </button>
+                                <button className="ev-btn-primary" onClick={handleNext}>다음 단계 <ArrowRight size={16} /></button>
                             </div>
                         </div>
                     )}
@@ -259,15 +306,17 @@ export default function RegisterEventPage() {
                             </div>
 
                             {/* 미리보기 카드 */}
-                            <div style={{ backgroundColor: "#0B2040", borderRadius: "16px", padding: "24px", marginBottom: "32px", display: "flex", gap: "16px", alignItems: "center" }}>
-                                <div style={{ width: "48px", height: "48px", borderRadius: "12px", backgroundColor: selectedCat.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${selectedCat.color}30` }}>
-                                    <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", fontWeight: 600, color: selectedCat.color }}>{form.category}</span>
-                                </div>
+                            <div style={{ backgroundColor: "#0B2040", borderRadius: "16px", padding: "20px 24px", marginBottom: "32px", display: "flex", gap: "16px", alignItems: "center" }}>
+                                {imagePreview ? (
+                                    <div style={{ width: "48px", height: "48px", borderRadius: "10px", backgroundImage: `url(${imagePreview})`, backgroundSize: "cover", backgroundPosition: "center", flexShrink: 0 }} />
+                                ) : (
+                                    <div style={{ width: "48px", height: "48px", borderRadius: "12px", backgroundColor: selectedCat.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "11px", fontWeight: 600, color: selectedCat.color }}>{form.category}</span>
+                                    </div>
+                                )}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "16px", color: "#FFFFFF", letterSpacing: "-0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                        {form.title || "행사 제목"}
-                                    </p>
-                                    <div style={{ display: "flex", gap: "16px", marginTop: "4px" }}>
+                                    <p style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "15px", color: "#FFFFFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.title || "행사 제목"}</p>
+                                    <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
                                         {form.date && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", color: "rgba(255,255,255,0.5)" }}>{form.date}</span>}
                                         {form.location && <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "11px", color: "rgba(255,255,255,0.5)", fontWeight: 300 }}>📍 {form.location}</span>}
                                     </div>
@@ -277,19 +326,58 @@ export default function RegisterEventPage() {
 
                             <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
 
+                                {/* 사진 업로드 */}
+                                <div>
+                                    <label className="ev-label">행사 사진 (선택)</label>
+                                    {imagePreview ? (
+                                        <div style={{ position: "relative", borderRadius: "14px", overflow: "hidden", border: "1.5px solid #E8E5DF" }}>
+                                            <img src={imagePreview} alt="preview" style={{ width: "100%", height: "200px", objectFit: "cover", display: "block" }} />
+                                            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.5))", display: "flex", alignItems: "flex-end", padding: "16px" }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#fff", fontWeight: 300, display: "flex", alignItems: "center", gap: "6px" }}>
+                                                        {imageUploading ? (
+                                                            <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>업로드 중...</>
+                                                        ) : imageUrl ? "✓ 업로드 완료" : imageFile?.name}
+                                                    </p>
+                                                </div>
+                                                <button type="button" onClick={removeImage}
+                                                    style={{ background: "rgba(0,0,0,0.5)", border: "none", borderRadius: "50%", width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}>
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className={`upload-zone${imageDragging ? " dragging" : ""}`}
+                                            onClick={() => fileInputRef.current?.click()}
+                                            onDragOver={e => { e.preventDefault(); setImageDragging(true); }}
+                                            onDragLeave={() => setImageDragging(false)}
+                                            onDrop={handleDrop}
+                                        >
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+                                                <div style={{ width: "48px", height: "48px", borderRadius: "12px", backgroundColor: "#F0EFE9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <ImageIcon size={22} color="#9C9891" />
+                                                </div>
+                                                <div>
+                                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", color: "#52504B", fontWeight: 500, marginBottom: "4px" }}>클릭하거나 드래그하여 사진 업로드</p>
+                                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891", fontWeight: 300 }}>PNG, JPG, WEBP · 최대 5MB</p>
+                                                </div>
+                                                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 18px", backgroundColor: "#0B2040", color: "#fff", borderRadius: "8px", fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px", fontWeight: 500 }}>
+                                                    <Upload size={14} /> 파일 선택
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }}
+                                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); }} />
+                                </div>
+
                                 {/* 행사 소개 */}
                                 <div>
                                     <label className="ev-label">행사 소개</label>
-                                    <textarea
-                                        className="ev-textarea"
-                                        placeholder="행사에 대한 간략한 소개를 작성해주세요. (2~4문장 권장)"
-                                        value={form.description}
-                                        onChange={set("description")}
-                                        rows={4}
-                                    />
-                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891", marginTop: "6px", fontWeight: 300 }}>
-                                        {form.description.length} / 500자
-                                    </p>
+                                    <textarea className="ev-textarea" placeholder="행사에 대한 간략한 소개를 작성해주세요. (2~4문장 권장)"
+                                        value={form.description} onChange={set("description")} rows={4} maxLength={500} />
+                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891", marginTop: "6px", fontWeight: 300 }}>{form.description.length} / 500자</p>
                                 </div>
 
                                 {/* 원본 URL */}
@@ -299,7 +387,6 @@ export default function RegisterEventPage() {
                                         <Link size={16} style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "#9C9891", pointerEvents: "none" }} />
                                         <input className="ev-input" type="url" placeholder="https://..." value={form.originUrl} onChange={set("originUrl")} />
                                     </div>
-                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891", marginTop: "6px", fontWeight: 300 }}>교구·본당 공식 페이지 URL을 입력하면 자동으로 정보를 불러옵니다.</p>
                                 </div>
 
                                 {/* 주최자 정보 */}
@@ -307,7 +394,7 @@ export default function RegisterEventPage() {
                                     <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.16em", color: "#9C9891", textTransform: "uppercase" as const, marginBottom: "16px" }}>주최자 정보 (선택)</p>
                                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                                         <div>
-                                            <label className="ev-label">주최 기관명</label>
+                                            <label className="ev-label">기관명 / 이름</label>
                                             <input className="ev-input no-icon" type="text" placeholder="예: 명동대성당" value={form.organizerName} onChange={set("organizerName")} />
                                         </div>
                                         <div>
@@ -318,21 +405,20 @@ export default function RegisterEventPage() {
                                 </div>
                             </div>
 
-                            {error && (
-                                <div style={{ backgroundColor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: "10px", padding: "12px 16px", marginTop: "24px" }}>
-                                    <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px", color: "#DC2626" }}>{error}</p>
-                                </div>
-                            )}
+                            {error && <div style={{ backgroundColor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: "10px", padding: "12px 16px", marginTop: "24px" }}><p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px", color: "#DC2626" }}>{error}</p></div>}
 
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "36px" }}>
-                                <button className="ev-btn-outline" onClick={() => setStep(1)}>
-                                    <ArrowLeft size={16} /> 이전
-                                </button>
-                                <button className="ev-btn-primary" onClick={handleSubmit} disabled={loading}>
+                                <button className="ev-btn-outline" onClick={() => setStep(1)}><ArrowLeft size={16} /> 이전</button>
+                                <button className="ev-btn-primary" onClick={handleSubmit} disabled={loading || imageUploading}>
                                     {loading ? (
                                         <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                                             등록 중...
+                                        </span>
+                                    ) : imageUploading ? (
+                                        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                            이미지 업로드 중...
                                         </span>
                                     ) : (
                                         <><Check size={16} /> 행사 등록하기</>
@@ -345,25 +431,31 @@ export default function RegisterEventPage() {
                     {/* ── STEP 3: 완료 ──────────────────────────── */}
                     {step === 3 && (
                         <div className="fade-in" style={{ textAlign: "center", padding: "60px 0" }}>
-                            <div style={{ width: "72px", height: "72px", borderRadius: "50%", backgroundColor: "rgba(22,163,74,0.1)", border: "2px solid #16A34A", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 28px" }}>
-                                <Check size={32} color="#16A34A" />
+                            <div style={{ width: "80px", height: "80px", borderRadius: "50%", backgroundColor: "rgba(201,169,110,0.12)", border: "2px solid #C9A96E", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 28px" }}>
+                                <Check size={36} color="#C9A96E" />
                             </div>
-                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.22em", color: "#C9A96E", textTransform: "uppercase" as const, marginBottom: "16px" }}>Registration Complete</p>
-                            <h2 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "clamp(28px, 4vw, 40px)", color: "#100F0F", letterSpacing: "-0.03em", marginBottom: "16px" }}>
-                                행사 등록 완료!
-                            </h2>
-                            <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "15px", color: "#52504B", lineHeight: 1.9, fontWeight: 300, maxWidth: "400px", margin: "0 auto 40px" }}>
-                                <strong style={{ color: "#100F0F" }}>{form.title}</strong> 행사가<br />
-                                검토 후 곧 게재될 예정입니다.<br />
-                                등록해주셔서 감사합니다.
-                            </p>
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.22em", color: "#C9A96E", textTransform: "uppercase" as const, marginBottom: "16px" }}>Registration Submitted</p>
+                            <h2 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "clamp(26px, 4vw, 38px)", color: "#100F0F", letterSpacing: "-0.03em", marginBottom: "20px" }}>등록 완료!</h2>
+                            <div style={{ maxWidth: "440px", margin: "0 auto 40px", padding: "24px", backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E8E5DF" }}>
+                                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.18em", color: "#9C9891", textTransform: "uppercase" as const, marginBottom: "12px" }}>다음 단계</p>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                    {["등록하신 행사가 검토 대기 중입니다.", "관리자가 내용을 검토한 후 승인하면", "catholica.kr 홈페이지에 공개됩니다."].map((t, i) => (
+                                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                                            <div style={{ width: "20px", height: "20px", borderRadius: "50%", backgroundColor: "#0B204010", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
+                                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "#0B2040", fontWeight: 700 }}>{i + 1}</span>
+                                            </div>
+                                            <p style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px", color: "#52504B", fontWeight: 300, lineHeight: 1.6 }}>{t}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                             <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-                                <button className="ev-btn-primary" onClick={() => router.push("/")}>
-                                    홈으로 돌아가기 <ArrowRight size={16} />
-                                </button>
-                                <button className="ev-btn-outline" onClick={() => { setStep(1); setForm({ title: "", category: "피정", date: "", endDate: "", location: "", description: "", originUrl: "", organizerName: "", organizerContact: "" }); }}>
-                                    새 행사 등록
-                                </button>
+                                <button className="ev-btn-primary" onClick={() => router.push("/")}>홈으로 돌아가기 <ArrowRight size={16} /></button>
+                                <button className="ev-btn-outline" onClick={() => {
+                                    setStep(1);
+                                    setForm({ title: "", category: "피정", date: "", endDate: "", location: "", description: "", originUrl: "", organizerName: "", organizerContact: "" });
+                                    setImageFile(null); setImagePreview(null); setImageUrl(null);
+                                }}>새 행사 등록</button>
                             </div>
                         </div>
                     )}

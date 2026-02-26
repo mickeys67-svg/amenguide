@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Param, Query, Headers, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, ForbiddenException, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { EventsService } from './events.service';
 import { SemanticSearchService } from './semantic-search.service';
 
@@ -90,6 +92,114 @@ export class EventsController {
    * Header: x-admin-key: <ADMIN_API_KEY>
    * Body: { monthsAhead?: number }  (기본값: 3)
    */
+  /**
+   * 공개 행사 등록 (status=PENDING, 관리자 승인 필요)
+   * POST /events/submit
+   */
+  @Post('submit')
+  async submitEvent(
+    @Body() body: {
+      title: string;
+      date?: string;
+      location?: string;
+      description?: string;
+      originUrl?: string;
+      category?: string;
+      imageUrl?: string;
+      submitterName?: string;
+      submitterContact?: string;
+    },
+  ) {
+    if (!body.title?.trim()) throw new BadRequestException('title is required');
+    return this.eventsService.submitEvent(body);
+  }
+
+  /**
+   * 이미지 업로드 (GCS → 공개 URL 반환)
+   * POST /events/upload-image
+   */
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!file.mimetype.startsWith('image/')) {
+        return cb(new BadRequestException('Image files only'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    return this.eventsService.uploadImage(file);
+  }
+
+  /**
+   * 어드민 전체 행사 목록 (status 포함)
+   * GET /events/admin/list?status=PENDING
+   */
+  @Get('admin/list')
+  async getAdminEvents(
+    @Headers('x-admin-key') key: string,
+    @Query('status') status?: string,
+  ) {
+    requireAdminKey(key);
+    return this.eventsService.getAdminEvents(status);
+  }
+
+  /**
+   * 행사 승인
+   * PATCH /events/admin/events/:id/approve
+   */
+  @Patch('admin/events/:id/approve')
+  async approveEvent(
+    @Headers('x-admin-key') key: string,
+    @Param('id') id: string,
+  ) {
+    requireAdminKey(key);
+    return this.eventsService.approveEvent(id);
+  }
+
+  /**
+   * 행사 거절
+   * PATCH /events/admin/events/:id/reject
+   */
+  @Patch('admin/events/:id/reject')
+  async rejectEvent(
+    @Headers('x-admin-key') key: string,
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+  ) {
+    requireAdminKey(key);
+    return this.eventsService.rejectEvent(id, body?.reason);
+  }
+
+  /**
+   * 행사 수정 (관리자)
+   * PUT /events/admin/events/:id
+   */
+  @Put('admin/events/:id')
+  async adminUpdateEvent(
+    @Headers('x-admin-key') key: string,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    requireAdminKey(key);
+    return this.eventsService.adminUpdateEvent(id, body);
+  }
+
+  /**
+   * 행사 삭제 (관리자)
+   * DELETE /events/admin/events/:id
+   */
+  @Delete('admin/events/:id')
+  async adminDeleteEvent(
+    @Headers('x-admin-key') key: string,
+    @Param('id') id: string,
+  ) {
+    requireAdminKey(key);
+    return this.eventsService.adminDeleteEvent(id);
+  }
+
   @Post('admin/diocese-sync')
   async dioceseSync(
     @Headers('x-admin-key') key: string,

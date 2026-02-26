@@ -151,7 +151,15 @@ export default function LuceDiFedeHome() {
                         originUrl: e.originUrl,
                         createdAt: e.createdAt,
                     }));
-                    setEvents(mappedEvents);
+                    // title + rawDate 조합으로 중복 제거
+                    const seen = new Set<string>();
+                    const deduped = mappedEvents.filter(e => {
+                        const key = `${e.title}|${e.rawDate ?? 'nodate'}`;
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+                    setEvents(deduped);
                 }
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : "Failed to load events.";

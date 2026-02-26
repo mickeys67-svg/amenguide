@@ -68,6 +68,16 @@ export class PrismaService
       );
     `;
     await this.$executeRawUnsafe(sql);
+
+    // Add new columns for existing tables (idempotent ALTER TABLE)
+    const alterSql = `
+      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "status" TEXT DEFAULT 'APPROVED';
+      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "submitterName" TEXT;
+      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "submitterContact" TEXT;
+      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;
+    `;
+    await this.$executeRawUnsafe(alterSql);
     console.log('--- DEFINITIVE DATABASE INITIALIZATION COMPLETE ---');
   }
 

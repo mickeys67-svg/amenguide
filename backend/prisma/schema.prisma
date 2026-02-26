@@ -23,19 +23,24 @@ model User {
 }
 
 model Event {
-  id           String   @id @default(uuid())
-  title        String
-  date         DateTime?
-  location     String?
-  latitude     Float?
-  longitude    Float?
-  originUrl    String?
-  aiSummary    String?  @db.Text
-  themeColor   String?  // 스테인드글라스 테마 색상값
-  category     String?  // 피정, 강론, 행사 등
-  bookmarks    Bookmark[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(uuid())
+  title            String
+  date             DateTime?
+  location         String?
+  latitude         Float?
+  longitude        Float?
+  originUrl        String?
+  aiSummary        String?  @db.Text
+  themeColor       String?  // 스테인드글라스 테마 색상값
+  category         String?  // 피정, 강론, 행사 등
+  status           String   @default("PENDING")  // PENDING | APPROVED | REJECTED
+  imageUrl         String?  // 행사 대표 이미지
+  submitterName    String?  // 등록자 이름
+  submitterContact String?  // 등록자 연락처
+  rejectionReason  String?  // 거절 사유
+  bookmarks        Bookmark[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Bookmark {

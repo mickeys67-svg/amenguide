@@ -14,6 +14,8 @@ async function bootstrap() {
     'http://localhost:3000',
     'https://amenguide-git-775250805671.us-west1.run.app',
     'https://amenguide-git-wcnovu4ydq-uw.a.run.app',
+    'https://catholica.kr',
+    'https://www.catholica.kr',
   ].filter(Boolean) as string[];
   app.enableCors({
     origin: (origin, callback) => {

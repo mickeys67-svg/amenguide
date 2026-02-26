@@ -56,7 +56,7 @@ export function Logo({
         >
             {/* 아이콘 마크 (텍스트 없는 PNG) */}
             <img
-                src="/logo.png"
+                src="/logo.png?v=3"
                 alt=""
                 style={{
                     height: size + "px",
