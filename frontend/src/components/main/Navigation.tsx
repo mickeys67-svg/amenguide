@@ -40,7 +40,13 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
     }, [menuOpen]);
 
     const scrollTo = (id: string) => {
-        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+        const el = document.getElementById(id);
+        if (el) {
+            // nav(60px) + FilterBar(~50px) 오프셋 적용 — scrollIntoView는 sticky bar 무시
+            const offset = id === "events" ? 110 : 60;
+            const y = el.getBoundingClientRect().top + window.scrollY - offset;
+            window.scrollTo({ top: y, behavior: "smooth" });
+        }
         setMenuOpen(false);
     };
 

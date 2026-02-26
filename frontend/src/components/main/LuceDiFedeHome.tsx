@@ -225,8 +225,13 @@ export default function LuceDiFedeHome() {
         return map;
     }, [events]);
 
-    const scrollToEvents = () =>
-        eventsRef.current?.scrollIntoView({ behavior: "smooth" });
+    const scrollToEvents = () => {
+        const el = eventsRef.current;
+        if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 110;
+            window.scrollTo({ top: y, behavior: "smooth" });
+        }
+    };
 
     return (
         <div style={{ backgroundColor: "#F8F7F4", minHeight: "100vh" }}>
