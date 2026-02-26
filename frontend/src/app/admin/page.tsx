@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, AlertCircle, Shield, PlusCircle, RotateCcw, ExternalLink, Calendar, MapPin, Link, FileText, Palette } from "lucide-react";
+import { Check, AlertCircle, Shield, PlusCircle, RotateCcw, Calendar, MapPin, Link, FileText, Palette, Tag } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-wcnovu4ydq-uw.a.run.app";
 
