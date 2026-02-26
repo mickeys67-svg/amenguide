@@ -4,12 +4,9 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
-// 밝고 아름다운 성당 내부 이미지
-const HERO_IMAGE =
-    "https://images.unsplash.com/photo-1548625149-720754f8b136?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=85&w=1200";
-
-const HERO_IMAGE_FALLBACK =
-    "https://images.pexels.com/photos/208216/pexels-photo-208216.jpeg?auto=compress&cs=tinysrgb&w=1200";
+// 히어로 이미지 — public 폴더에 hero.jpg (또는 hero.png) 배치
+const HERO_IMAGE = "/hero.jpg";
+const HERO_IMAGE_FALLBACK = "/hero.jpg";
 
 interface HeroProps {
     eventCount: number;
@@ -30,7 +27,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
         <section
             style={{
                 backgroundColor: "#FFFFFF",
-                paddingTop: "60px",          // nav height
+                paddingTop: "72px",          // nav height
                 minHeight: "clamp(560px, 88vh, 960px)",
                 display: "flex",
                 flexDirection: "column",

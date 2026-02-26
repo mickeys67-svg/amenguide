@@ -79,7 +79,7 @@ export default function AdminPage() {
                         {/* 로고 */}
                         <div style={{ textAlign: "center", marginBottom: "40px" }}>
                             <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
-                                <Logo variant="light" size={40} />
+                                <Logo variant="light" size={80} />
                             </div>
                             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.22em", color: "#C9A96E", textTransform: "uppercase" }}>Admin Panel</p>
                             <h1 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "24px", color: "#FFFFFF", letterSpacing: "-0.02em", marginTop: "8px" }}>관리자 인증</h1>
@@ -152,7 +152,7 @@ export default function AdminPage() {
 
                     {/* 헤더 */}
                     <div style={{ marginBottom: "40px" }}>
-                        <Logo variant="light" size={26} showSubtitle={false} />
+                        <Logo variant="light" size={36} />
                         <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
                             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.18em", color: "#C9A96E", textTransform: "uppercase" as const }}>Admin Panel</p>
                             <h2 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "17px", color: "#FFFFFF", marginTop: "6px" }}>관리자 패널</h2>

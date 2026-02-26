@@ -126,7 +126,7 @@ export default function RegisterPage() {
                     <div style={{ position: "absolute", top: "-80px", right: "-80px", width: "340px", height: "340px", borderRadius: "50%", border: "1px solid rgba(201,169,110,0.12)", pointerEvents: "none" }} />
 
                     {/* 로고 */}
-                    <Logo variant="light" size={32} />
+                    <Logo variant="light" size={80} />
 
                     {/* 카피 */}
                     <div>

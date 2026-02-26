@@ -123,7 +123,7 @@ export default function LoginPage() {
                     <div style={{ position: "absolute", bottom: "60px", left: "-60px", width: "220px", height: "220px", borderRadius: "50%", border: "1px solid rgba(201,169,110,0.08)", pointerEvents: "none" }} />
 
                     {/* 로고 */}
-                    <Logo variant="light" size={32} />
+                    <Logo variant="light" size={80} />
 
                     {/* 카피 */}
                     <div>

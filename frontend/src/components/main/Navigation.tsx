@@ -60,7 +60,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                     position: "fixed",
                     top: 0, left: 0, right: 0,
                     zIndex: 50,
-                    height: "60px",
+                    height: "72px",
                     backgroundColor: "#FFFFFF",
                     borderBottom: `1px solid ${scrolled ? "#E8E5DF" : "transparent"}`,
                     boxShadow: scrolled ? "0 1px 20px rgba(0,0,0,0.07)" : "none",
@@ -74,7 +74,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                     {/* ── Logo ── */}
                     <Logo
                         variant="dark"
-                        size={28}
+                        size={64}
                         style={{ flexShrink: 0 }}
                         onClick={() => { onFilterChange("전체"); router.push("/"); }}
                     />

@@ -25,7 +25,7 @@ export function FilterBar({
         <div
             style={{
                 position: "sticky",
-                top: "60px",
+                top: "72px",
                 zIndex: 40,
                 backgroundColor: "rgba(255,255,255,0.97)",
                 backdropFilter: "blur(14px)",
