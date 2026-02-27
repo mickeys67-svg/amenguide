@@ -28,6 +28,27 @@ jobs:
           project_id: ${{ steps.auth.outputs.project_id }}
 
       # ─── BACKEND ──────────────────────────────────────────────────
+      - name: Create backend env vars file
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SCRAPER_API_KEY: ${{ secrets.SCRAPER_API_KEY }}
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          python3 -c "
+          import os, json
+          keys=['DATABASE_URL','ANTHROPIC_API_KEY','SCRAPER_API_KEY','ADMIN_API_KEY',
+                'SUPABASE_URL','SUPABASE_SERVICE_KEY','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','JWT_SECRET']
+          with open('/tmp/backend-env.yaml','w') as f:
+            for k in keys:
+              f.write(k+': '+json.dumps(os.environ.get(k,''))+'\n')
+          "
+
       - name: Deploy Backend to Cloud Run
         run: |
           gcloud run deploy ${{ env.BACKEND_SERVICE }} \
@@ -35,7 +56,7 @@ jobs:
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},SCRAPER_API_KEY=${{ secrets.SCRAPER_API_KEY }},ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }},GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},JWT_SECRET=${{ secrets.JWT_SECRET }}" \
+            --env-vars-file /tmp/backend-env.yaml \
             --quiet
 
       - name: Show Backend URL
