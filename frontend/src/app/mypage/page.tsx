@@ -157,7 +157,7 @@ export default function MyPage() {
         }).catch(() => {});
     };
 
-    /* ?? 로그?웃 ?????????????????????????????????????????? */
+    /* ── 로그아웃 ──────────────────────────────────────────────────── */
     const handleLogout = () => {
         localStorage.removeItem("authToken");
         localStorage.removeItem("authUser");
@@ -400,7 +400,7 @@ export default function MyPage() {
                                     <p style={{
                                         fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px",
                                         fontWeight: 500, color: "#100F0F", marginBottom: "2px",
-                                    }}>로그?웃</p>
+                                    }}>로그아웃</p>
                                     <p style={{
                                         fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px",
                                         color: "#9C9891",
@@ -420,7 +420,7 @@ export default function MyPage() {
                                     onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
                                 >
                                     <LogOut size={13} />
-                                    로그?웃
+                                    로그아웃
                                 </button>
                             </div>
                         </div>
