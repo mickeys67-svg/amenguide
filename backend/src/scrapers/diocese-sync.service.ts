@@ -197,7 +197,8 @@ export class DioceseSyncService {
         themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
         originUrl,
         category,
-      },
+        status: 'APPROVED', // 교구 스크래핑 행사는 즉시 공개
+      } as any,
     });
 
     this.logger.log(`[Busan] ✅ 저장: ${title} [${category}] @ ${location}`);
@@ -493,7 +494,8 @@ export class DioceseSyncService {
         themeColor: evt.themeColor,
         originUrl: evt.originUrl,
         category: evt.category,
-      },
+        status: 'APPROVED', // 교구 스크래핑 행사는 즉시 공개
+      } as any,
     });
 
     this.logger.log(

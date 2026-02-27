@@ -12,9 +12,9 @@ import { SearchModal } from "./SearchModal";
 import CustomMap from "../map/CustomMap";
 import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
-import { ArrowRight, MapPin, PlusCircle, LogIn } from "lucide-react";
+import { ArrowRight, MapPin, PlusCircle, LogIn, User, LogOut } from "lucide-react";
 
-/* ── 아이콘 SVG (카테고리별) ─────────────────────────────────────────────── */
+/* ?? ?이?SVG (카테고리? ??????????????????????????????????????????????? */
 const CATEGORY_ICONS: Record<string, ReactNode> = {
     피정: (
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -53,7 +53,7 @@ const CATEGORY_ICONS: Record<string, ReactNode> = {
     ),
 };
 
-// ── 두 좌표 간 거리 계산 (km) — Haversine formula ─────────────────────────
+// ?? ??좌표 ?거리 계산 (km) ??Haversine formula ?????????????????????????
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -84,7 +84,27 @@ export default function LuceDiFedeHome() {
     const [searchOpen, setSearchOpen] = useState(false);
     const eventsRef = useRef<HTMLDivElement>(null);
 
-    // ── GPS 상태 ────────────────────────────────────────────────────────────
+    // ?? 로그???태 ??????????????????????????????????????????????????????????
+    interface AuthUser { id: string; email: string; name: string; }
+    const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("authUser");
+            if (raw) setAuthUser(JSON.parse(raw));
+        } catch {}
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === "authUser" || e.key === "authToken" || e.key === null) {
+                try {
+                    const raw = localStorage.getItem("authUser");
+                    setAuthUser(raw ? JSON.parse(raw) : null);
+                } catch { setAuthUser(null); }
+            }
+        };
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
+    }, []);
+
+    // ?? GPS ?태 ????????????????????????????????????????????????????????????
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [geoLoading, setGeoLoading] = useState(false);
     const [geoError, setGeoError] = useState<string | null>(null);
@@ -95,7 +115,7 @@ export default function LuceDiFedeHome() {
             setGeoError(null);
             return;
         }
-        // 이미 위치 획득 완료 → 바로 적용
+        // ?? ?치 ?득 ?료 ??바로 ?용
         if (userLocation) {
             setSortBy("distance");
             return;
@@ -124,6 +144,29 @@ export default function LuceDiFedeHome() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // ?? 즐겨찾기 ?태 ????????????????????????????????????????????????????????
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-775250805671.us-west1.run.app";
+    const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        const token = localStorage.getItem("authToken");
+        if (!token) return;
+        fetch(`${API_BASE}/auth/me/bookmarked-ids`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then(r => r.json())
+            .then(data => { if (data.ids) setBookmarkedIds(new Set(data.ids)); })
+            .catch(() => {});
+    }, [API_BASE]);
+
+    const handleBookmarkToggle = (eventId: string, current: boolean) => {
+        setBookmarkedIds(prev => {
+            const next = new Set(prev);
+            if (current) next.delete(eventId); else next.add(eventId);
+            return next;
+        });
+    };
+
     useEffect(() => {
         const fetchEvents = async () => {
             setIsLoading(true);
@@ -136,9 +179,9 @@ export default function LuceDiFedeHome() {
                         title: e.title,
                         subtitle: e.category || "",
                         category: e.category || "피정",
-                        date: e.date ? new Date(e.date).toLocaleDateString("ko-KR") : "연중 상시",
+                        date: e.date ? new Date(e.date).toLocaleDateString("ko-KR") : "날짜 미정",
                         rawDate: e.date || undefined,
-                        location: e.location || "장소미정",
+                        location: e.location || "장소 미정",
                         organizer: "Catholica",
                         description: e.aiSummary || "",
                         aiSummary: e.aiSummary,
@@ -151,7 +194,7 @@ export default function LuceDiFedeHome() {
                         originUrl: e.originUrl,
                         createdAt: e.createdAt,
                     }));
-                    // title + rawDate 조합으로 중복 제거
+                    // title + rawDate 조합?로 중복 ?거
                     const seen = new Set<string>();
                     const deduped = mappedEvents.filter(e => {
                         const key = `${e.title}|${e.rawDate ?? 'nodate'}`;
@@ -198,14 +241,14 @@ export default function LuceDiFedeHome() {
                 const hasA = a.latitude != null && a.longitude != null;
                 const hasB = b.latitude != null && b.longitude != null;
                 if (!hasA && !hasB) return 0;
-                if (!hasA) return 1;   // 좌표 없으면 뒤로
+                if (!hasA) return 1;   // 좌표 ?으??로
                 if (!hasB) return -1;
                 const dA = haversineKm(userLocation.lat, userLocation.lng, a.latitude!, a.longitude!);
                 const dB = haversineKm(userLocation.lat, userLocation.lng, b.latitude!, b.longitude!);
                 return dA - dB;
             });
         } else {
-            // 기본: 날짜 가까운순
+            // 기본: 날짜 가까운 순
             list.sort((a, b) => {
                 if (!a.rawDate) return 1;
                 if (!b.rawDate) return -1;
@@ -219,7 +262,7 @@ export default function LuceDiFedeHome() {
     const countByCategory = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        // filteredEvents 와 동일한 날짜 기준 — 과거 행사 제외
+        // filteredEvents ? ?일???짜 기? ??과거 ?사 ?외
         const upcoming = events.filter((e) => {
             if (!e.rawDate) return true;
             const d = new Date(e.rawDate);
@@ -249,23 +292,21 @@ export default function LuceDiFedeHome() {
                 onSearchOpen={() => setSearchOpen(true)}
             />
 
-            {/* ════════════════════════════════════
-                HERO — 밝고 시원한 스플릿 레이아웃
-            ════════════════════════════════════ */}
+            {/* ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═
+                HERO ??밝고 ?원???플??이?웃
+            ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═ */}
             <Hero eventCount={events.length} onScrollDown={scrollToEvents} />
 
-            {/* ════════════════════════════════════
+            {/* ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═
                 EVENTS SECTION
-            ════════════════════════════════════ */}
+            ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═ */}
             <section ref={eventsRef} id="events" style={{ backgroundColor: "#F8F7F4", paddingBottom: "96px" }}>
 
-                {/* ── 카테고리 타일 ──────────────────────────────────────── */}
+                {/* ?? 카테고리 ??????????????????????????????????????????? */}
                 <div style={{ backgroundColor: "#FFFFFF", borderBottom: "1px solid #E8E5DF" }}>
                     <div className="sacred-rail">
-                        {/* 반응형 타일 그리드
-                            Desktop  (>900px) : 7열 1행
-                            Tablet   (600-900): 4열 wrap
-                            Mobile   (<600px) : 가로 스크롤 (flex)
+                        {/* 반응?????그리??                            Desktop  (>900px) : 7??1??                            Tablet   (600-900): 4??wrap
+                            Mobile   (<600px) : 가??크?(flex)
                         */}
                         <style>{`
                             .cat-tiles {
@@ -334,12 +375,12 @@ export default function LuceDiFedeHome() {
                                             border: `1.5px solid ${isActive ? cat.color : "#E8E5DF"}`,
                                         }}
                                     >
-                                        {/* 아이콘 */}
+                                        {/* ?이?*/}
                                         <span style={{ opacity: isActive ? 1 : 0.85 }}>
                                             {CATEGORY_ICONS[cat.label]}
                                         </span>
 
-                                        {/* 레이블 */}
+                                        {/* ?이?*/}
                                         <span style={{
                                             fontFamily: "'Noto Sans KR', sans-serif",
                                             fontWeight: 600,
@@ -351,7 +392,7 @@ export default function LuceDiFedeHome() {
                                             {cat.label}
                                         </span>
 
-                                        {/* 카운트 */}
+                                        {/* 카운??*/}
                                         <span style={{
                                             fontFamily: "'DM Mono', monospace",
                                             fontSize: "18px",
@@ -362,7 +403,7 @@ export default function LuceDiFedeHome() {
                                             {count}
                                         </span>
 
-                                        {/* 활성 상태 top accent bar */}
+                                        {/* ?성 ?태 top accent bar */}
                                         {isActive && (
                                             <span style={{
                                                 position: "absolute",
@@ -381,7 +422,7 @@ export default function LuceDiFedeHome() {
                     </div>
                 </div>
 
-                {/* 전체 보기 버튼 — 카테고리 선택 시 표시 */}
+                {/* ?체 보기 버튼 ??카테고리 ?택 ???시 */}
                 {activeFilter !== "전체" && (
                     <div className="sacred-rail" style={{ paddingTop: "14px" }}>
                         <button
@@ -401,7 +442,7 @@ export default function LuceDiFedeHome() {
                                 cursor: "pointer",
                             }}
                         >
-                            ✕ 필터 해제 · 전체 보기
+                            필터 제거 · 전체 보기
                         </button>
                     </div>
                 )}
@@ -501,7 +542,7 @@ export default function LuceDiFedeHome() {
                                 color: "#9C9891",
                                 marginTop: "10px",
                             }}>
-                                다른 카테고리를 선택해 보세요
+                                다른 카테고리를 선택해보세요
                             </p>
                         </motion.div>
                     ) : viewMode === "grid" ? (
@@ -512,14 +553,21 @@ export default function LuceDiFedeHome() {
                             transition={{ duration: 0.35 }}
                             style={{
                                 display: "grid",
-                                /* 고정 3컬럼 — 카드 높이 균일 */
+                                /* 고정 3컬럼 ??카드 ?이 균일 */
                                 gridTemplateColumns: "repeat(3, 1fr)",
                                 gridAutoRows: "1fr",
                                 gap: "22px",
                             }}
                         >
                             {filteredEvents.map((event, i) => (
-                                <EventCard key={event.id} event={event} index={i} variant="grid" />
+                                <EventCard
+                                    key={event.id}
+                                    event={event}
+                                    index={i}
+                                    variant="grid"
+                                    isBookmarked={bookmarkedIds.has(String(event.id))}
+                                    onBookmarkToggle={handleBookmarkToggle}
+                                />
                             ))}
                         </motion.div>
                     ) : (
@@ -551,16 +599,23 @@ export default function LuceDiFedeHome() {
                                 ))}
                             </div>
                             {filteredEvents.map((event, i) => (
-                                <EventCard key={event.id} event={event} index={i} variant="list" />
+                                <EventCard
+                                    key={event.id}
+                                    event={event}
+                                    index={i}
+                                    variant="list"
+                                    isBookmarked={bookmarkedIds.has(String(event.id))}
+                                    onBookmarkToggle={handleBookmarkToggle}
+                                />
                             ))}
                         </motion.div>
                     )}
                 </div>
             </section>
 
-            {/* ════════════════════════════════════
+            {/* ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═
                 MAP SECTION
-            ════════════════════════════════════ */}
+            ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═ */}
             <section id="map" style={{ backgroundColor: "#0B2040", padding: "72px 0" }}>
                 <div className="sacred-rail">
                     <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }}>
@@ -614,9 +669,8 @@ export default function LuceDiFedeHome() {
                 </div>
             </section>
 
-            {/* ════════════════════════════════════
-                CTA SECTION — 행사 등록 + 로그인
-            ════════════════════════════════════ */}
+            {/* ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═
+                CTA SECTION ???사 ?록 + 로그??            ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═ */}
             <style>{`
                 .cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
                 @media (max-width: 720px) { .cta-grid { grid-template-columns: 1fr; } }
@@ -624,7 +678,7 @@ export default function LuceDiFedeHome() {
             <section style={{ backgroundColor: "#F8F7F4", padding: "96px 0" }}>
                 <div className="sacred-rail">
 
-                    {/* 섹션 eyebrow */}
+                    {/* ?션 eyebrow */}
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "48px", justifyContent: "center" }}>
                         <div style={{ height: "1px", width: "36px", backgroundColor: "#C9A96E" }} />
                         <span style={{
@@ -641,7 +695,7 @@ export default function LuceDiFedeHome() {
 
                     <div className="cta-grid">
 
-                        {/* ── 카드 1: 행사 등록 ────────────────────────── */}
+                        {/* ?? 카드 1: ?사 ?록 ?????????????????????????? */}
                         <motion.div
                             initial={{ opacity: 0, y: 24 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -658,7 +712,7 @@ export default function LuceDiFedeHome() {
                                 overflow: "hidden" as const,
                             }}
                         >
-                            {/* 배경 장식 */}
+                            {/* 배경 ?식 */}
                             <div style={{
                                 position: "absolute",
                                 top: "-40px", right: "-40px",
@@ -676,7 +730,7 @@ export default function LuceDiFedeHome() {
                                 pointerEvents: "none",
                             }} />
 
-                            {/* 아이콘 */}
+                            {/* ?이?*/}
                             <div style={{
                                 width: "52px", height: "52px",
                                 borderRadius: "14px",
@@ -688,7 +742,7 @@ export default function LuceDiFedeHome() {
                                 <PlusCircle size={26} />
                             </div>
 
-                            {/* 배지 */}
+                            {/* 배? */}
                             <span style={{
                                 display: "inline-block",
                                 fontFamily: "'DM Mono', monospace",
@@ -701,7 +755,7 @@ export default function LuceDiFedeHome() {
                                 행사 주최자
                             </span>
 
-                            {/* 제목 */}
+                            {/* ?목 */}
                             <h2 style={{
                                 fontFamily: "'Noto Serif KR', serif",
                                 fontWeight: 900,
@@ -712,10 +766,10 @@ export default function LuceDiFedeHome() {
                                 marginBottom: "16px",
                             }}>
                                 행사를 등록하고<br />
-                                <span style={{ color: "#C9A96E" }}>더 많은 신자와</span> 만나세요
+                                <span style={{ color: "#C9A96E" }}>더 많은 신자를</span> 만나세요
                             </h2>
 
-                            {/* 설명 */}
+                            {/* ?명 */}
                             <p style={{
                                 fontFamily: "'Noto Sans KR', sans-serif",
                                 fontSize: "14px",
@@ -726,7 +780,7 @@ export default function LuceDiFedeHome() {
                                 flexGrow: 1,
                             }}>
                                 피정, 미사, 강의, 순례 등 교회 행사를 등록하면<br />
-                                전국 신자들에게 소개됩니다.<br />
+                                전국 신자들에게 알려집니다.<br />
                                 무료로 시작할 수 있습니다.
                             </p>
 
@@ -748,7 +802,7 @@ export default function LuceDiFedeHome() {
                                         color: "rgba(255,255,255,0.7)",
                                         fontWeight: 300,
                                     }}>
-                                        <span style={{ color: "#C9A96E", fontSize: "16px", lineHeight: 1 }}>✓</span>
+                                        <span style={{ color: "#C9A96E", fontSize: "16px", lineHeight: 1 }}>•</span>
                                         {item}
                                     </li>
                                 ))}
@@ -790,7 +844,7 @@ export default function LuceDiFedeHome() {
                             </button>
                         </motion.div>
 
-                        {/* ── 카드 2: 로그인 / 회원가입 ───────────────── */}
+                        {/* ?? 카드 2: 로그??비로그인) / ?영(로그?? ??? */}
                         <motion.div
                             initial={{ opacity: 0, y: 24 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -806,149 +860,312 @@ export default function LuceDiFedeHome() {
                                 gap: "0px",
                             }}
                         >
-                            {/* 아이콘 */}
-                            <div style={{
-                                width: "52px", height: "52px",
-                                borderRadius: "14px",
-                                backgroundColor: "rgba(11,32,64,0.07)",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                marginBottom: "28px",
-                                color: "#0B2040",
-                            }}>
-                                <LogIn size={24} />
-                            </div>
+                            {authUser ? (
+                                /* ?? 로그???태 ?? */
+                                <>
+                                    {/* ?이?*/}
+                                    <div style={{
+                                        width: "52px", height: "52px",
+                                        borderRadius: "14px",
+                                        backgroundColor: "#0B2040",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        marginBottom: "28px",
+                                        color: "#C9A96E",
+                                    }}>
+                                        <User size={24} />
+                                    </div>
 
-                            {/* 배지 */}
-                            <span style={{
-                                display: "inline-block",
-                                fontFamily: "'DM Mono', monospace",
-                                fontSize: "10px",
-                                letterSpacing: "0.18em",
-                                textTransform: "uppercase" as const,
-                                color: "#9C9891",
-                                marginBottom: "14px",
-                            }}>
-                                Members
-                            </span>
+                                    {/* 배? */}
+                                    <span style={{
+                                        display: "inline-block",
+                                        fontFamily: "'DM Mono', monospace",
+                                        fontSize: "10px",
+                                        letterSpacing: "0.18em",
+                                        textTransform: "uppercase" as const,
+                                        color: "#C9A96E",
+                                        marginBottom: "14px",
+                                    }}>
+                                        Welcome Back
+                                    </span>
 
-                            {/* 제목 */}
-                            <h2 style={{
-                                fontFamily: "'Noto Serif KR', serif",
-                                fontWeight: 900,
-                                fontSize: "clamp(22px, 3.5vw, 34px)",
-                                color: "#100F0F",
-                                letterSpacing: "-0.03em",
-                                lineHeight: 1.25,
-                                marginBottom: "16px",
-                            }}>
-                                로그인하고<br />
-                                <span style={{ color: "#C9A96E" }}>더 많은 기능을</span> 사용하세요
-                            </h2>
+                                    {/* ?목 */}
+                                    <h2 style={{
+                                        fontFamily: "'Noto Serif KR', serif",
+                                        fontWeight: 900,
+                                        fontSize: "clamp(22px, 3.5vw, 34px)",
+                                        color: "#100F0F",
+                                        letterSpacing: "-0.03em",
+                                        lineHeight: 1.25,
+                                        marginBottom: "16px",
+                                    }}>
+                                        {authUser.name}??<br />
+                                        <span style={{ color: "#C9A96E" }}>???셨?니??</span>
+                                    </h2>
 
-                            {/* 설명 */}
-                            <p style={{
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "14px",
-                                color: "#52504B",
-                                fontWeight: 300,
-                                lineHeight: 1.9,
-                                marginBottom: "32px",
-                                flexGrow: 1,
-                            }}>
-                                즐겨찾기, 행사 알림, 맞춤 추천 등<br />
-                                로그인 회원 전용 서비스를 이용하세요.
-                            </p>
-
-                            {/* 기능 목록 */}
-                            <ul style={{
-                                listStyle: "none",
-                                display: "flex",
-                                flexDirection: "column" as const,
-                                gap: "8px",
-                                marginBottom: "32px",
-                            }}>
-                                {["관심 행사 즐겨찾기", "행사 일정 알림", "맞춤 행사 추천"].map(item => (
-                                    <li key={item} style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
+                                    {/* ?명 */}
+                                    <p style={{
                                         fontFamily: "'Noto Sans KR', sans-serif",
-                                        fontSize: "13px",
+                                        fontSize: "14px",
                                         color: "#52504B",
                                         fontWeight: 300,
+                                        lineHeight: 1.9,
+                                        marginBottom: "32px",
+                                        flexGrow: 1,
                                     }}>
-                                        <span style={{ color: "#C9A96E", fontSize: "16px", lineHeight: 1 }}>✓</span>
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
+                                        ?국 가?릭 ?사??색?고<br />
+                                        관???사?즐겨찾기 ?보?요.
+                                    </p>
 
-                            {/* 버튼 */}
-                            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" as const }}>
-                                <button
-                                    onClick={() => router.push("/login")}
-                                    style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
+                                    {/* 기능 목록 */}
+                                    <ul style={{
+                                        listStyle: "none",
+                                        display: "flex",
+                                        flexDirection: "column" as const,
                                         gap: "8px",
-                                        padding: "15px 28px",
-                                        backgroundColor: "#0B2040",
-                                        color: "#FFFFFF",
-                                        borderRadius: "10px",
-                                        fontFamily: "'Noto Sans KR', sans-serif",
-                                        fontSize: "14px",
-                                        fontWeight: 600,
-                                        border: "none",
-                                        cursor: "pointer",
-                                        transition: "background 0.2s, transform 0.15s",
-                                        letterSpacing: "0.02em",
-                                    }}
-                                    onMouseEnter={e => {
-                                        const el = e.currentTarget as HTMLElement;
-                                        el.style.backgroundColor = "#183568";
-                                        el.style.transform = "translateY(-2px)";
-                                    }}
-                                    onMouseLeave={e => {
-                                        const el = e.currentTarget as HTMLElement;
-                                        el.style.backgroundColor = "#0B2040";
-                                        el.style.transform = "translateY(0)";
-                                    }}
-                                >
-                                    로그인
-                                    <ArrowRight size={15} />
-                                </button>
-                                <button
-                                    onClick={() => router.push("/register")}
-                                    style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                        padding: "15px 28px",
-                                        backgroundColor: "transparent",
+                                        marginBottom: "32px",
+                                    }}>
+                                        {["관심 행사 즐겨찾기", "행사 일정 알림", "맞춤 행사 추천"].map(item => (
+                                            <li key={item} style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "13px",
+                                                color: "#52504B",
+                                                fontWeight: 300,
+                                            }}>
+                                                <span style={{ color: "#C9A96E", fontSize: "16px", lineHeight: 1 }}>•</span>
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+
+                                    {/* 버튼 */}
+                                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" as const }}>
+                                        <button
+                                            onClick={() => {
+                                                const el = document.getElementById("events");
+                                                if (el) {
+                                                    const y = el.getBoundingClientRect().top + window.scrollY - 110;
+                                                    window.scrollTo({ top: y, behavior: "smooth" });
+                                                }
+                                            }}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                padding: "15px 28px",
+                                                backgroundColor: "#0B2040",
+                                                color: "#FFFFFF",
+                                                borderRadius: "10px",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "14px",
+                                                fontWeight: 600,
+                                                border: "none",
+                                                cursor: "pointer",
+                                                transition: "background 0.2s, transform 0.15s",
+                                                letterSpacing: "0.02em",
+                                            }}
+                                            onMouseEnter={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.backgroundColor = "#183568";
+                                                el.style.transform = "translateY(-2px)";
+                                            }}
+                                            onMouseLeave={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.backgroundColor = "#0B2040";
+                                                el.style.transform = "translateY(0)";
+                                            }}
+                                        >
+                                            ?사 ?러보기
+                                            <ArrowRight size={15} />
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                localStorage.removeItem("authToken");
+                                                localStorage.removeItem("authUser");
+                                                setAuthUser(null);
+                                                window.location.href = "/";
+                                            }}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                padding: "15px 28px",
+                                                backgroundColor: "transparent",
+                                                color: "#9C9891",
+                                                borderRadius: "10px",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "14px",
+                                                fontWeight: 500,
+                                                border: "1.5px solid #E8E5DF",
+                                                cursor: "pointer",
+                                                transition: "border-color 0.2s, color 0.2s, transform 0.15s",
+                                            }}
+                                            onMouseEnter={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.borderColor = "#DC2626";
+                                                el.style.color = "#DC2626";
+                                                el.style.transform = "translateY(-2px)";
+                                            }}
+                                            onMouseLeave={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.borderColor = "#E8E5DF";
+                                                el.style.color = "#9C9891";
+                                                el.style.transform = "translateY(0)";
+                                            }}
+                                        >
+                                            <LogOut size={14} />
+                                            로그?웃
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                /* ?? 비로그인 ?태 ?? */
+                                <>
+                                    {/* ?이?*/}
+                                    <div style={{
+                                        width: "52px", height: "52px",
+                                        borderRadius: "14px",
+                                        backgroundColor: "rgba(11,32,64,0.07)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        marginBottom: "28px",
                                         color: "#0B2040",
-                                        borderRadius: "10px",
+                                    }}>
+                                        <LogIn size={24} />
+                                    </div>
+
+                                    {/* 배? */}
+                                    <span style={{
+                                        display: "inline-block",
+                                        fontFamily: "'DM Mono', monospace",
+                                        fontSize: "10px",
+                                        letterSpacing: "0.18em",
+                                        textTransform: "uppercase" as const,
+                                        color: "#9C9891",
+                                        marginBottom: "14px",
+                                    }}>
+                                        Members
+                                    </span>
+
+                                    {/* ?목 */}
+                                    <h2 style={{
+                                        fontFamily: "'Noto Serif KR', serif",
+                                        fontWeight: 900,
+                                        fontSize: "clamp(22px, 3.5vw, 34px)",
+                                        color: "#100F0F",
+                                        letterSpacing: "-0.03em",
+                                        lineHeight: 1.25,
+                                        marginBottom: "16px",
+                                    }}>
+                                        로그인하면<br />
+                                        <span style={{ color: "#C9A96E" }}>더 많은 기능을</span> 이용하세요
+                                    </h2>
+
+                                    {/* ?명 */}
+                                    <p style={{
                                         fontFamily: "'Noto Sans KR', sans-serif",
                                         fontSize: "14px",
-                                        fontWeight: 500,
-                                        border: "1.5px solid #D0CDC7",
-                                        cursor: "pointer",
-                                        transition: "border-color 0.2s, transform 0.15s",
-                                        letterSpacing: "0.01em",
-                                    }}
-                                    onMouseEnter={e => {
-                                        const el = e.currentTarget as HTMLElement;
-                                        el.style.borderColor = "#0B2040";
-                                        el.style.transform = "translateY(-2px)";
-                                    }}
-                                    onMouseLeave={e => {
-                                        const el = e.currentTarget as HTMLElement;
-                                        el.style.borderColor = "#D0CDC7";
-                                        el.style.transform = "translateY(0)";
-                                    }}
-                                >
-                                    회원가입
-                                </button>
-                            </div>
+                                        color: "#52504B",
+                                        fontWeight: 300,
+                                        lineHeight: 1.9,
+                                        marginBottom: "32px",
+                                        flexGrow: 1,
+                                    }}>
+                                        즐겨찾기, 행사 알림, 맞춤 추천 등<br />
+                                        로그인 회원 전용 서비스를 이용하세요
+                                    </p>
+
+                                    {/* 기능 목록 */}
+                                    <ul style={{
+                                        listStyle: "none",
+                                        display: "flex",
+                                        flexDirection: "column" as const,
+                                        gap: "8px",
+                                        marginBottom: "32px",
+                                    }}>
+                                        {["관심 행사 즐겨찾기", "행사 일정 알림", "맞춤 행사 추천"].map(item => (
+                                            <li key={item} style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "13px",
+                                                color: "#52504B",
+                                                fontWeight: 300,
+                                            }}>
+                                                <span style={{ color: "#C9A96E", fontSize: "16px", lineHeight: 1 }}>•</span>
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+
+                                    {/* 버튼 */}
+                                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" as const }}>
+                                        <button
+                                            onClick={() => router.push("/login")}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                padding: "15px 28px",
+                                                backgroundColor: "#0B2040",
+                                                color: "#FFFFFF",
+                                                borderRadius: "10px",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "14px",
+                                                fontWeight: 600,
+                                                border: "none",
+                                                cursor: "pointer",
+                                                transition: "background 0.2s, transform 0.15s",
+                                                letterSpacing: "0.02em",
+                                            }}
+                                            onMouseEnter={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.backgroundColor = "#183568";
+                                                el.style.transform = "translateY(-2px)";
+                                            }}
+                                            onMouseLeave={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.backgroundColor = "#0B2040";
+                                                el.style.transform = "translateY(0)";
+                                            }}
+                                        >
+                                            로그??                                            <ArrowRight size={15} />
+                                        </button>
+                                        <button
+                                            onClick={() => router.push("/register")}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                padding: "15px 28px",
+                                                backgroundColor: "transparent",
+                                                color: "#0B2040",
+                                                borderRadius: "10px",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "14px",
+                                                fontWeight: 500,
+                                                border: "1.5px solid #D0CDC7",
+                                                cursor: "pointer",
+                                                transition: "border-color 0.2s, transform 0.15s",
+                                                letterSpacing: "0.01em",
+                                            }}
+                                            onMouseEnter={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.borderColor = "#0B2040";
+                                                el.style.transform = "translateY(-2px)";
+                                            }}
+                                            onMouseLeave={e => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                el.style.borderColor = "#D0CDC7";
+                                                el.style.transform = "translateY(0)";
+                                            }}
+                                        >
+                                            ?원가??                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </motion.div>
 
                     </div>

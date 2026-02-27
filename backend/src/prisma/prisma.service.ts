@@ -23,6 +23,11 @@ export class PrismaService
     this.$connect().catch((err) => {
       console.error('PrismaService: initial DB connect failed (will retry on first query):', err.message);
     });
+    // Ensure all schema columns exist on every deploy (idempotent ALTER TABLE IF NOT EXISTS).
+    // This fixes missing columns (e.g. status, imageUrl) without requiring nuclearReset.
+    this.initDatabase().catch((err) => {
+      console.error('PrismaService: initDatabase on startup failed:', err.message);
+    });
     console.log('PrismaService initialized (lazy pool via PrismaPg).');
   }
 
@@ -66,6 +71,15 @@ export class PrismaService
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE("userId", "eventId")
       );
+
+      CREATE TABLE IF NOT EXISTS "Admin" (
+        "id" TEXT PRIMARY KEY,
+        "email" TEXT UNIQUE NOT NULL,
+        "name" TEXT NOT NULL,
+        "passwordHash" TEXT NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `;
     await this.$executeRawUnsafe(sql);
 
@@ -76,6 +90,7 @@ export class PrismaService
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "submitterName" TEXT;
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "submitterContact" TEXT;
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;
+      ALTER TABLE "User"  ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;
     `;
     await this.$executeRawUnsafe(alterSql);
     console.log('--- DEFINITIVE DATABASE INITIALIZATION COMPLETE ---');

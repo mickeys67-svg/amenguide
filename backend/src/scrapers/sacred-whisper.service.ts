@@ -57,7 +57,8 @@ export class SacredWhisperService {
           originUrl: url,
           category: ['피정','미사','강의','순례','청년','문화','선교'].includes((result as any).category)
             ? (result as any).category : '선교',
-        },
+          status: 'APPROVED', // 스크래핑 행사는 즉시 공개
+        } as any,
       });
 
       this.logger.log(

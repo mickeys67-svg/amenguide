@@ -2,14 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Calendar, ArrowUpRight, ExternalLink } from "lucide-react";
+import { MapPin, Calendar, ArrowUpRight, ExternalLink, Heart } from "lucide-react";
 import Link from "next/link";
 import { EventData, CATEGORY_COLORS, CATEGORY_IMAGES, RETREAT_IMG } from "../../types/event";
+
+const API_BASE =
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://amenguide-backend-775250805671.us-west1.run.app";
 
 interface EventCardProps {
     event: EventData;
     index: number;
     variant?: "grid" | "list" | "featured";
+    isBookmarked?: boolean;
+    onBookmarkToggle?: (eventId: string, current: boolean) => void;
 }
 
 /** OG 이미지 lazy 스크래핑 훅
@@ -44,11 +50,37 @@ function useOgImage(originUrl?: string, fallback?: string): string {
     return ogImage || fallback || RETREAT_IMG;
 }
 
-export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
+export function EventCard({
+    event, index, variant = "grid",
+    isBookmarked = false,
+    onBookmarkToggle,
+}: EventCardProps) {
     const [hovered, setHovered] = useState(false);
+    const [bookmarked, setBookmarked] = useState(isBookmarked);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const catColor = CATEGORY_COLORS[event.category] || "#0B2040";
     const fallbackImg = CATEGORY_IMAGES[event.category] || event.image || RETREAT_IMG;
     const cardImage = useOgImage(event.originUrl, fallbackImg);
+
+    useEffect(() => { setBookmarked(isBookmarked); }, [isBookmarked]);
+    useEffect(() => {
+        try { setIsLoggedIn(!!localStorage.getItem("authToken")); } catch {}
+    }, []);
+
+    const handleBookmark = async (e: React.MouseEvent) => {
+        e.preventDefault(); e.stopPropagation();
+        const token = localStorage.getItem("authToken");
+        if (!token) { window.location.href = "/login"; return; }
+        const next = !bookmarked;
+        setBookmarked(next); // 낙관적 UI
+        try {
+            await fetch(`${API_BASE}/auth/me/bookmarks/${event.id}`, {
+                method: next ? "POST" : "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            onBookmarkToggle?.(String(event.id), !next);
+        } catch { setBookmarked(!next); } // 실패 시 롤백
+    };
 
     /* ────────────────────────────────
        Featured variant
@@ -331,19 +363,50 @@ export function EventCard({ event, index, variant = "grid" }: EventCardProps) {
                     >
                         {event.category}
                     </span>
-                    {/* Index */}
-                    <span
-                        style={{
-                            position: "absolute",
-                            top: "13px",
-                            right: "14px",
-                            fontFamily: "'DM Mono', monospace",
-                            fontSize: "11px",
+                    {/* Index + 하트 버튼 */}
+                    <div style={{
+                        position: "absolute", top: "10px", right: "10px",
+                        display: "flex", alignItems: "center", gap: "8px",
+                    }}>
+                        <span style={{
+                            fontFamily: "'DM Mono', monospace", fontSize: "11px",
                             color: "rgba(255,255,255,0.55)",
-                        }}
-                    >
-                        {String(index + 1).padStart(2, "0")}
-                    </span>
+                        }}>
+                            {String(index + 1).padStart(2, "0")}
+                        </span>
+                        {isLoggedIn && (
+                            <button
+                                onClick={handleBookmark}
+                                title={bookmarked ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                                style={{
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    width: "30px", height: "30px", borderRadius: "50%",
+                                    backgroundColor: bookmarked ? "rgba(201,169,110,0.9)" : "rgba(255,255,255,0.18)",
+                                    border: "none", cursor: "pointer",
+                                    backdropFilter: "blur(4px)",
+                                    transition: "background 0.2s, transform 0.15s",
+                                    color: bookmarked ? "#FFFFFF" : "rgba(255,255,255,0.75)",
+                                    flexShrink: 0,
+                                }}
+                                onMouseEnter={e => {
+                                    const el = e.currentTarget as HTMLButtonElement;
+                                    el.style.transform = "scale(1.15)";
+                                    if (!bookmarked) el.style.backgroundColor = "rgba(255,255,255,0.3)";
+                                }}
+                                onMouseLeave={e => {
+                                    const el = e.currentTarget as HTMLButtonElement;
+                                    el.style.transform = "scale(1)";
+                                    if (!bookmarked) el.style.backgroundColor = "rgba(255,255,255,0.18)";
+                                }}
+                            >
+                                <Heart
+                                    size={14}
+                                    fill={bookmarked ? "currentColor" : "none"}
+                                    strokeWidth={2}
+                                />
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── Card body ── */}

@@ -14,7 +14,8 @@ model User {
   id             String   @id @default(uuid())
   email          String   @unique
   name           String?
-  provider       String   // "kakao" or "google"
+  provider       String   // "email" | "kakao" | "naver" | "google"
+  passwordHash   String?  // email/password 가입 시 사용 (소셜 로그인은 null)
   targetDiocese  String?  // 관심 교구
   themeColor     String?  // 사용자 고유 스테인드글라스 테마 컬러
   bookmarks      Bookmark[]
@@ -52,4 +53,13 @@ model Bookmark {
   createdAt DateTime @default(now())
 
   @@unique([userId, eventId])
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

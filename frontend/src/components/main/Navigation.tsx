@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Menu, X, LogIn, Compass, Map } from "lucide-react";
+import { Search, Menu, X, LogIn, LogOut, Compass, Map, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/common/Logo";
 
@@ -24,10 +24,40 @@ const NAV_STYLE = `
     }
 `;
 
+interface AuthUser {
+    id: string;
+    email: string;
+    name: string;
+}
+
+function readAuthUser(): AuthUser | null {
+    try {
+        const raw = localStorage.getItem("authUser");
+        if (!raw) return null;
+        return JSON.parse(raw) as AuthUser;
+    } catch {
+        return null;
+    }
+}
+
 export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: NavigationProps) {
     const [scrolled, setScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [authUser, setAuthUser] = useState<AuthUser | null>(null);
     const router = useRouter();
+
+    // 마운트 시 + storage 이벤트 시 auth 상태 갱신
+    useEffect(() => {
+        setAuthUser(readAuthUser());
+
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === "authUser" || e.key === "authToken" || e.key === null) {
+                setAuthUser(readAuthUser());
+            }
+        };
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
+    }, []);
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 8);
@@ -40,10 +70,17 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
         return () => { document.body.style.overflow = ""; };
     }, [menuOpen]);
 
+    const handleLogout = () => {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("authUser");
+        setAuthUser(null);
+        setMenuOpen(false);
+        router.push("/");
+    };
+
     const scrollTo = (id: string) => {
         const el = document.getElementById(id);
         if (el) {
-            // nav(60px) + FilterBar(~50px) 오프셋 적용 — scrollIntoView는 sticky bar 무시
             const offset = id === "events" ? 110 : 60;
             const y = el.getBoundingClientRect().top + window.scrollY - offset;
             window.scrollTo({ top: y, behavior: "smooth" });
@@ -120,7 +157,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                     {/* ── Actions ── */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
 
-                        {/* 검색 아이콘 (전체 사이즈 노출) */}
+                        {/* 검색 아이콘 */}
                         <button
                             type="button"
                             aria-label="검색"
@@ -146,27 +183,83 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             <Search size={16} strokeWidth={2} />
                         </button>
 
-                        {/* 로그인 (768px+) */}
-                        <button
-                            type="button"
-                            onClick={() => router.push("/login")}
-                            className="nav-login-btn"
-                            style={{
-                                alignItems: "center", gap: "6px",
-                                padding: "7px 16px", borderRadius: "8px",
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "13px", fontWeight: 600,
-                                backgroundColor: "#0B2040", color: "#FFFFFF",
-                                border: "none", cursor: "pointer",
-                                transition: "background 0.15s ease",
-                                letterSpacing: "0.01em",
-                            }}
-                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = "#183568"}
-                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = "#0B2040"}
-                        >
-                            <LogIn size={13} strokeWidth={2} />
-                            로그인
-                        </button>
+                        {/* ── 로그인 / 로그아웃 (768px+) ── */}
+                        {authUser ? (
+                            /* 로그인 상태: 마이페이지 버튼 + 로그아웃 버튼 */
+                            <div className="nav-login-btn" style={{ alignItems: "center", gap: "8px" }}>
+                                <button
+                                    type="button"
+                                    onClick={() => router.push("/mypage")}
+                                    style={{
+                                        display: "flex", alignItems: "center", gap: "6px",
+                                        padding: "5px 12px", borderRadius: "8px",
+                                        backgroundColor: "rgba(11,32,64,0.06)",
+                                        border: "none", cursor: "pointer",
+                                        transition: "background 0.15s",
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(11,32,64,0.1)"}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(11,32,64,0.06)"}
+                                >
+                                    <User size={13} strokeWidth={2} color="#0B2040" />
+                                    <span style={{
+                                        fontFamily: "'Noto Sans KR', sans-serif",
+                                        fontSize: "13px", fontWeight: 500,
+                                        color: "#0B2040", maxWidth: "80px",
+                                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                    }}>
+                                        {authUser.name}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleLogout}
+                                    style={{
+                                        display: "flex", alignItems: "center", gap: "5px",
+                                        padding: "7px 12px", borderRadius: "8px",
+                                        fontFamily: "'Noto Sans KR', sans-serif",
+                                        fontSize: "13px", fontWeight: 500,
+                                        backgroundColor: "transparent", color: "#9C9891",
+                                        border: "1.5px solid #E8E5DF", cursor: "pointer",
+                                        transition: "all 0.15s ease",
+                                    }}
+                                    onMouseEnter={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.borderColor = "#DC2626";
+                                        el.style.color = "#DC2626";
+                                    }}
+                                    onMouseLeave={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.borderColor = "#E8E5DF";
+                                        el.style.color = "#9C9891";
+                                    }}
+                                >
+                                    <LogOut size={13} strokeWidth={2} />
+                                    로그아웃
+                                </button>
+                            </div>
+                        ) : (
+                            /* 비로그인 상태: 로그인 버튼 */
+                            <button
+                                type="button"
+                                onClick={() => router.push("/login")}
+                                className="nav-login-btn"
+                                style={{
+                                    alignItems: "center", gap: "6px",
+                                    padding: "7px 16px", borderRadius: "8px",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "13px", fontWeight: 600,
+                                    backgroundColor: "#0B2040", color: "#FFFFFF",
+                                    border: "none", cursor: "pointer",
+                                    transition: "background 0.15s ease",
+                                    letterSpacing: "0.01em",
+                                }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = "#183568"}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = "#0B2040"}
+                            >
+                                <LogIn size={13} strokeWidth={2} />
+                                로그인
+                            </button>
+                        )}
 
                         {/* 햄버거 (모바일 ~767px) */}
                         <button
@@ -238,27 +331,63 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                                         </span>
                                     </button>
                                 ))}
+
+                                {/* 모바일 로그인/로그아웃 */}
                                 <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => { router.push("/login"); setMenuOpen(false); }}
-                                        style={{
-                                            flex: 1, padding: "12px", borderRadius: "8px",
-                                            fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 600,
-                                            backgroundColor: "#0B2040", color: "#FFFFFF",
-                                            border: "none", cursor: "pointer",
-                                        }}
-                                    >로그인</button>
-                                    <button
-                                        type="button"
-                                        onClick={() => { router.push("/register"); setMenuOpen(false); }}
-                                        style={{
-                                            flex: 1, padding: "12px", borderRadius: "8px",
-                                            fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 400,
-                                            backgroundColor: "transparent", color: "#0B2040",
-                                            border: "1.5px solid #D0CDC7", cursor: "pointer",
-                                        }}
-                                    >회원가입</button>
+                                    {authUser ? (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => { router.push("/mypage"); setMenuOpen(false); }}
+                                                style={{
+                                                    flex: 1, padding: "12px", borderRadius: "8px",
+                                                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 500,
+                                                    backgroundColor: "rgba(11,32,64,0.06)", color: "#0B2040",
+                                                    border: "none", cursor: "pointer",
+                                                    display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                                                }}
+                                            >
+                                                <User size={13} strokeWidth={2} />
+                                                {authUser.name} · 마이페이지
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleLogout}
+                                                style={{
+                                                    padding: "12px 16px", borderRadius: "8px",
+                                                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 600,
+                                                    backgroundColor: "transparent", color: "#DC2626",
+                                                    border: "1.5px solid #FECACA", cursor: "pointer",
+                                                    display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                                                }}
+                                            >
+                                                <LogOut size={14} strokeWidth={2} />
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => { router.push("/login"); setMenuOpen(false); }}
+                                                style={{
+                                                    flex: 1, padding: "12px", borderRadius: "8px",
+                                                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 600,
+                                                    backgroundColor: "#0B2040", color: "#FFFFFF",
+                                                    border: "none", cursor: "pointer",
+                                                }}
+                                            >로그인</button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { router.push("/register"); setMenuOpen(false); }}
+                                                style={{
+                                                    flex: 1, padding: "12px", borderRadius: "8px",
+                                                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", fontWeight: 400,
+                                                    backgroundColor: "transparent", color: "#0B2040",
+                                                    border: "1.5px solid #D0CDC7", cursor: "pointer",
+                                                }}
+                                            >회원가입</button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>

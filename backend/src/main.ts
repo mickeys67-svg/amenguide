@@ -25,7 +25,7 @@ async function bootstrap() {
         callback(new Error(`CORS blocked: ${origin}`));
       }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
 

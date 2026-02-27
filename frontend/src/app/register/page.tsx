@@ -64,20 +64,39 @@ export default function RegisterPage() {
     const pwMatch = confirm.length > 0 && password === confirm;
     const pwMismatch = confirm.length > 0 && password !== confirm;
 
-    const handleSocial = (id: string) => {
-        setSocialLoading(id);
-        setTimeout(() => setSocialLoading(null), 1200); // TODO: 실제 OAuth
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-775250805671.us-west1.run.app";
+
+    const handleSocial = (_id: string) => {
+        setError("소셜 로그인은 준비 중입니다. 이메일로 가입해 주세요.");
+        setShowEmail(true);
     };
 
     const handleEmailRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !email || !password || !confirm) { setError("모든 항목을 입력해주세요."); return; }
         if (password !== confirm) { setError("비밀번호가 일치하지 않습니다."); return; }
+        if (password.length < 6) { setError("비밀번호는 6자 이상이어야 합니다."); return; }
         if (!agreed) { setError("이용약관에 동의해주세요."); return; }
         setLoading(true); setError(null);
-        try { await new Promise(r => setTimeout(r, 900)); router.push("/"); }
-        catch { setError("회원가입에 실패했습니다."); }
-        finally { setLoading(false); }
+        try {
+            const res = await fetch(`${API_BASE}/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, password }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.message ?? "회원가입에 실패했습니다.");
+                return;
+            }
+            localStorage.setItem("authToken", data.token);
+            localStorage.setItem("authUser", JSON.stringify(data.user));
+            router.push("/");
+        } catch {
+            setError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

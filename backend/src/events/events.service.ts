@@ -112,7 +112,8 @@ export class EventsService implements OnModuleInit {
           themeColor: result.themeColor,
           originUrl: url,
           category: '선교', // Default category
-        },
+          status: 'APPROVED', // 스크래핑 행사는 즉시 공개
+        } as any,
       });
     } catch (error) {
       this.logger.error(`Failed to scrape and save ${url}: ${error.message}`);
@@ -149,7 +150,12 @@ export class EventsService implements OnModuleInit {
       });
       return this.deduplicateEvents(rows);
     } catch (error) {
-      if (error.message.includes('does not exist')) {
+      // Only trigger nuclear reset when the Event TABLE itself is missing.
+      // Do NOT trigger on column-not-found errors (those are fixed by initDatabase on startup).
+      const isTableMissing =
+        /relation "Event" does not exist/i.test(error.message) ||
+        /relation "event" does not exist/i.test(error.message);
+      if (isTableMissing) {
         this.logger.warn(
           'Table "event" not found, attempting on-the-fly creation.',
         );

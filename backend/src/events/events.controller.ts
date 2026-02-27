@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, ForbiddenException, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import * as crypto from 'crypto';
 import { EventsService } from './events.service';
 import { SemanticSearchService } from './semantic-search.service';
 
@@ -24,11 +25,33 @@ const SCRAPE_ALLOWLIST = [
   'gjcatholic.or.kr',
 ];
 
-function requireAdminKey(key: string) {
-  const adminKey = process.env.ADMIN_API_KEY;
-  if (!adminKey || key !== adminKey) {
-    throw new ForbiddenException('Invalid admin key');
+/** Bearer 토큰에서 admin role 검증 (events controller 내부용) */
+function verifyAdminBearer(auth: string | undefined): boolean {
+  if (!auth?.startsWith('Bearer ')) return false;
+  const token = auth.slice(7);
+  const parts = token.split('.');
+  if (parts.length !== 2) return false;
+  const [payload, sig] = parts;
+  try {
+    const secret = process.env.JWT_SECRET || 'catholica-hmac-secret-change-in-production';
+    const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    const sigBuf = Buffer.from(sig, 'base64url');
+    const expBuf = Buffer.from(expectedSig, 'base64url');
+    if (sigBuf.length !== expBuf.length) return false;
+    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return false;
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return parsed.role === 'admin';
+  } catch {
+    return false;
   }
+}
+
+/** x-admin-key(레거시) 또는 Bearer 관리자 토큰 중 하나 허용 */
+function requireAdmin(key: string | undefined, auth: string | undefined) {
+  const apiKey = process.env.ADMIN_API_KEY?.trim();
+  if (apiKey && key === apiKey) return;
+  if (verifyAdminBearer(auth)) return;
+  throw new ForbiddenException('Invalid admin credentials');
 }
 
 @Controller('events')
@@ -59,8 +82,8 @@ export class EventsController {
   }
 
   @Get('nuclear-reset')
-  async nuclearReset(@Headers('x-admin-key') key: string) {
-    requireAdminKey(key);
+  async nuclearReset(@Headers('x-admin-key') key: string, @Headers('authorization') auth: string) {
+    requireAdmin(key, auth);
     if (process.env.NODE_ENV === 'production') {
       return { error: 'Forbidden: nuclear-reset is disabled in production.' };
     }
@@ -70,9 +93,10 @@ export class EventsController {
   @Get('async-scrape')
   async triggerAsyncScrape(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Query('url') url: string,
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     if (!url) throw new BadRequestException('url query param is required');
     try {
       const { hostname } = new URL(url);
@@ -140,9 +164,10 @@ export class EventsController {
   @Get('admin/list')
   async getAdminEvents(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Query('status') status?: string,
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     return this.eventsService.getAdminEvents(status);
   }
 
@@ -153,9 +178,10 @@ export class EventsController {
   @Patch('admin/events/:id/approve')
   async approveEvent(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Param('id') id: string,
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     return this.eventsService.approveEvent(id);
   }
 
@@ -166,10 +192,11 @@ export class EventsController {
   @Patch('admin/events/:id/reject')
   async rejectEvent(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Param('id') id: string,
     @Body() body: { reason?: string },
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     return this.eventsService.rejectEvent(id, body?.reason);
   }
 
@@ -180,10 +207,11 @@ export class EventsController {
   @Put('admin/events/:id')
   async adminUpdateEvent(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Param('id') id: string,
     @Body() body: any,
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     return this.eventsService.adminUpdateEvent(id, body);
   }
 
@@ -194,18 +222,20 @@ export class EventsController {
   @Delete('admin/events/:id')
   async adminDeleteEvent(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Param('id') id: string,
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     return this.eventsService.adminDeleteEvent(id);
   }
 
   @Post('admin/diocese-sync')
   async dioceseSync(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Body() body: { monthsAhead?: number },
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     const monthsAhead = Math.min(Math.max(Number(body?.monthsAhead ?? 3), 1), 12);
     return this.eventsService.triggerDioceseSync(monthsAhead);
   }
@@ -220,6 +250,7 @@ export class EventsController {
   @Post('admin/events')
   async adminCreateEvent(
     @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
     @Body() body: {
       title: string;
       date?: string;
@@ -230,7 +261,7 @@ export class EventsController {
       category?: string;
     },
   ) {
-    requireAdminKey(key);
+    requireAdmin(key, auth);
     if (!body.title?.trim()) {
       throw new BadRequestException('title is required');
     }

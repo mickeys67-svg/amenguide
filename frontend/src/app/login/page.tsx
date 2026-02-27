@@ -59,10 +59,15 @@ export default function LoginPage() {
     const [socialLoading, setSocialLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const handleSocial = (id: string, href: string) => {
-        setSocialLoading(id);
-        // TODO: 실제 OAuth redirect
-        setTimeout(() => { setSocialLoading(null); }, 1200);
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-775250805671.us-west1.run.app";
+
+    const handleSocial = (id: string) => {
+        if (id === "google") {
+            // 백엔드 Google OAuth 엔드포인트로 리디렉트
+            window.location.href = `${API_BASE}/auth/google`;
+            return;
+        }
+        setError("카카오/네이버 로그인은 준비 중입니다. 구글 또는 이메일로 로그인해 주세요.");
     };
 
     const handleEmailLogin = async (e: React.FormEvent) => {
@@ -70,10 +75,24 @@ export default function LoginPage() {
         if (!email || !password) { setError("이메일과 비밀번호를 입력해주세요."); return; }
         setLoading(true); setError(null);
         try {
-            await new Promise(r => setTimeout(r, 800));
-            router.push("/");
-        } catch { setError("로그인에 실패했습니다."); }
-        finally { setLoading(false); }
+            const res = await fetch(`${API_BASE}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.message ?? "로그인에 실패했습니다.");
+                return;
+            }
+            localStorage.setItem("authToken", data.token);
+            localStorage.setItem("authUser", JSON.stringify(data.user));
+            window.location.href = "/";
+        } catch {
+            setError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -171,7 +190,7 @@ export default function LoginPage() {
                                 <button
                                     key={s.id}
                                     className="social-btn"
-                                    onClick={() => handleSocial(s.id, s.href)}
+                                    onClick={() => handleSocial(s.id)}
                                     disabled={!!socialLoading}
                                     style={{ backgroundColor: s.bg, color: s.color, border: `1.5px solid ${s.border}`, opacity: socialLoading && socialLoading !== s.id ? 0.5 : 1 }}
                                 >
