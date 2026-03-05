@@ -114,6 +114,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [searchOpen, setSearchOpen] = useState(false);
     const eventsRef = useRef<HTMLDivElement>(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     // ?? 로그???태 ??????????????????????????????????????????????????????????
     interface AuthUser { id: string; email: string; name: string; }
@@ -265,6 +266,18 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
 
         return list;
     }, [activeFilter, sortBy, events, userLocation]);
+
+    const PAGE_SIZE = 15;
+    const totalPages = Math.ceil(filteredEvents.length / PAGE_SIZE);
+    const pagedEvents = filteredEvents.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE,
+    );
+
+    // 필터/정렬 변경 시 첫 페이지로 리셋
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeFilter, sortBy]);
 
     const countByCategory = useMemo(() => {
         const today = new Date();
@@ -490,7 +503,12 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                             color: "#9C9891",
                             marginTop: "5px",
                         }}>
-                            {filteredEvents.length} results
+                            {filteredEvents.length}건
+                            {totalPages > 1 && (
+                                <span style={{ marginLeft: "8px", color: "#C9A96E" }}>
+                                    — {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredEvents.length)} 표시 중
+                                </span>
+                            )}
                         </p>
                     </motion.div>
 
@@ -566,7 +584,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                 gap: "22px",
                             }}
                         >
-                            {filteredEvents.map((event, i) => (
+                            {pagedEvents.map((event, i) => (
                                 <EventCard
                                     key={event.id}
                                     event={event}
@@ -605,7 +623,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                     </span>
                                 ))}
                             </div>
-                            {filteredEvents.map((event, i) => (
+                            {pagedEvents.map((event, i) => (
                                 <EventCard
                                     key={event.id}
                                     event={event}
@@ -617,12 +635,121 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                             ))}
                         </motion.div>
                     )}
+                    {/* ── 페이지네이션 ── */}
+                    {totalPages > 1 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "6px",
+                                padding: "52px 0 8px",
+                            }}
+                        >
+                            {/* 이전 버튼 */}
+                            <button
+                                onClick={() => { setCurrentPage(p => p - 1); scrollToEvents(); }}
+                                disabled={currentPage === 1}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "5px",
+                                    padding: "8px 18px",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "13px",
+                                    fontWeight: 500,
+                                    color: currentPage === 1 ? "#D0CDC7" : "#52504B",
+                                    background: "none",
+                                    border: "1.5px solid",
+                                    borderColor: currentPage === 1 ? "#E8E5DF" : "#D0CDC7",
+                                    borderRadius: "100px",
+                                    cursor: currentPage === 1 ? "default" : "pointer",
+                                    transition: "all 0.15s",
+                                }}
+                            >
+                                ← 이전
+                            </button>
+
+                            {/* 페이지 번호 */}
+                            {(() => {
+                                const pages: (number | "...")[] = [];
+                                if (totalPages <= 7) {
+                                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                } else {
+                                    pages.push(1);
+                                    if (currentPage > 3) pages.push("...");
+                                    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+                                    if (currentPage < totalPages - 2) pages.push("...");
+                                    pages.push(totalPages);
+                                }
+                                return pages.map((p, idx) =>
+                                    p === "..." ? (
+                                        <span key={`ellipsis-${idx}`} style={{
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: "12px",
+                                            color: "#9C9891",
+                                            padding: "0 4px",
+                                        }}>···</span>
+                                    ) : (
+                                        <button
+                                            key={p}
+                                            onClick={() => { setCurrentPage(p as number); scrollToEvents(); }}
+                                            style={{
+                                                width: "36px",
+                                                height: "36px",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontFamily: "'DM Mono', monospace",
+                                                fontSize: "13px",
+                                                fontWeight: currentPage === p ? 700 : 400,
+                                                color: currentPage === p ? "#FFFFFF" : "#52504B",
+                                                background: currentPage === p ? "#0B2040" : "transparent",
+                                                border: "1.5px solid",
+                                                borderColor: currentPage === p ? "#0B2040" : "#E8E5DF",
+                                                borderRadius: "50%",
+                                                cursor: "pointer",
+                                                transition: "all 0.15s",
+                                            }}
+                                        >
+                                            {p}
+                                        </button>
+                                    )
+                                );
+                            })()}
+
+                            {/* 다음 버튼 */}
+                            <button
+                                onClick={() => { setCurrentPage(p => p + 1); scrollToEvents(); }}
+                                disabled={currentPage === totalPages}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "5px",
+                                    padding: "8px 18px",
+                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                    fontSize: "13px",
+                                    fontWeight: 500,
+                                    color: currentPage === totalPages ? "#D0CDC7" : "#FFFFFF",
+                                    background: currentPage === totalPages ? "none" : "#0B2040",
+                                    border: "1.5px solid",
+                                    borderColor: currentPage === totalPages ? "#E8E5DF" : "#0B2040",
+                                    borderRadius: "100px",
+                                    cursor: currentPage === totalPages ? "default" : "pointer",
+                                    transition: "all 0.15s",
+                                }}
+                            >
+                                다음 →
+                            </button>
+                        </motion.div>
+                    )}
                 </div>
             </section>
 
-            {/* ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═
-                MAP SECTION
-            ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═ */}
+            {/* MAP SECTION */}
             <section id="map" style={{ backgroundColor: "#0B2040", padding: "72px 0" }}>
                 <div className="sacred-rail">
                     <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }}>

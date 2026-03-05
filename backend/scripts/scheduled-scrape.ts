@@ -98,19 +98,19 @@ const SOURCES: Source[] = [
     name: '굿뉴스 행사공지',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4777',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4777'),
-    maxItems: 8,
+    maxItems: 25,
   },
   {
     name: '굿뉴스 이벤트',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4785',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4785'),
-    maxItems: 8,
+    maxItems: 25,
   },
   {
     name: '굿뉴스 선교게시판',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4783',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4783'),
-    maxItems: 6,
+    maxItems: 20,
   },
   // ── CBCK 한국 천주교 주교회의 ──────────────────────────────────────────────
   // ⚠️ CBCK /Events 는 내부 행정회의만 있어 제외.
@@ -119,26 +119,26 @@ const SOURCES: Source[] = [
     name: 'CBCK 소식',
     listUrl: 'https://www.cbck.or.kr/Notice?gb=K1200',
     linkFilter: (h) => /cbck\.or\.kr\/Notice\/\d{7,}/.test(h),
-    maxItems: 8,
+    maxItems: 15,
   },
   {
     name: 'CBCK 보도자료',
     listUrl: 'https://www.cbck.or.kr/Notice?gb=K1300',
     linkFilter: (h) => /cbck\.or\.kr\/Notice\/\d{7,}/.test(h),
-    maxItems: 5,
+    maxItems: 12,
   },
   // ── 가톨릭 언론 ───────────────────────────────────────────────────────────
   {
     name: '가톨릭신문',
     listUrl: 'https://www.catholictimes.org/news/articleList.html?sc_section_code=S1N2',
     linkFilter: (h) => h.includes('articleView') && h.includes('catholictimes.org'),
-    maxItems: 6,
+    maxItems: 15,
   },
   {
     name: '평화방송 뉴스',
     listUrl: 'https://www.pbc.co.kr/CMS/news/sub_newslist.php?code=02_02',
     linkFilter: (h) => h.includes('pbc.co.kr') && h.includes('news_view'),
-    maxItems: 6,
+    maxItems: 15,
   },
   // ── 교구 사이트 ───────────────────────────────────────────────────────────
   {
@@ -175,7 +175,7 @@ const SOURCES: Source[] = [
     name: '굿뉴스 피정',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4780',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4780'),
-    maxItems: 8,
+    maxItems: 25,
   },
 
   // ── 굿뉴스 BBS 추가 메뉴 (Phase 1 — HTTP 200 확인됨) ─────────────────────
@@ -183,25 +183,25 @@ const SOURCES: Source[] = [
     name: '굿뉴스 성지순례',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4782',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4782'),
-    maxItems: 8,
+    maxItems: 20,
   },
   {
     name: '굿뉴스 청년/성소',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4784',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4784'),
-    maxItems: 8,
+    maxItems: 20,
   },
   {
     name: '굿뉴스 성소안내',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4786',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4786'),
-    maxItems: 6,
+    maxItems: 15,
   },
   {
     name: '굿뉴스 특강/세미나',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4788',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4788'),
-    maxItems: 8,
+    maxItems: 20,
   },
 
   // ── 교구 추가 (Phase 2) ────────────────────────────────────────────────────

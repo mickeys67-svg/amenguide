@@ -742,7 +742,7 @@ export class DioceseSyncService {
       });
     }
 
-    return events.slice(0, 15); // 교구당 최대 15건
+    return events.slice(0, 50); // 교구당 최대 50건
   }
 
   private coerceStr(v: unknown): string {
