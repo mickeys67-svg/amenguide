@@ -626,8 +626,8 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
     const category = validCategories.includes(result.category) ? result.category : '선교';
 
     await dbClient.query(
-      `INSERT INTO "Event" (id, title, date, location, "aiSummary", "themeColor", "originUrl", category, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+      `INSERT INTO "Event" (id, title, date, location, "aiSummary", "themeColor", "originUrl", category, status, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'APPROVED', NOW(), NOW())`,
       [
         crypto.randomUUID(),
         result.title,

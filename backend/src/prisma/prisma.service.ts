@@ -91,6 +91,8 @@ export class PrismaService
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "submitterContact" TEXT;
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;
       ALTER TABLE "User"  ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;
+      ALTER TABLE "Event" ALTER COLUMN "status" SET DEFAULT 'APPROVED';
+      UPDATE "Event" SET status = 'APPROVED' WHERE status = 'PENDING';
     `;
     await this.$executeRawUnsafe(alterSql);
     console.log('--- DEFINITIVE DATABASE INITIALIZATION COMPLETE ---');
