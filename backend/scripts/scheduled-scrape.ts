@@ -24,6 +24,7 @@ interface Source {
   linkFilter: (href: string) => boolean;
   maxItems: number;
   waitSelector?: string;
+  bypassTitleFilter?: boolean; // 전용 행사 게시판: 제목 사전필터 건너뜀
 }
 
 interface LinkWithTitle {
@@ -296,10 +297,12 @@ async function extractLinks(page: import('playwright').Page, source: Source): Pr
     );
 
     const matched = linksWithTitles.filter(({ href }) => source.linkFilter(href));
-    const preFiltered = matched.filter(({ title }) => {
-      if (title.length < 4) return true; // 제목 없으면 일단 방문
-      return EVENT_KEYWORDS.some((kw) => title.includes(kw));
-    });
+    const preFiltered = source.bypassTitleFilter
+      ? matched
+      : matched.filter(({ title }) => {
+          if (title.length < 4) return true; // 제목 없으면 일단 방문
+          return EVENT_KEYWORDS.some((kw) => title.includes(kw));
+        });
 
     const skipped = matched.length - preFiltered.length;
     if (skipped > 0) console.log(`[LIST] 제목 필터로 ${skipped}건 사전 제외`);
@@ -503,30 +506,35 @@ const SOURCES: Source[] = [
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4780',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4780'),
     maxItems: 20,
+    bypassTitleFilter: true,
   },
   {
     name: '굿뉴스 성지순례',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4782',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4782'),
     maxItems: 15,
+    bypassTitleFilter: true,
   },
   {
     name: '굿뉴스 청년/성소',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4784',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4784'),
     maxItems: 15,
+    bypassTitleFilter: true,
   },
   {
     name: '굿뉴스 성소안내',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4786',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4786'),
     maxItems: 10,
+    bypassTitleFilter: true,
   },
   {
     name: '굿뉴스 특강/세미나',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4788',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4788'),
     maxItems: 15,
+    bypassTitleFilter: true,
   },
   {
     name: 'CBCK 소식',
@@ -543,7 +551,8 @@ const SOURCES: Source[] = [
   {
     name: '광주대교구 행사',
     listUrl: 'https://www.gjcatholic.or.kr/nota/event',
-    linkFilter: (h) => /gjcatholic\.or\.kr\/nota\/event\/\d+/.test(h),
+    linkFilter: (h) =>
+      /(?:youth|samog|vocatio|cateb)\.gjcatholic\.or\.kr\/(?:picture|leaflet|board)\/\d+/.test(h),
     maxItems: 10,
     waitSelector: '.board-list, ul.list, .event-list, table',
   },
