@@ -19,29 +19,42 @@ interface Source {
   listUrl: string;
   linkFilter: (href: string) => boolean;
   maxItems: number;
-  waitSelector?: string; // Optional CSS selector to wait for before extracting links
+  waitSelector?: string;
+}
+
+interface LinkWithTitle {
+  href: string;
+  title: string;
 }
 
 let dbClient: Client;
 let savedCount = 0;
-let processedCount = 0; // 중복·과거 제외 전 시도 수
+let processedCount = 0;
+let skippedByPreFilter = 0; // 사전필터로 절약된 AI 호출 수
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
-// ─── 리소스 차단 (이미지/폰트/미디어/스타일시트) ─────────────────────────────
-// Globally best practice: block non-essential resources to speed up scraping 50-80%
+// ─── 리소스 차단 ───────────────────────────────────────────────────────────────
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font', 'stylesheet']);
 
+// ─── 행사 관련 키워드 (사전 필터용) ───────────────────────────────────────────
+// 이 키워드가 제목/본문에 없으면 AI 호출 없이 스킵 → API 비용 절감
+const EVENT_KEYWORDS = [
+  '피정', '강의', '강좌', '특강', '행사', '모집', '신청', '순례',
+  '성경공부', '세미나', '기도회', '미사', '음악회', '공연', '축제',
+  '청년', '성령', '영성', '봉사', '레지오', '교육', '안내', '캠프',
+  '수련', '연수', '피정의집', '수도원', '체험', '성지', '선교',
+  '전례', '묵상', '기도', '강연', '심포지엄', '성가', '합창',
+];
+
 // ─── URL 정규화 ────────────────────────────────────────────────────────────────
-// 굿뉴스 BBS: "num=" 파라미터는 목록 순번으로, 새 글이 올라올 때마다 밀려서
-// 동일 게시글이 다른 URL로 인식되어 중복 저장됨 → num= 제거 후 저장
 function normalizeUrl(url: string): string {
   try {
     const u = new URL(url);
     if (u.hostname === 'bbs.catholic.or.kr') {
-      u.searchParams.delete('num'); // 순번 파라미터 제거
+      u.searchParams.delete('num');
     }
     return u.toString();
   } catch {
@@ -50,14 +63,12 @@ function normalizeUrl(url: string): string {
 }
 
 // ─── 과거 이벤트 필터 ─────────────────────────────────────────────────────────
-// 행사일 기준 2일 경과한 이벤트는 수집 제외 (DB 삭제 주기와 통일)
 const TWO_DAYS_AGO = new Date();
 TWO_DAYS_AGO.setDate(TWO_DAYS_AGO.getDate() - 2);
 
-// ─── AI 프롬프트 공통 시스템 메시지 ──────────────────────────────────────────
-// 오늘 날짜를 포함하여 AI 가 과거/미래 구분을 명확히 할 수 있도록 함
+// ─── AI 프롬프트 ──────────────────────────────────────────────────────────────
 function buildAiPrompt(): string {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const today = new Date().toISOString().slice(0, 10);
   return `You are a Korean Catholic event analyst. Today is ${today}.
 Extract event details from the input.
 
@@ -91,79 +102,83 @@ Otherwise return ONLY valid JSON (no markdown fences):
   미사=미사·전례·기도회·연도·성체·위령`;
 }
 
-// ─── 소스 목록 ────────────────────────────────────────────────────────────────
+// ─── 소스 목록 (검증된 소스만 유지) ──────────────────────────────────────────
+// Phase 2/3 소스는 linkFilter 패턴 불일치로 0건 반환 → 제거하여 불필요한 실행 비용 절감
 const SOURCES: Source[] = [
-  // ── 굿뉴스 BBS (한국 천주교 공식 게시판) ──────────────────────────────────
+  // ── 굿뉴스 BBS (한국 천주교 공식 게시판) — 검증된 소스 ────────────────────
   {
     name: '굿뉴스 행사공지',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4777',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4777'),
-    maxItems: 25,
+    maxItems: 20,
   },
   {
     name: '굿뉴스 이벤트',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4785',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4785'),
-    maxItems: 25,
+    maxItems: 15,
   },
   {
     name: '굿뉴스 선교게시판',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4783',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4783'),
+    maxItems: 15,
+  },
+  {
+    name: '굿뉴스 피정',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4780',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4780'),
     maxItems: 20,
   },
+  {
+    name: '굿뉴스 성지순례',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4782',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4782'),
+    maxItems: 15,
+  },
+  {
+    name: '굿뉴스 청년/성소',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4784',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4784'),
+    maxItems: 15,
+  },
+  {
+    name: '굿뉴스 성소안내',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4786',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4786'),
+    maxItems: 10,
+  },
+  {
+    name: '굿뉴스 특강/세미나',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4788',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4788'),
+    maxItems: 15,
+  },
   // ── CBCK 한국 천주교 주교회의 ──────────────────────────────────────────────
-  // ⚠️ CBCK /Events 는 내부 행정회의만 있어 제외.
-  // 소식/보도자료는 공개 행사 안내 포함 가능 → 유지
   {
     name: 'CBCK 소식',
     listUrl: 'https://www.cbck.or.kr/Notice?gb=K1200',
     linkFilter: (h) => /cbck\.or\.kr\/Notice\/\d{7,}/.test(h),
-    maxItems: 15,
+    maxItems: 12,
   },
   {
     name: 'CBCK 보도자료',
     listUrl: 'https://www.cbck.or.kr/Notice?gb=K1300',
     linkFilter: (h) => /cbck\.or\.kr\/Notice\/\d{7,}/.test(h),
-    maxItems: 12,
-  },
-  // ── 가톨릭 언론 ───────────────────────────────────────────────────────────
-  {
-    name: '가톨릭신문',
-    listUrl: 'https://www.catholictimes.org/news/articleList.html?sc_section_code=S1N2',
-    linkFilter: (h) => h.includes('articleView') && h.includes('catholictimes.org'),
-    maxItems: 15,
-  },
-  {
-    name: '평화방송 뉴스',
-    listUrl: 'https://www.pbc.co.kr/CMS/news/sub_newslist.php?code=02_02',
-    linkFilter: (h) => h.includes('pbc.co.kr') && h.includes('news_view'),
-    maxItems: 15,
-  },
-  // ── 교구 사이트 ───────────────────────────────────────────────────────────
-  {
-    name: '대구대교구 일정',
-    listUrl: 'https://daegu-archdiocese.or.kr/page/news.html?srl=schedule',
-    linkFilter: (h) =>
-      h.includes('daegu-archdiocese.or.kr') &&
-      /view|news_view|idx=|no=|seq=/.test(h),
     maxItems: 10,
-    waitSelector: '.calendar, .schedule, table',
   },
+  // ── 교구 (검증된 소스) ─────────────────────────────────────────────────────
   {
     name: '광주대교구 행사',
     listUrl: 'https://www.gjcatholic.or.kr/nota/event',
-    // 메인 도메인 + 서브도메인(youth/samog/vocatio) 모두 포함
     linkFilter: (h) =>
-      /gjcatholic\.or\.kr\/nota\/event\/\d+/.test(h) ||
-      /(?:youth|samog|vocatio|cateb)\.gjcatholic\.or\.kr\/(?:picture|leaflet|board)\/\d+/.test(h),
+      /gjcatholic\.or\.kr\/nota\/event\/\d+/.test(h),
     maxItems: 10,
     waitSelector: '.board-list, ul.list, .event-list, table',
   },
   {
     name: '대전교구 행사공지',
     listUrl: 'http://www.djcatholic.or.kr/home/news/monthplan.php',
-    // 실제 URL 패턴: /home/news/monthplan.php?enter=v&idx=XXXXX
     linkFilter: (h) =>
       h.includes('djcatholic.or.kr') &&
       h.includes('enter=v') &&
@@ -171,183 +186,18 @@ const SOURCES: Source[] = [
     maxItems: 8,
     waitSelector: '.board, table, .list, tbody',
   },
-  {
-    name: '굿뉴스 피정',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4780',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4780'),
-    maxItems: 25,
-  },
-
-  // ── 굿뉴스 BBS 추가 메뉴 (Phase 1 — HTTP 200 확인됨) ─────────────────────
-  {
-    name: '굿뉴스 성지순례',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4782',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4782'),
-    maxItems: 20,
-  },
-  {
-    name: '굿뉴스 청년/성소',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4784',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4784'),
-    maxItems: 20,
-  },
-  {
-    name: '굿뉴스 성소안내',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4786',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4786'),
-    maxItems: 15,
-  },
-  {
-    name: '굿뉴스 특강/세미나',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4788',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4788'),
-    maxItems: 20,
-  },
-
-  // ── 교구 추가 (Phase 2) ────────────────────────────────────────────────────
-  // ⚠️ URL은 배포 후 로그로 확인 필요. 실패 시 gracefully 0건 반환.
-  {
-    name: '서울대교구 행사',
-    listUrl: 'https://www.catholic.or.kr/schedule/schedule.asp',
-    linkFilter: (h) =>
-      /(?:catholic\.or\.kr|seoul\.catholic\.or\.kr).*(?:view|notice_view|schedule_view|idx=|no=|seq=)\d*/.test(h) &&
-      !h.includes('bbs.catholic.or.kr'),
-    maxItems: 12,
-    waitSelector: '.board-list, table, .schedule-list, .list',
-  },
-  {
-    name: '수원교구 행사',
-    listUrl: 'https://www.suwon.catholic.or.kr/news/notice',
-    linkFilter: (h) =>
-      /suwon\.catholic\.or\.kr.*(?:view|read|detail|notice|idx=|no=|seq=|wr_id=)\d*/.test(h),
-    maxItems: 10,
-    waitSelector: '.board-list, table, ul.list',
-  },
-  {
-    name: '인천교구 행사',
-    listUrl: 'https://www.icatholic.or.kr/front/board/list.do?boCode=BD_NOTICE',
-    linkFilter: (h) =>
-      /icatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=|boCode)\d*/.test(h),
-    maxItems: 10,
-    waitSelector: '.board-list, table',
-  },
-  {
-    name: '의정부교구 행사',
-    listUrl: 'https://www.uidjcatholic.or.kr/bbs/board.php?bo_table=notice',
-    linkFilter: (h) =>
-      /uidjcatholic\.or\.kr.*(?:view|read|wr_id=|idx=|no=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: 'table, .board-list',
-  },
-  {
-    name: '전주교구 행사',
-    listUrl: 'https://www.jeonjucatholic.or.kr/home/news/notice',
-    linkFilter: (h) =>
-      /jeonjucatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: 'table, .board-list',
-  },
-  {
-    name: '청주교구 행사',
-    listUrl: 'https://www.cjcatholic.or.kr/board/',
-    linkFilter: (h) =>
-      /cjcatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=|wr_id=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: 'table, .board-list',
-  },
-  {
-    name: '마산교구 행사',
-    listUrl: 'https://www.masancatholic.or.kr/board/list.php?code=notice',
-    linkFilter: (h) =>
-      /masancatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: 'table, .board-list',
-  },
-  {
-    name: '춘천교구 행사',
-    listUrl: 'https://www.chuncheon.catholic.or.kr/news/notice/',
-    linkFilter: (h) =>
-      /chuncheon\.catholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: 'table, .board-list',
-  },
-  {
-    name: '원주교구 행사',
-    listUrl: 'https://www.wonjucatholic.or.kr/bbs/board.php?bo_table=notice',
-    linkFilter: (h) =>
-      /wonjucatholic\.or\.kr.*(?:view|read|wr_id=|idx=|no=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: 'table, .board-list',
-  },
-  {
-    name: '안동교구 행사',
-    listUrl: 'https://www.andongcatholic.or.kr/board/',
-    linkFilter: (h) =>
-      /andongcatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
-    maxItems: 6,
-    waitSelector: 'table, .board-list',
-  },
-  {
-    name: '제주교구 행사',
-    listUrl: 'https://www.jejucatholic.or.kr/bbs/board.php?bo_table=notice',
-    linkFilter: (h) =>
-      /jejucatholic\.or\.kr.*(?:view|read|wr_id=|idx=|no=)\d*/.test(h),
-    maxItems: 6,
-    waitSelector: 'table, .board-list',
-  },
-
-  // ── 피정의집 / 수도회 / 청년 (Phase 3) ────────────────────────────────────
-  {
-    name: '서울대교구 청년국',
-    listUrl: 'https://young.catholic.or.kr/notice/',
-    linkFilter: (h) =>
-      /young\.catholic\.or\.kr.*(?:view|read|detail|notice|idx=|no=|seq=)\d*/.test(h),
-    maxItems: 10,
-    waitSelector: '.board-list, table, .notice-list',
-  },
-  {
-    name: '왜관 베네딕도 수도원',
-    listUrl: 'https://www.waegwan.com/retreat/',
-    linkFilter: (h) =>
-      /waegwan\.com.*(?:view|read|detail|program|retreat|idx=|no=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: '.program-list, table, .board-list',
-  },
-  {
-    name: '예수회 피정/영성',
-    listUrl: 'https://www.jesuit.or.kr/retreat/',
-    linkFilter: (h) =>
-      /jesuit\.or\.kr.*(?:view|read|detail|retreat|program|idx=|no=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: '.program-list, .board-list, table',
-  },
-  {
-    name: 'CBCK 피정의집 정보',
-    listUrl: 'https://www.cbck.or.kr/Catholic/RetreatsHouse',
-    linkFilter: (h) =>
-      /cbck\.or\.kr.*(?:RetreatsHouse|Retreat|retreat)\d*/.test(h) &&
-      /\d{3,}/.test(h),
-    maxItems: 10,
-    waitSelector: '.list, table, .board-list',
-  },
-  {
-    name: '살레시오 피정/행사',
-    listUrl: 'https://www.salesian.or.kr/event/',
-    linkFilter: (h) =>
-      /salesian\.or\.kr.*(?:view|read|detail|event|program|idx=|no=)\d*/.test(h),
-    maxItems: 8,
-    waitSelector: '.program-list, .board-list, table',
-  },
 ];
 
 // ─── AI 텍스트 정제 ───────────────────────────────────────────────────────────
 async function refineWithAi(text: string): Promise<ScrapingResult | null> {
   if (!anthropic) return null;
 
-  const content = text.slice(0, 6000);
+  // 입력 토큰 절감: 3500자로 제한 (이전 6000자)
+  // 행사 정보는 보통 첫 2000자 안에 있음
+  const content = text.slice(0, 3500);
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
+    max_tokens: 400, // 512→400: 구조화된 JSON 응답에 충분
     system: buildAiPrompt(),
     messages: [{ role: 'user', content: `페이지 내용:\n\n${content}` }],
   });
@@ -369,7 +219,7 @@ async function refineWithVision(imageData: { data: string; mimeType: string }): 
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
+    max_tokens: 400,
     system: buildAiPrompt(),
     messages: [
       {
@@ -403,7 +253,7 @@ function parseAiResponse(raw: string): ScrapingResult | null {
   }
 }
 
-// ─── 이미지 src 추출 (DOM에서 — 차단해도 src 속성은 존재) ──────────────────────
+// ─── 이미지 src 추출 ──────────────────────────────────────────────────────────
 async function extractImageUrls(page: import('playwright').Page): Promise<string[]> {
   return page.evaluate(() => {
     const SKIP_PATTERNS = ['icon', 'logo', 'banner_small', 'btn_', 'arrow', 'bullet', 'bg_'];
@@ -434,7 +284,6 @@ async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType
 
     const buffer = await res.arrayBuffer();
     const data = Buffer.from(buffer).toString('base64');
-    // Claude max image ~5MB encoded; skip anything larger
     if (data.length > 6_000_000) {
       console.log(`[VISION] Image too large (${Math.round(data.length / 1024)}KB base64), skipping`);
       return null;
@@ -447,7 +296,6 @@ async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType
 }
 
 // ─── 페이지 이동 (재시도 포함) ────────────────────────────────────────────────
-// Best practice: retry transient network failures (2 retries = 3 total attempts)
 async function gotoWithRetry(
   page: import('playwright').Page,
   url: string,
@@ -463,13 +311,14 @@ async function gotoWithRetry(
         return false;
       }
       console.warn(`[NAV] Retry ${attempt + 1}/${retries}: ${url}`);
-      await page.waitForTimeout(2000 * (attempt + 1)); // Exponential backoff
+      await page.waitForTimeout(2000 * (attempt + 1));
     }
   }
   return false;
 }
 
-// ─── 리스트 페이지에서 링크 추출 ─────────────────────────────────────────────
+// ─── 리스트 페이지에서 링크+제목 추출 → 제목 사전필터 적용 ─────────────────
+// 핵심 비용절감: 행사 키워드 없는 링크는 방문하지 않음 (AI 호출 없음)
 async function extractLinks(
   page: import('playwright').Page,
   source: Source,
@@ -479,7 +328,6 @@ async function extractLinks(
     const ok = await gotoWithRetry(page, source.listUrl);
     if (!ok) return [];
 
-    // Best practice: use selector-based waiting when possible, fallback to timeout
     if (source.waitSelector) {
       try {
         await page.waitForSelector(source.waitSelector, { timeout: 5000 });
@@ -487,61 +335,66 @@ async function extractLinks(
         await page.waitForTimeout(2000);
       }
     } else {
-      // Allow JS to render board list
       await page.waitForTimeout(2500);
     }
 
-    const hrefs: string[] = await page.evaluate(() =>
+    // 링크 + 제목 텍스트 함께 추출
+    const linksWithTitles: LinkWithTitle[] = await page.evaluate(() =>
       Array.from(document.querySelectorAll('a[href]'))
-        .map((a) => (a as HTMLAnchorElement).href)
-        .filter((h) => !!h),
+        .map((a) => ({
+          href: (a as HTMLAnchorElement).href,
+          title: a.textContent?.trim().replace(/\s+/g, ' ') || '',
+        }))
+        .filter(({ href }) => !!href),
     );
 
-    const filtered = [...new Set(hrefs.filter(source.linkFilter))].slice(0, source.maxItems);
-    console.log(`[LIST] Found ${filtered.length} URLs`);
-    return filtered;
+    // 1단계: linkFilter로 관련 URL만 추출
+    const matchedLinks = linksWithTitles.filter(({ href }) => source.linkFilter(href));
+
+    // 2단계: 제목 키워드 사전필터 (제목이 4자 이상일 때만 적용)
+    // 제목 없거나 짧으면 일단 포함 (방문해서 본문 확인)
+    const preFiltered = matchedLinks.filter(({ title }) => {
+      if (title.length < 4) return true; // 제목 없음 → 일단 방문
+      return EVENT_KEYWORDS.some((kw) => title.includes(kw));
+    });
+
+    // 중복 제거 + maxItems 제한
+    const unique = [...new Set(preFiltered.map((l) => l.href))].slice(0, source.maxItems);
+
+    const skipped = matchedLinks.length - preFiltered.length;
+    if (skipped > 0) {
+      console.log(`[LIST] ${source.name}: 제목 필터로 ${skipped}건 사전 제외 (API 절감)`);
+    }
+    console.log(`[LIST] Found ${unique.length} URLs (total matched: ${matchedLinks.length})`);
+    return unique;
   } catch (err) {
     console.error(`[LIST] ${source.name} error:`, (err as Error).message);
     return [];
   }
 }
 
-// ─── 페이지 텍스트 추출 (핵심 콘텐츠 우선) ───────────────────────────────────
-// Best practice: target specific content containers before falling back to body
+// ─── 페이지 텍스트 추출 ───────────────────────────────────────────────────────
 async function extractText(page: import('playwright').Page, url: string): Promise<string> {
   const ok = await gotoWithRetry(page, url);
   if (!ok) return '';
 
-  // Best practice: networkidle waits for all XHR/fetch to settle (JS-rendered content)
   try {
     await page.waitForLoadState('networkidle', { timeout: 8000 });
   } catch {
-    await page.waitForTimeout(2000); // Fallback for slow sites
+    await page.waitForTimeout(2000);
   }
 
   return page.evaluate(() => {
-    // Remove noise
     (['script', 'style', 'nav', 'header', 'footer', 'iframe', 'noscript'] as string[]).forEach(
       (tag) => {
         document.querySelectorAll(tag).forEach((el) => el.remove());
       },
     );
 
-    // Best practice: target article/main content selectors specific to Korean Catholic sites
     const contentSelectors = [
-      'article',
-      'main',
-      '.board-view',
-      '.view-body',
-      '.article-body',
-      '.content-body',
-      '.news-body',
-      '#article-view-content-div', // catholictimes.org
-      '.bbs_view',
-      '.view_cont',
-      '.cont_area',
-      '#content',
-      '.news_view',
+      'article', 'main', '.board-view', '.view-body', '.article-body',
+      '.content-body', '.news-body', '#article-view-content-div',
+      '.bbs_view', '.view_cont', '.cont_area', '#content', '.news_view',
     ];
 
     for (const sel of contentSelectors) {
@@ -552,17 +405,33 @@ async function extractText(page: import('playwright').Page, url: string): Promis
       }
     }
 
-    // Fallback: full body text
     return document.body?.innerText ?? '';
   });
 }
 
+// ─── 텍스트 사전필터 (AI 호출 전) ─────────────────────────────────────────────
+// 미래 연도 + 행사 키워드 둘 다 없으면 AI 호출 없이 스킵
+function passesTextPreFilter(text: string, url: string): boolean {
+  // 미래 연도 패턴 (2026~2030)
+  const hasFutureYear = /202[6-9]|2030/.test(text);
+  // 행사 관련 키워드
+  const hasEventKeyword = EVENT_KEYWORDS.some((kw) => text.includes(kw));
+
+  if (!hasFutureYear && !hasEventKeyword) {
+    console.log(`[PRE-FILTER] Skip (no event indicators): ${url.slice(0, 80)}`);
+    skippedByPreFilter++;
+    return false;
+  }
+  return true;
+}
+
 // ─── 스크래핑 + DB 저장 ────────────────────────────────────────────────────────
 async function scrapeAndSave(page: import('playwright').Page, url: string): Promise<void> {
-  const canonicalUrl = normalizeUrl(url); // num= 등 순번 파라미터 제거
+  const canonicalUrl = normalizeUrl(url);
   processedCount++;
   console.log(`[SCRAPER] Processing: ${canonicalUrl}`);
   try {
+    // 중복 체크 (AI 호출 전)
     const dup = await dbClient.query(
       'SELECT id FROM "Event" WHERE "originUrl" = $1 LIMIT 1',
       [canonicalUrl],
@@ -578,10 +447,12 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
     let result: ScrapingResult | null = null;
 
     if (koreanChars >= 50) {
-      // Normal text-based extraction
+      // 텍스트 사전필터: 미래 연도 + 키워드 없으면 AI 호출 스킵
+      if (!passesTextPreFilter(text, url)) return;
+
       result = await refineWithAi(text);
     } else {
-      // Fallback: try Vision on poster images
+      // Vision fallback (포스터 이미지)
       const imageUrls = await extractImageUrls(page);
       if (imageUrls.length > 0) {
         console.log(`[VISION] Korean chars too few (${koreanChars}), trying ${imageUrls.length} image(s)`);
@@ -604,16 +475,13 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       return;
     }
 
-    // 1970 더미 날짜 → 날짜 불명 이벤트 (DB에 null로 저장)
     const isUnknownDate = result.date.startsWith('1970');
 
     if (isUnknownDate && result.location === '장소 미정') {
-      // 날짜·장소 모두 미정 → 저장 가치 없음
       console.log(`[SCRAPER] Skip (no event data): ${canonicalUrl}`);
       return;
     }
 
-    // 과거 이벤트 필터: 1년 전 이전 행사는 수집 제외 (날짜 불명 이벤트는 제외하지 않음)
     if (!isUnknownDate) {
       const eventDate = new Date(result.date);
       if (eventDate < TWO_DAYS_AGO) {
@@ -631,11 +499,11 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       [
         crypto.randomUUID(),
         result.title,
-        isUnknownDate ? null : new Date(result.date), // 1970 더미 날짜는 null로 저장
+        isUnknownDate ? null : new Date(result.date),
         result.location,
         result.aiSummary,
         result.themeColor,
-        canonicalUrl, // 정규화된 URL 저장
+        canonicalUrl,
         category,
       ],
     );
@@ -659,15 +527,13 @@ async function main() {
   await dbClient.connect();
   console.log('[DB] Connected.');
 
-  // ── 정리 1: 날짜/장소 없는 더미 레코드 제거
+  // ── DB 정리 ────────────────────────────────────────────────────────────────
   const cleanedDummy = await dbClient.query(
     `DELETE FROM "Event" WHERE (location = '장소 미정' OR location IS NULL) AND date < '1971-01-01'`,
   );
   if ((cleanedDummy.rowCount ?? 0) > 0)
     console.log(`[CLEANUP] 더미 레코드 ${cleanedDummy.rowCount}개 제거.`);
 
-  // ── 정리 2: 행사 종료 2일 후 삭제 (만료 데이터 제거)
-  // date IS NULL 인 날짜미정 이벤트는 제외 (보존)
   const twoDaysAgo = new Date();
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
   const cleanedExpired = await dbClient.query(
@@ -677,8 +543,6 @@ async function main() {
   if ((cleanedExpired.rowCount ?? 0) > 0)
     console.log(`[CLEANUP] 종료 2일 지난 이벤트 ${cleanedExpired.rowCount}개 삭제.`);
 
-  // ── 정리 3: BBS num= 파라미터 기반 중복 제거
-  // originUrl 에서 num= 제거 후 동일 URL 이 여러 건인 경우 최신 1건만 남김
   const cleanedDups = await dbClient.query(`
     DELETE FROM "Event"
     WHERE id IN (
@@ -703,7 +567,6 @@ async function main() {
   });
 
   try {
-    // 소스별 통계 추적
     const sourceStats: Record<string, { processed: number; saved: number }> = {};
 
     for (const source of SOURCES) {
@@ -717,8 +580,6 @@ async function main() {
       });
       const page = await context.newPage();
 
-      // Best practice: block non-essential resources (images, fonts, CSS, media)
-      // Note: image src attributes are still in DOM even when blocked — used for Vision fallback
       await page.route('**/*', (route) => {
         if (BLOCKED_RESOURCE_TYPES.has(route.request().resourceType())) {
           route.abort();
@@ -730,11 +591,10 @@ async function main() {
       const links = await extractLinks(page, source);
       for (const url of links) {
         await scrapeAndSave(page, url);
-        await page.waitForTimeout(1000); // Respectful rate limiting
+        await page.waitForTimeout(1000);
       }
 
       await context.close();
-      // 소스별 결과 기록
       sourceStats[source.name] = {
         processed: processedCount - processedBefore,
         saved: savedCount - savedBefore,
@@ -742,7 +602,6 @@ async function main() {
       console.log(`[STAT] ${source.name}: 시도 ${processedCount - processedBefore}건 → 저장 ${savedCount - savedBefore}건`);
     }
 
-    // 전체 소스별 요약 출력
     console.log('\n━━━ 소스별 결과 요약 ━━━');
     for (const [name, stat] of Object.entries(sourceStats)) {
       const emoji = stat.saved > 0 ? '✅' : stat.processed > 0 ? '⚪' : '❌';
@@ -753,11 +612,8 @@ async function main() {
     console.log('[BROWSER] Closed.');
   }
 
-  console.log(`\n[SCRAPER] All done. Processed: ${processedCount}, Saved: ${savedCount}`);
+  console.log(`\n[SCRAPER] 완료. 시도: ${processedCount}, 저장: ${savedCount}, 사전필터 절감: ${skippedByPreFilter}건`);
 
-  // ─── 0결과 모니터링 ──────────────────────────────────────────────────────
-  // processedCount = 0 → 소스 사이트 구조 변경 의심 (실제 장애) → throw
-  // processedCount > 0 but savedCount = 0 → 정상 (모두 중복 또는 과거 행사) → warn only
   if (processedCount === 0) {
     throw new Error('[ALERT] No URLs processed — source site structures may have changed!');
   }
@@ -765,7 +621,6 @@ async function main() {
     console.warn('[WARN] 0 new events saved this run (all duplicates or past events). Normal if DB is up to date.');
   }
 
-  // 새 이벤트가 저장됐을 때만 프론트엔드 ISR 캐시 무효화
   if (savedCount > 0) {
     const frontendUrl =
       process.env.FRONTEND_URL ?? 'https://amenguide-git-775250805671.us-west1.run.app';
