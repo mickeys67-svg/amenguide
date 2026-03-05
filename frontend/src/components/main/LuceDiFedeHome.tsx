@@ -1138,7 +1138,8 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                                 el.style.transform = "translateY(0)";
                                             }}
                                         >
-                                            로그??                                            <ArrowRight size={15} />
+                                            로그인
+                                            <ArrowRight size={15} />
                                         </button>
                                         <button
                                             onClick={() => router.push("/register")}
@@ -1169,7 +1170,8 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                                 el.style.transform = "translateY(0)";
                                             }}
                                         >
-                                            ?원가??                                        </button>
+                                            회원가입
+                                        </button>
                                     </div>
                                 </>
                             )}
