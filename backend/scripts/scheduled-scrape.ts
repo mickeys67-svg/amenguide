@@ -96,7 +96,7 @@ TWO_DAYS_AGO.setDate(TWO_DAYS_AGO.getDate() - 2);
 
 /** 제목: og:title > h1 > <title> 순서로 추출, 사이트명 접미사 제거 */
 function extractTitle(rawTitle: string, bodyFirstLine: string): string {
-  const fromRaw = rawTitle.split(/[|·\-–—]/)[0].trim();
+  const fromRaw = rawTitle.split(/[|·–—]/)[0].trim();
   if (fromRaw.length >= 5) return fromRaw;
   // fallback: 본문 첫 줄
   return bodyFirstLine.split('\n')[0].trim().slice(0, 80);
@@ -107,8 +107,7 @@ function extractDate(text: string): string {
   const today = new Date();
   const patterns: RegExp[] = [
     /(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/g,
-    /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g,
-    /(\d{4})\.\s*(\d{2})\.\s*(\d{2})/g,
+    /(\d{4})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})/g, // 구분자 사이 공백 허용 (2026. 03. 05 포함)
   ];
   for (const pattern of patterns) {
     let match: RegExpExecArray | null;
@@ -127,19 +126,25 @@ function extractDate(text: string): string {
   return '1970-01-01T00:00:00'; // 날짜 미정
 }
 
-/** 장소: "장소:" 패턴 또는 장소명 키워드 근방 텍스트 */
+/** 장소: "장소:" 패턴 또는 장소명 키워드 앞 단어 포함 캡처 */
 function extractLocation(text: string): string {
-  const patterns: RegExp[] = [
-    /(?:장소|개최\s*장소|행사\s*장소|주\s*소)\s*[:：]\s*([^\n\r]{4,50})/,
-    /(?:피정의집|수련원|영성원|수도원|성당|성지|회관|센터|교육관|신학교|묵상의\s*집)\s*[^\n\r]{0,30}/,
-  ];
-  for (const pattern of patterns) {
-    const m = text.match(pattern);
-    if (m) {
-      const loc = (m[1] || m[0]).trim().replace(/\s+/g, ' ');
-      if (loc.length >= 3 && loc.length <= 50) return loc;
-    }
+  // 패턴 1: 명시적 "장소:" 레이블
+  const labelMatch = text.match(/(?:장소|개최\s*장소|행사\s*장소|주\s*소)\s*[:：]\s*([^\n\r]{4,50})/);
+  if (labelMatch?.[1]) {
+    const loc = labelMatch[1].trim().replace(/\s+/g, ' ');
+    if (loc.length >= 3 && loc.length <= 50) return loc;
   }
+
+  // 패턴 2: 시설명 키워드 앞에 붙은 지명까지 함께 캡처 (후행 조사 제외)
+  // 예: "예수회 피정의집" / "명동 성당" / "한국 순교자 성지"
+  const facilityMatch = text.match(
+    /((?:[가-힣a-zA-Z0-9]+\s+){0,2}(?:피정의집|수련원|영성원|수도원|성당|성지|회관|센터|교육관|신학교|묵상의\s*집))/,
+  );
+  if (facilityMatch?.[1]) {
+    const loc = facilityMatch[1].trim().replace(/\s+/g, ' ');
+    if (loc.length >= 3 && loc.length <= 40) return loc;
+  }
+
   return '장소 미정';
 }
 
@@ -307,7 +312,7 @@ async function extractLinks(page: import('playwright').Page, source: Source): Pr
     const skipped = matched.length - preFiltered.length;
     if (skipped > 0) console.log(`[LIST] 제목 필터로 ${skipped}건 사전 제외`);
 
-    const unique = [...new Set(preFiltered.map((l) => l.href))].slice(0, source.maxItems);
+    const unique = [...new Set(preFiltered.map((l) => normalizeUrl(l.href)))].slice(0, source.maxItems);
     console.log(`[LIST] Found ${unique.length} URLs (matched: ${matched.length})`);
     return unique;
   } catch (err) {
@@ -356,7 +361,7 @@ async function extractPageData(page: import('playwright').Page, url: string): Pr
 
 // ─── 텍스트 사전필터 (AI 호출 전) ─────────────────────────────────────────────
 function passesTextPreFilter(text: string, url: string): boolean {
-  const hasFutureYear = /202[6-9]|2030/.test(text);
+  const hasFutureYear = /202[6-9]|20[3-9]\d/.test(text); // 2030-2099 커버
   const hasKeyword = EVENT_KEYWORDS.some((kw) => text.includes(kw));
   if (!hasFutureYear && !hasKeyword) {
     console.log(`[PRE-FILTER] Skip: ${url.slice(0, 80)}`);
@@ -408,8 +413,7 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       }
 
       // 과거 이벤트 조기 스킵 (AI 호출 없이)
-      const isUnknownDate = finalDate.startsWith('1970');
-      if (!isUnknownDate) {
+      if (!finalDate.startsWith('1970')) {
         const eventDate = new Date(finalDate);
         if (eventDate < TWO_DAYS_AGO) {
           console.log(`[SCRAPER] Skip (past event ${finalDate}): ${canonicalUrl}`);
@@ -418,7 +422,7 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       }
 
       // 날짜+장소 모두 미정 → 저장 가치 없음
-      if (isUnknownDate && finalLocation === '장소 미정') {
+      if (finalDate.startsWith('1970') && finalLocation === '장소 미정') {
         console.log(`[SCRAPER] Skip (no event data): ${canonicalUrl}`);
         return;
       }
@@ -555,10 +559,11 @@ const SOURCES: Source[] = [
       /(?:youth|samog|vocatio|cateb)\.gjcatholic\.or\.kr\/(?:picture|leaflet|board)\/\d+/.test(h),
     maxItems: 10,
     waitSelector: '.board-list, ul.list, .event-list, table',
+    bypassTitleFilter: true,
   },
   {
     name: '대전교구 행사공지',
-    listUrl: 'http://www.djcatholic.or.kr/home/news/monthplan.php',
+    listUrl: 'https://www.djcatholic.or.kr/home/news/monthplan.php',
     linkFilter: (h) => h.includes('djcatholic.or.kr') && h.includes('enter=v') && h.includes('idx='),
     maxItems: 8,
     waitSelector: '.board, table, .list, tbody',
