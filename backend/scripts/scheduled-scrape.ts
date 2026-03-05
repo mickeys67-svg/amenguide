@@ -60,22 +60,35 @@ function buildAiPrompt(): string {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   return `You are a Korean Catholic event analyst. Today is ${today}.
 Extract event details from the input.
-ONLY extract if this is a FUTURE or very recent (within 2 weeks past) Catholic event, retreat, lecture, pilgrimage, or program.
-SKIP and return {"skip": true} if the content is:
-- A past event older than 2 weeks from today
-- An internal administrative meeting or committee session
-- A news article about an already-completed event
-- A press release without a specific upcoming event date
+
+IMPORTANT DATE DISTINCTION:
+- "event_date" = the date the EVENT ITSELF takes place (this is what matters for skip decision)
+- "publication_date" = when the notice was posted (IGNORE this for skip decisions)
+- Example: A notice posted 3 months ago about an upcoming retreat SHOULD be extracted.
+
+SKIP and return {"skip": true} ONLY if:
+- The event_date (not publication date) is more than 2 weeks before today (${today})
+- It is purely an internal administrative/committee meeting with no public participation
+- It is a news report about a COMPLETED event with no upcoming schedule info
+- There is no actual event at all (editorial, petition, obituary, etc.)
+
 Otherwise return ONLY valid JSON (no markdown fences):
 - title (string): Official event name in Korean
-- date (string): ISO 8601 e.g. "2026-05-20T10:00:00". Use "1970-01-01T00:00:00" if unknown.
+- date (string): ISO 8601 date of the EVENT e.g. "2026-05-20T10:00:00". Use "1970-01-01T00:00:00" if unknown.
 - location (string): Venue name and city in Korean. Use "장소 미정" if unknown.
 - aiSummary (string): 2-3 Korean sentences, warm spiritual tone (은총이 가득한 따뜻한 어조)
 - themeColor (string): One of #E63946 #457B9D #FFB703 #06D6A0 #C9A96E
-- category (string): One of "피정" | "미사" | "강의" | "순례" | "청년" | "문화" | "선교"
-  피정=피정·묵상·영성수련·성령쇄신, 미사=미사·전례·기도회·연도·강론, 강의=강좌·성경·교리·특강·세미나,
-  순례=성지순례·도보순례·성당탐방, 청년=청년·청소년·Youth·성소,
-  문화=음악회·공연·전시·합창·연극, 선교=선교·봉사·레지오·복음화·사회사목`;
+- category (string): One of "피정" | "강론" | "강의" | "특강" | "피정의집" | "순례" | "청년" | "문화" | "선교" | "미사"
+  피정=피정·묵상·영성수련·성령쇄신·관상기도
+  강론=강론·설교·사목서한·강론집
+  강의=강좌·성경공부·교리·세미나·교육
+  특강=특강·초청강연·공개강좌·심포지엄
+  피정의집=피정의집·수련원·영성원·수도원프로그램·봉쇄피정
+  순례=성지순례·도보순례·성당탐방·순례길
+  청년=청년·청소년·Youth·성소·대학생
+  문화=음악회·공연·전시·합창·연극·콘서트·뮤지컬·축제
+  선교=선교·봉사·레지오·복음화·사회사목·자선
+  미사=미사·전례·기도회·연도·성체·위령`;
 }
 
 // ─── 소스 목록 ────────────────────────────────────────────────────────────────
@@ -163,6 +176,167 @@ const SOURCES: Source[] = [
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4780',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4780'),
     maxItems: 8,
+  },
+
+  // ── 굿뉴스 BBS 추가 메뉴 (Phase 1 — HTTP 200 확인됨) ─────────────────────
+  {
+    name: '굿뉴스 성지순례',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4782',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4782'),
+    maxItems: 8,
+  },
+  {
+    name: '굿뉴스 청년/성소',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4784',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4784'),
+    maxItems: 8,
+  },
+  {
+    name: '굿뉴스 성소안내',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4786',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4786'),
+    maxItems: 6,
+  },
+  {
+    name: '굿뉴스 특강/세미나',
+    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4788',
+    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4788'),
+    maxItems: 8,
+  },
+
+  // ── 교구 추가 (Phase 2) ────────────────────────────────────────────────────
+  // ⚠️ URL은 배포 후 로그로 확인 필요. 실패 시 gracefully 0건 반환.
+  {
+    name: '서울대교구 행사',
+    listUrl: 'https://www.catholic.or.kr/schedule/schedule.asp',
+    linkFilter: (h) =>
+      /(?:catholic\.or\.kr|seoul\.catholic\.or\.kr).*(?:view|notice_view|schedule_view|idx=|no=|seq=)\d*/.test(h) &&
+      !h.includes('bbs.catholic.or.kr'),
+    maxItems: 12,
+    waitSelector: '.board-list, table, .schedule-list, .list',
+  },
+  {
+    name: '수원교구 행사',
+    listUrl: 'https://www.suwon.catholic.or.kr/news/notice',
+    linkFilter: (h) =>
+      /suwon\.catholic\.or\.kr.*(?:view|read|detail|notice|idx=|no=|seq=|wr_id=)\d*/.test(h),
+    maxItems: 10,
+    waitSelector: '.board-list, table, ul.list',
+  },
+  {
+    name: '인천교구 행사',
+    listUrl: 'https://www.icatholic.or.kr/front/board/list.do?boCode=BD_NOTICE',
+    linkFilter: (h) =>
+      /icatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=|boCode)\d*/.test(h),
+    maxItems: 10,
+    waitSelector: '.board-list, table',
+  },
+  {
+    name: '의정부교구 행사',
+    listUrl: 'https://www.uidjcatholic.or.kr/bbs/board.php?bo_table=notice',
+    linkFilter: (h) =>
+      /uidjcatholic\.or\.kr.*(?:view|read|wr_id=|idx=|no=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: 'table, .board-list',
+  },
+  {
+    name: '전주교구 행사',
+    listUrl: 'https://www.jeonjucatholic.or.kr/home/news/notice',
+    linkFilter: (h) =>
+      /jeonjucatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: 'table, .board-list',
+  },
+  {
+    name: '청주교구 행사',
+    listUrl: 'https://www.cjcatholic.or.kr/board/',
+    linkFilter: (h) =>
+      /cjcatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=|wr_id=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: 'table, .board-list',
+  },
+  {
+    name: '마산교구 행사',
+    listUrl: 'https://www.masancatholic.or.kr/board/list.php?code=notice',
+    linkFilter: (h) =>
+      /masancatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: 'table, .board-list',
+  },
+  {
+    name: '춘천교구 행사',
+    listUrl: 'https://www.chuncheon.catholic.or.kr/news/notice/',
+    linkFilter: (h) =>
+      /chuncheon\.catholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: 'table, .board-list',
+  },
+  {
+    name: '원주교구 행사',
+    listUrl: 'https://www.wonjucatholic.or.kr/bbs/board.php?bo_table=notice',
+    linkFilter: (h) =>
+      /wonjucatholic\.or\.kr.*(?:view|read|wr_id=|idx=|no=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: 'table, .board-list',
+  },
+  {
+    name: '안동교구 행사',
+    listUrl: 'https://www.andongcatholic.or.kr/board/',
+    linkFilter: (h) =>
+      /andongcatholic\.or\.kr.*(?:view|read|detail|idx=|no=|seq=)\d*/.test(h),
+    maxItems: 6,
+    waitSelector: 'table, .board-list',
+  },
+  {
+    name: '제주교구 행사',
+    listUrl: 'https://www.jejucatholic.or.kr/bbs/board.php?bo_table=notice',
+    linkFilter: (h) =>
+      /jejucatholic\.or\.kr.*(?:view|read|wr_id=|idx=|no=)\d*/.test(h),
+    maxItems: 6,
+    waitSelector: 'table, .board-list',
+  },
+
+  // ── 피정의집 / 수도회 / 청년 (Phase 3) ────────────────────────────────────
+  {
+    name: '서울대교구 청년국',
+    listUrl: 'https://young.catholic.or.kr/notice/',
+    linkFilter: (h) =>
+      /young\.catholic\.or\.kr.*(?:view|read|detail|notice|idx=|no=|seq=)\d*/.test(h),
+    maxItems: 10,
+    waitSelector: '.board-list, table, .notice-list',
+  },
+  {
+    name: '왜관 베네딕도 수도원',
+    listUrl: 'https://www.waegwan.com/retreat/',
+    linkFilter: (h) =>
+      /waegwan\.com.*(?:view|read|detail|program|retreat|idx=|no=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: '.program-list, table, .board-list',
+  },
+  {
+    name: '예수회 피정/영성',
+    listUrl: 'https://www.jesuit.or.kr/retreat/',
+    linkFilter: (h) =>
+      /jesuit\.or\.kr.*(?:view|read|detail|retreat|program|idx=|no=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: '.program-list, .board-list, table',
+  },
+  {
+    name: 'CBCK 피정의집 정보',
+    listUrl: 'https://www.cbck.or.kr/Catholic/RetreatsHouse',
+    linkFilter: (h) =>
+      /cbck\.or\.kr.*(?:RetreatsHouse|Retreat|retreat)\d*/.test(h) &&
+      /\d{3,}/.test(h),
+    maxItems: 10,
+    waitSelector: '.list, table, .board-list',
+  },
+  {
+    name: '살레시오 피정/행사',
+    listUrl: 'https://www.salesian.or.kr/event/',
+    linkFilter: (h) =>
+      /salesian\.or\.kr.*(?:view|read|detail|event|program|idx=|no=)\d*/.test(h),
+    maxItems: 8,
+    waitSelector: '.program-list, .board-list, table',
   },
 ];
 
@@ -448,7 +622,7 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       }
     }
 
-    const validCategories = ['피정', '미사', '강의', '순례', '청년', '문화', '선교'];
+    const validCategories = ['피정', '강론', '강의', '특강', '피정의집', '순례', '청년', '문화', '선교', '미사'];
     const category = validCategories.includes(result.category) ? result.category : '선교';
 
     await dbClient.query(
@@ -529,8 +703,13 @@ async function main() {
   });
 
   try {
+    // 소스별 통계 추적
+    const sourceStats: Record<string, { processed: number; saved: number }> = {};
+
     for (const source of SOURCES) {
       console.log(`\n━━━ ${source.name} ━━━`);
+      const processedBefore = processedCount;
+      const savedBefore = savedCount;
       const context = await browser.newContext({
         locale: 'ko-KR',
         userAgent:
@@ -555,6 +734,19 @@ async function main() {
       }
 
       await context.close();
+      // 소스별 결과 기록
+      sourceStats[source.name] = {
+        processed: processedCount - processedBefore,
+        saved: savedCount - savedBefore,
+      };
+      console.log(`[STAT] ${source.name}: 시도 ${processedCount - processedBefore}건 → 저장 ${savedCount - savedBefore}건`);
+    }
+
+    // 전체 소스별 요약 출력
+    console.log('\n━━━ 소스별 결과 요약 ━━━');
+    for (const [name, stat] of Object.entries(sourceStats)) {
+      const emoji = stat.saved > 0 ? '✅' : stat.processed > 0 ? '⚪' : '❌';
+      console.log(`${emoji} ${name}: ${stat.saved}/${stat.processed}`);
     }
   } finally {
     await browser.close();

@@ -18,18 +18,24 @@ export interface DioceseSyncResult {
   busan: number;
   daegu: number;
   daejeon: number;
+  seoul: number;
+  suwon: number;
+  incheon: number;
   total: number;
 }
 
 // ─── 카테고리 → 색상 매핑 (SANCTUS 디자인 시스템 — UI와 동일) ────────────────
 const CATEGORY_COLOR: Record<string, string> = {
-  피정: '#1B4080',  // deep blue
-  미사: '#8B1A1A',  // deep crimson (전례색)
-  강의: '#1A6B40',  // forest green
-  순례: '#7B5230',  // warm brown
-  청년: '#0B6B70',  // deep teal
-  문화: '#6E2882',  // royal purple
-  선교: '#C83A1E',  // vermillion
+  피정: '#1B4080',    // deep blue
+  강론: '#5C4033',    // 따뜻한 갈색 (설교·강론)
+  강의: '#1A6B40',    // forest green
+  특강: '#2D6A8A',    // steel blue (초청강연)
+  피정의집: '#4A3060', // dark violet (수도원)
+  미사: '#8B1A1A',    // deep crimson (전례색)
+  순례: '#7B5230',    // warm brown
+  청년: '#0B6B70',    // deep teal
+  문화: '#6E2882',    // royal purple
+  선교: '#C83A1E',    // vermillion
 };
 
 @Injectable()
@@ -46,26 +52,61 @@ export class DioceseSyncService {
       this.logger.error(`[Busan] 전체 실패: ${e.message}`);
       return 0;
     });
-
     await this.delay(2000);
 
     const daegu = await this.runDaegu(monthsAhead).catch((e) => {
       this.logger.error(`[Daegu] 전체 실패: ${e.message}`);
       return 0;
     });
-
     await this.delay(2000);
 
     const daejeon = await this.runDaejeon(monthsAhead).catch((e) => {
       this.logger.error(`[Daejeon] 전체 실패: ${e.message}`);
       return 0;
     });
+    await this.delay(2000);
+
+    // ── 신규 교구 (Phase 2) ──────────────────────────────────────────────
+    const seoul = await this.runGenericBoard({
+      name: '서울대교구',
+      defaultLocation: '서울대교구',
+      urls: [
+        'https://www.catholic.or.kr/schedule/schedule.asp',
+        'https://seoul.catholic.or.kr/news/notice',
+        'https://seoul.catholic.or.kr/bbs/bbs_list.asp?menu=4726',
+      ],
+    }).catch((e) => { this.logger.error(`[Seoul] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const suwon = await this.runGenericBoard({
+      name: '수원교구',
+      defaultLocation: '수원교구',
+      urls: [
+        'https://www.suwon.catholic.or.kr/news/notice',
+        'https://www.suwon.catholic.or.kr/board/list.php?code=notice',
+        'https://www.suwon.catholic.or.kr/bbs/bbs_list.asp',
+      ],
+    }).catch((e) => { this.logger.error(`[Suwon] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const incheon = await this.runGenericBoard({
+      name: '인천교구',
+      defaultLocation: '인천교구',
+      urls: [
+        'https://www.icatholic.or.kr/front/board/list.do?boCode=BD_NOTICE',
+        'https://www.icatholic.or.kr/catholic/news/notice',
+        'https://icatholic.or.kr/bbs/board.php?bo_table=notice',
+      ],
+    }).catch((e) => { this.logger.error(`[Incheon] 실패: ${e.message}`); return 0; });
 
     const result: DioceseSyncResult = {
       busan,
       daegu,
       daejeon,
-      total: busan + daegu + daejeon,
+      seoul,
+      suwon,
+      incheon,
+      total: busan + daegu + daejeon + seoul + suwon + incheon,
     };
 
     this.logger.log(`[DioceseSync] 완료 → ${JSON.stringify(result)}`);
@@ -538,17 +579,170 @@ export class DioceseSyncService {
     return utf8;
   }
 
-  /** 카테고리 탐지 — UI 7카테고리와 동일한 분류체계 */
+  /** 카테고리 탐지 — UI 카테고리와 동일한 분류체계 (강론·특강·피정의집 추가) */
   private detectCategory(title: string, type: string): string {
     const t = (title + ' ' + type).replace(/\s+/g, '');
-    if (/피정|영성수련|묵상|성령쇄신|마리아의밤/.test(t)) return '피정';
-    if (/미사|전례|기도회|성시간|연도|위령|성체거양|강론|복사단/.test(t)) return '미사';
-    if (/강의|강좌|교육|특강|세미나|렉시오|성경|교리|신학/.test(t)) return '강의';
+    // 피정의집 (수도원 거주 프로그램) — 피정보다 먼저 검사
+    if (/피정의집|수련원|영성원|봉쇄피정|묵주기도의집|성모피정원|이냐시오피정|수도원프로그램/.test(t)) return '피정의집';
+    // 피정
+    if (/피정|영성수련|묵상|성령쇄신|마리아의밤|관상기도|침묵피정/.test(t)) return '피정';
+    // 강론 (설교·사목서한)
+    if (/강론|설교|사목서한|강론집/.test(t)) return '강론';
+    // 특강 (초청강연·공개강좌)
+    if (/특강|초청강연|공개강좌|심포지엄|포럼/.test(t)) return '특강';
+    // 강의 (정규 교육 과정)
+    if (/강의|강좌|교육|세미나|렉시오|성경|교리|신학/.test(t)) return '강의';
+    // 미사·전례
+    if (/미사|전례|기도회|성시간|연도|위령|성체거양|복사단/.test(t)) return '미사';
+    // 순례
     if (/순례|성지|도보순례|성당탐방|순례길/.test(t)) return '순례';
+    // 청년
     if (/청년|Youth|youth|대학|청소년|성소/.test(t)) return '청년';
+    // 문화
     if (/음악회|공연|전시|합창|연극|음악제|뮤지컬|콘서트|축제/.test(t)) return '문화';
+    // 선교·봉사
     if (/선교|봉사|레지오|복음화|사회사목|자선/.test(t)) return '선교';
-    return '선교'; // 분류 불가 → 선교/기타로 처리 (기타 카테고리 제거)
+    return '선교'; // 분류 불가 → 선교/기타로 처리
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Generic Board Scraper — 표준 HTML 게시판 구조 범용 파서
+  // 부산·대구·대전 전용 스크래퍼 외 교구에 사용
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * 여러 URL 후보를 순서대로 시도하여 첫 번째로 이벤트를 반환하는 URL 사용.
+   * 실패해도 catch 없이 상위에서 처리 (runAll에서 catch).
+   */
+  private async runGenericBoard(config: {
+    name: string;
+    urls: string[];
+    defaultLocation: string;
+    linkRe?: RegExp;
+  }): Promise<number> {
+    this.logger.log(`[${config.name}] 게시판 수집 시작`);
+
+    for (const url of config.urls) {
+      try {
+        const res = await axios.get<ArrayBuffer>(url, {
+          timeout: 12000,
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+          },
+        });
+
+        const html = this.decodeKorean(Buffer.from(res.data), res.headers['content-type']);
+        const events = this.parseGenericBoard(html, url, config.defaultLocation, config.linkRe);
+
+        if (events.length === 0) {
+          this.logger.warn(`[${config.name}] ${url} — 이벤트 0건 파싱됨. 다음 URL 시도.`);
+          continue;
+        }
+
+        this.logger.log(`[${config.name}] ${url} → ${events.length}건 파싱`);
+        let saved = 0;
+        for (const evt of events) {
+          if (await this.saveGenericEvent(evt, `[${config.name}]`)) saved++;
+        }
+        this.logger.log(`[${config.name}] 완료. 저장: ${saved}`);
+        return saved;
+      } catch (err) {
+        this.logger.warn(`[${config.name}] ${url} 접근 실패: ${(err as Error).message}`);
+      }
+    }
+
+    this.logger.warn(`[${config.name}] 모든 URL 실패. 저장: 0`);
+    return 0;
+  }
+
+  /**
+   * 한국 가톨릭 게시판의 공통 HTML 패턴에서 이벤트 링크·제목·날짜 추출.
+   * 교구마다 약간씩 다른 href/텍스트 패턴을 모두 포괄하는 넓은 정규식 사용.
+   */
+  private parseGenericBoard(
+    html: string,
+    baseUrl: string,
+    defaultLocation: string,
+    linkRe?: RegExp,
+  ): DioceseEvent[] {
+    const events: DioceseEvent[] = [];
+    const seen = new Set<string>();
+
+    let baseHost: string;
+    try {
+      baseHost = new URL(baseUrl).origin;
+    } catch {
+      baseHost = '';
+    }
+
+    // 한국 가톨릭 CMS(그누보드·XE·자체) 공통 상세 페이지 URL 패턴
+    const re =
+      linkRe ??
+      /href="([^"]*(?:view|read|detail|notice_view|board_view|schedule_view|plan_view|idx=|no=|seq=|wr_id=)\d*[^"]*)"[^>]*>\s*((?:[가-힣a-zA-Z0-9\s·\-「」『』《》【】\/()（）%&!?,.…]{3,80}?))\s*<\/a>/gi;
+
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      const href = m[1].trim();
+      const rawTitle = m[2]
+        .trim()
+        .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ');
+
+      if (!rawTitle || seen.has(rawTitle)) continue;
+      if (rawTitle.length < 3 || /^\d+$/.test(rawTitle)) continue;
+      if (
+        ['더보기', '자세히', '목록', '이전', '다음', '검색', '닫기', '공지', '수정', '삭제'].includes(
+          rawTitle,
+        )
+      )
+        continue;
+      // 한국어 글자가 전혀 없으면 제외
+      if (!/[가-힣]/.test(rawTitle)) continue;
+
+      seen.add(rawTitle);
+
+      const originUrl =
+        href.startsWith('http')
+          ? href
+          : `${baseHost}${href.startsWith('/') ? '' : '/'}${href}`;
+
+      // 주변 텍스트에서 날짜 추출 (YYYY-MM-DD 또는 YYYY.MM.DD)
+      const context = html.slice(Math.max(0, m.index - 400), m.index + 100);
+      const dateMatch = context.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+      const date = dateMatch
+        ? new Date(
+            parseInt(dateMatch[1]),
+            parseInt(dateMatch[2]) - 1,
+            parseInt(dateMatch[3]),
+          )
+        : new Date();
+
+      // 과거 이벤트(2주 이상 지난 것) 필터
+      const twoWeeksAgo = new Date();
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+      if (date < twoWeeksAgo && !dateMatch) {
+        // 날짜 불명 → 일단 포함
+      } else if (date < twoWeeksAgo) {
+        continue;
+      }
+
+      const category = this.detectCategory(rawTitle, '');
+      events.push({
+        title: rawTitle,
+        date,
+        location: defaultLocation,
+        originUrl,
+        category,
+        themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
+      });
+    }
+
+    return events.slice(0, 15); // 교구당 최대 15건
   }
 
   private coerceStr(v: unknown): string {
