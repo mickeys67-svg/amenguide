@@ -431,7 +431,7 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
         return;
       }
       console.log(`[VISION] Korean chars too few (${koreanChars}), trying images`);
-      let visionResult = null;
+      let visionResult: Awaited<ReturnType<typeof refineWithVision>> = null;
       for (const imgUrl of imageUrls.slice(0, 3)) {
         const imageData = await fetchImageAsBase64(imgUrl);
         if (!imageData) continue;
