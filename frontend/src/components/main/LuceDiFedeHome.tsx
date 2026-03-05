@@ -76,7 +76,38 @@ const CATEGORY_QUICK = [
     { label: "선교", color: "#C83A1E", desc: "선교 · 봉사 · 사회사목" },
 ];
 
-export default function LuceDiFedeHome() {
+// SSR에서 내려온 원시 이벤트 데이터를 EventData 형태로 변환
+function mapRawEvents(data: any[]): EventData[] {
+    const mapped = data.map((e) => ({
+        id: e.id,
+        title: e.title,
+        subtitle: e.category || "",
+        category: e.category || "피정",
+        date: e.date ? new Date(e.date).toLocaleDateString("ko-KR") : "날짜 미정",
+        rawDate: e.date || undefined,
+        location: e.location || "장소 미정",
+        organizer: "Catholica",
+        description: e.aiSummary || "",
+        aiSummary: e.aiSummary,
+        image: RETREAT_IMG,
+        duration: "상세참조",
+        tags: [] as string[],
+        featured: false,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        originUrl: e.originUrl,
+        createdAt: e.createdAt,
+    }));
+    const seen = new Set<string>();
+    return mapped.filter(e => {
+        const key = `${e.title}|${e.rawDate ?? 'nodate'}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?: any[] }) {
     const router = useRouter();
     const [activeFilter, setActiveFilter] = useState("전체");
     const [sortBy, setSortBy] = useState("date");
@@ -140,8 +171,8 @@ export default function LuceDiFedeHome() {
         );
     };
 
-    const [events, setEvents] = useState<EventData[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [events, setEvents] = useState<EventData[]>(() => mapRawEvents(initialEvents));
+    const [isLoading, setIsLoading] = useState(initialEvents.length === 0);
     const [error, setError] = useState<string | null>(null);
 
     // ?? 즐겨찾기 ?태 ????????????????????????????????????????????????????????
@@ -168,41 +199,17 @@ export default function LuceDiFedeHome() {
     };
 
     useEffect(() => {
+        // SSR에서 데이터를 받았으면 클라이언트 fetch 불필요
+        if (initialEvents.length > 0) return;
+
+        // SSR 실패 시 fallback: 클라이언트에서 직접 fetch
         const fetchEvents = async () => {
             setIsLoading(true);
             setError(null);
             try {
                 const data = await apiFetch<EventData[]>("/events");
                 if (data && data.length > 0) {
-                    const mappedEvents: EventData[] = data.map((e) => ({
-                        id: e.id,
-                        title: e.title,
-                        subtitle: e.category || "",
-                        category: e.category || "피정",
-                        date: e.date ? new Date(e.date).toLocaleDateString("ko-KR") : "날짜 미정",
-                        rawDate: e.date || undefined,
-                        location: e.location || "장소 미정",
-                        organizer: "Catholica",
-                        description: e.aiSummary || "",
-                        aiSummary: e.aiSummary,
-                        image: RETREAT_IMG,
-                        duration: "상세참조",
-                        tags: [],
-                        featured: false,
-                        latitude: e.latitude,
-                        longitude: e.longitude,
-                        originUrl: e.originUrl,
-                        createdAt: e.createdAt,
-                    }));
-                    // title + rawDate 조합?로 중복 ?거
-                    const seen = new Set<string>();
-                    const deduped = mappedEvents.filter(e => {
-                        const key = `${e.title}|${e.rawDate ?? 'nodate'}`;
-                        if (seen.has(key)) return false;
-                        seen.add(key);
-                        return true;
-                    });
-                    setEvents(deduped);
+                    setEvents(mapRawEvents(data));
                 }
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : "Failed to load events.";

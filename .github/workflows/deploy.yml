@@ -39,11 +39,13 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
         run: |
           python3 -c "
           import os, json
           keys=['DATABASE_URL','ANTHROPIC_API_KEY','SCRAPER_API_KEY','ADMIN_API_KEY',
-                'SUPABASE_URL','SUPABASE_SERVICE_KEY','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','JWT_SECRET']
+                'SUPABASE_URL','SUPABASE_SERVICE_KEY','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','JWT_SECRET',
+                'REVALIDATE_SECRET']
           with open('/tmp/backend-env.yaml','w') as f:
             for k in keys:
               f.write(k+': '+json.dumps(os.environ.get(k,''))+'\n')
@@ -93,6 +95,7 @@ jobs:
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
+            --set-env-vars "REVALIDATE_SECRET=${{ secrets.REVALIDATE_SECRET }}" \
             --quiet
 
       - name: Show Frontend URL

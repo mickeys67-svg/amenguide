@@ -572,6 +572,26 @@ async function main() {
   if (savedCount === 0) {
     console.warn('[WARN] 0 new events saved this run (all duplicates or past events). Normal if DB is up to date.');
   }
+
+  // 새 이벤트가 저장됐을 때만 프론트엔드 ISR 캐시 무효화
+  if (savedCount > 0) {
+    const frontendUrl =
+      process.env.FRONTEND_URL ?? 'https://amenguide-git-775250805671.us-west1.run.app';
+    const revalidateSecret = process.env.REVALIDATE_SECRET;
+    if (revalidateSecret) {
+      try {
+        const res = await fetch(`${frontendUrl}/api/revalidate`, {
+          method: 'POST',
+          headers: { 'x-revalidate-secret': revalidateSecret },
+        });
+        console.log(`[REVALIDATE] 프론트엔드 캐시 무효화 완료 (status: ${res.status})`);
+      } catch (err) {
+        console.warn('[REVALIDATE] 캐시 무효화 실패 (비치명적):', (err as Error).message);
+      }
+    } else {
+      console.warn('[REVALIDATE] REVALIDATE_SECRET 미설정 — 캐시 무효화 건너뜀');
+    }
+  }
 }
 
 main()

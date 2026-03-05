@@ -1,9 +1,25 @@
 import LuceDiFedeHome from "@/components/main/LuceDiFedeHome";
 
-export default function Home() {
+async function getEvents() {
+  const backendUrl =
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://amenguide-backend-775250805671.us-west1.run.app";
+  try {
+    const res = await fetch(`${backendUrl}/events`, {
+      next: { tags: ["events"] }, // revalidateTag('events') 로 무효화
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export default async function Home() {
+  const events = await getEvents();
   return (
     <main>
-      <LuceDiFedeHome />
+      <LuceDiFedeHome initialEvents={events} />
     </main>
   );
 }
