@@ -67,7 +67,7 @@ IMPORTANT DATE DISTINCTION:
 - Example: A notice posted 3 months ago about an upcoming retreat SHOULD be extracted.
 
 SKIP and return {"skip": true} ONLY if:
-- The event_date (not publication date) is more than 2 days before today (${today})
+- The event_date (not publication date) is more than 1 month before today (${today})
 - It is purely an internal administrative/committee meeting with no public participation
 - It is a news report about a COMPLETED event with no upcoming schedule info
 - There is no actual event at all (editorial, petition, obituary, etc.)
