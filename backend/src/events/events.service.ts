@@ -20,56 +20,60 @@ export class EventsService implements OnModuleInit {
   ) { }
 
   onModuleInit() {
-    // 매일 자정 이후 행사 종료 2일 경과한 이미지 자동 삭제
+    // 매일 자정 이후 행사 종료 2일 경과한 이벤트 자동 삭제
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     const run = () =>
-      this.cleanupOldEventImages().catch((err) =>
-        this.logger.error(`Image cleanup failed: ${err.message}`),
+      this.cleanupExpiredEvents().catch((err) =>
+        this.logger.error(`Event cleanup failed: ${err.message}`),
       );
     run(); // 시작 시 1회 즉시 실행
     setInterval(run, ONE_DAY_MS);
   }
 
-  /** 행사 종료 2일 후 Supabase Storage 이미지 삭제 + DB imageUrl null */
-  private async cleanupOldEventImages() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseKey) return;
-
+  /** 행사 종료 2일 후 이벤트 레코드 삭제 + Supabase Storage 이미지 삭제 */
+  private async cleanupExpiredEvents() {
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
-    const events = await this.prisma.event.findMany({
-      where: {
-        AND: [
-          { imageUrl: { not: null } },
-          { date: { not: null, lt: twoDaysAgo } },
-        ],
-      },
-      select: { id: true, imageUrl: true },
-    });
+    // 1. 만료된 이벤트의 Supabase 이미지 먼저 삭제
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    if (supabaseUrl && supabaseKey) {
+      const eventsWithImages = await this.prisma.event.findMany({
+        where: {
+          AND: [
+            { imageUrl: { not: null } },
+            { date: { not: null, lt: twoDaysAgo } },
+          ],
+        },
+        select: { id: true, imageUrl: true },
+      });
 
-    if (events.length === 0) return;
-    this.logger.log(`Cleaning images for ${events.length} past event(s)`);
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    // Supabase public URL 형식: .../storage/v1/object/public/event-images/<filename>
-    const prefix = `${supabaseUrl}/storage/v1/object/public/event-images/`;
-
-    for (const event of events) {
-      try {
-        if (event.imageUrl?.startsWith(prefix)) {
-          const fileName = event.imageUrl.slice(prefix.length);
-          await supabase.storage.from('event-images').remove([fileName]);
+      if (eventsWithImages.length > 0) {
+        this.logger.log(`Cleaning images for ${eventsWithImages.length} expired event(s)`);
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const prefix = `${supabaseUrl}/storage/v1/object/public/event-images/`;
+        for (const event of eventsWithImages) {
+          try {
+            if (event.imageUrl?.startsWith(prefix)) {
+              const fileName = event.imageUrl.slice(prefix.length);
+              await supabase.storage.from('event-images').remove([fileName]);
+            }
+          } catch (err) {
+            this.logger.error(`Failed to delete image for event ${event.id}: ${err.message}`);
+          }
         }
-        await this.prisma.event.update({
-          where: { id: event.id },
-          data: { imageUrl: null } as any,
-        });
-        this.logger.log(`Deleted image for event ${event.id}`);
-      } catch (err) {
-        this.logger.error(`Failed to delete image for event ${event.id}: ${err.message}`);
       }
+    }
+
+    // 2. 만료된 이벤트 레코드 삭제 (date IS NOT NULL AND date < 2일 전)
+    const deleted = await this.prisma.event.deleteMany({
+      where: {
+        date: { not: null, lt: twoDaysAgo },
+      },
+    });
+    if (deleted.count > 0) {
+      this.logger.log(`Deleted ${deleted.count} expired event record(s)`);
     }
   }
 
@@ -123,35 +127,18 @@ export class EventsService implements OnModuleInit {
 
   async findAll() {
     try {
-      // 1개월 이전 행사는 제외 (과거 이벤트 노출 방지)
-      // date = null 인 이벤트는 날짜 미정이므로 포함
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
+      // 만료된 이벤트는 cleanupExpiredEvents()가 매일 삭제 — 별도 날짜 필터 불필요
+      // date = null 인 이벤트는 날짜 미정이므로 항상 포함
       const rows = await this.prisma.event.findMany({
-        where: {
-          AND: [
-            {
-              OR: [
-                { date: null },
-                { date: { gte: oneMonthAgo } },
-              ],
-            },
-            {
-              // 승인된 이벤트만 노출 (ALTER TABLE DEFAULT 'APPROVED'로 기존 스크래핑 행도 포함)
-              status: 'APPROVED',
-            },
-          ],
-        },
+        where: { status: 'APPROVED' },
         orderBy: [
-          { date: 'asc' },    // 다가오는 행사 먼저
+          { date: 'asc' },    // 다가오는 행사 먼저 (null은 마지막)
           { createdAt: 'desc' },
         ],
       });
       return this.deduplicateEvents(rows);
     } catch (error) {
       // Only trigger nuclear reset when the Event TABLE itself is missing.
-      // Do NOT trigger on column-not-found errors (those are fixed by initDatabase on startup).
       const isTableMissing =
         /relation "Event" does not exist/i.test(error.message) ||
         /relation "event" does not exist/i.test(error.message);
@@ -160,21 +147,8 @@ export class EventsService implements OnModuleInit {
           'Table "event" not found, attempting on-the-fly creation.',
         );
         await this.nuclearReset();
-        // Retry once — 메인 경로와 동일한 필터 + 정렬 적용
-        const retryOneMonthAgo = new Date();
-        retryOneMonthAgo.setMonth(retryOneMonthAgo.getMonth() - 1);
         const retryRows = await this.prisma.event.findMany({
-          where: {
-            AND: [
-              {
-                OR: [
-                  { date: null },
-                  { date: { gte: retryOneMonthAgo } },
-                ],
-              },
-              { status: 'APPROVED' },
-            ],
-          },
+          where: { status: 'APPROVED' },
           orderBy: [
             { date: 'asc' },
             { createdAt: 'desc' },

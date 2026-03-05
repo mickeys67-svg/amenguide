@@ -65,9 +65,7 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
                 (e: EventData) =>
                     (e.title?.includes(query) ?? false) ||
                     (e.category?.includes(query) ?? false) ||
-                    (e.location?.includes(query) ?? false) ||
-                    (e.organizer?.includes(query) ?? false) ||
-                    (e.tags?.some((t: string) => t.includes(query)) ?? false)
+                    (e.location?.includes(query) ?? false)
             )
             : [];
 

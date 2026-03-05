@@ -7,13 +7,9 @@ export interface EventData {
     rawDate?: string;   // ISO date string for comparison
     endDate?: string;
     location: string;
-    organizer: string;
     description: string;
     aiSummary?: string;
     image: string;
-    duration: string;
-    tags: string[];
-    featured?: boolean;
     originUrl?: string;
     latitude?: number;
     longitude?: number;

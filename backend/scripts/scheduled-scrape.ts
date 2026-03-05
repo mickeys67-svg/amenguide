@@ -50,9 +50,9 @@ function normalizeUrl(url: string): string {
 }
 
 // ─── 과거 이벤트 필터 ─────────────────────────────────────────────────────────
-// 1년 전 이전 날짜로 저장된 이벤트는 지난 행사 — 수집 제외
-const ONE_YEAR_AGO = new Date();
-ONE_YEAR_AGO.setFullYear(ONE_YEAR_AGO.getFullYear() - 1);
+// 행사일 기준 2일 경과한 이벤트는 수집 제외 (DB 삭제 주기와 통일)
+const TWO_DAYS_AGO = new Date();
+TWO_DAYS_AGO.setDate(TWO_DAYS_AGO.getDate() - 2);
 
 // ─── AI 프롬프트 공통 시스템 메시지 ──────────────────────────────────────────
 // 오늘 날짜를 포함하여 AI 가 과거/미래 구분을 명확히 할 수 있도록 함
@@ -616,7 +616,7 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
     // 과거 이벤트 필터: 1년 전 이전 행사는 수집 제외 (날짜 불명 이벤트는 제외하지 않음)
     if (!isUnknownDate) {
       const eventDate = new Date(result.date);
-      if (eventDate < ONE_YEAR_AGO) {
+      if (eventDate < TWO_DAYS_AGO) {
         console.log(`[SCRAPER] Skip (past event ${result.date}): ${canonicalUrl}`);
         return;
       }

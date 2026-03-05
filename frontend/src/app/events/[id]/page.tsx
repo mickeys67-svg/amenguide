@@ -26,12 +26,9 @@ export default function EventDetailPage() {
                     category: data.category || "기타",
                     date: data.date ? new Date(data.date).toLocaleDateString("ko-KR") : "연중 상시",
                     location: data.location || "장소 미정",
-                    organizer: "Catholica",
                     description: data.aiSummary || "",
                     aiSummary: data.aiSummary,
                     image: "",
-                    duration: "상세참조",
-                    tags: [],
                     originUrl: data.originUrl,
                 };
                 setEvent(mapped);
