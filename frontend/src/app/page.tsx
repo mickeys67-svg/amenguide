@@ -6,7 +6,7 @@ async function getEvents() {
     "https://amenguide-backend-775250805671.us-west1.run.app";
   try {
     const res = await fetch(`${backendUrl}/events`, {
-      next: { tags: ["events"] }, // revalidateTag('events') 로 무효화
+      next: { revalidate: false }, // revalidatePath('/') 로만 무효화
     });
     if (!res.ok) return [];
     return res.json();
