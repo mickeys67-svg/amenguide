@@ -83,16 +83,48 @@ export class PrismaService
     `;
     await this.$executeRawUnsafe(sql);
 
+    // Phase 2 & 3 new tables (Reviews, Push, NotificationLog)
+    const newTablesSql = `
+      CREATE TABLE IF NOT EXISTS "Review" (
+        "id" TEXT PRIMARY KEY,
+        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+        "eventId" TEXT NOT NULL REFERENCES "Event"("id") ON DELETE CASCADE,
+        "rating" INTEGER NOT NULL,
+        "content" TEXT,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("userId", "eventId")
+      );
+
+      CREATE TABLE IF NOT EXISTS "PushSubscription" (
+        "id" TEXT PRIMARY KEY,
+        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+        "endpoint" TEXT UNIQUE NOT NULL,
+        "p256dh" TEXT NOT NULL,
+        "auth" TEXT NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS "NotificationLog" (
+        "id" TEXT PRIMARY KEY,
+        "userId" TEXT NOT NULL,
+        "eventId" TEXT NOT NULL,
+        "type" TEXT NOT NULL,
+        "sentAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("userId", "eventId", "type")
+      );
+    `;
+    await this.$executeRawUnsafe(newTablesSql);
+
     // Add new columns for existing tables (idempotent ALTER TABLE)
     const alterSql = `
-      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "status" TEXT DEFAULT 'APPROVED';
+      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "status" TEXT DEFAULT 'PENDING';
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "submitterName" TEXT;
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "submitterContact" TEXT;
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;
+      ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "diocese" TEXT;
       ALTER TABLE "User"  ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;
-      ALTER TABLE "Event" ALTER COLUMN "status" SET DEFAULT 'APPROVED';
-      UPDATE "Event" SET status = 'APPROVED' WHERE status = 'PENDING';
     `;
     await this.$executeRawUnsafe(alterSql);
     console.log('--- DEFINITIVE DATABASE INITIALIZATION COMPLETE ---');

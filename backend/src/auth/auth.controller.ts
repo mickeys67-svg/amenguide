@@ -109,14 +109,28 @@ export class AuthController {
 
     try {
       const { token, user } = await this.authService.handleGoogleCallback(code);
-      const params = new URLSearchParams({
-        token,
-        user: JSON.stringify(user),
-      });
-      return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+      // 보안: 토큰/사용자 정보를 URL에 노출하지 않고 임시 코드로 교환
+      const authCode = this.authService.createAuthCode(token, user);
+      return res.redirect(`${frontendUrl}/auth/callback?code=${authCode}`);
     } catch (e: any) {
       console.error('Google callback error:', e.message);
       return res.redirect(`${frontendUrl}/auth/callback?error=failed`);
     }
+  }
+
+  /**
+   * POST /auth/exchange
+   * 임시 인증 코드 → JWT 토큰 + 사용자 정보 교환
+   */
+  @Post('exchange')
+  async exchangeAuthCode(@Body() body: { code: string }) {
+    if (!body.code) {
+      throw new BadRequestException('인증 코드가 필요합니다.');
+    }
+    const result = this.authService.exchangeAuthCode(body.code);
+    if (!result) {
+      throw new BadRequestException('유효하지 않거나 만료된 인증 코드입니다.');
+    }
+    return result;
   }
 }

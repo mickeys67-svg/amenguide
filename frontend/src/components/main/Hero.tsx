@@ -88,31 +88,36 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                     </motion.div>
 
                     {/* headline — 3-line reveal */}
-                    {["전국의", "가톨릭 행사를", "한곳에서."].map((line, i) => (
-                        <div key={i} style={{ overflow: "hidden", lineHeight: 1 }}>
-                            <motion.h1
-                                initial={{ y: "110%" }}
-                                animate={{ y: 0 }}
-                                transition={{
-                                    duration: 0.82,
-                                    delay: 0.22 + i * 0.13,
-                                    ease: [0.25, 0.46, 0.45, 0.94],
-                                }}
-                                style={{
-                                    display: "block",
-                                    fontFamily: "'Noto Serif KR', serif",
-                                    fontSize: "clamp(42px, 6.5vw, 90px)",
-                                    fontWeight: 900,
-                                    letterSpacing: "-0.04em",
-                                    lineHeight: 1.12,
-                                    color: i === 2 ? "#C9A96E" : "#0B2040",
-                                    marginBottom: i < 2 ? "0.04em" : "0.32em",
-                                }}
-                            >
-                                {line}
-                            </motion.h1>
-                        </div>
-                    ))}
+                    <h1 style={{
+                        fontFamily: "'Noto Serif KR', serif",
+                        fontSize: "clamp(42px, 6.5vw, 90px)",
+                        fontWeight: 900,
+                        letterSpacing: "-0.04em",
+                        lineHeight: 1.12,
+                        color: "#0B2040",
+                        marginBottom: "0.32em",
+                    }}>
+                        {["전국의", "가톨릭 행사를", "한곳에서."].map((line, i) => (
+                            <span key={i} style={{ display: "block", overflow: "hidden", lineHeight: 1 }}>
+                                <motion.span
+                                    initial={{ display: "block", y: "110%" }}
+                                    animate={{ y: 0 }}
+                                    transition={{
+                                        duration: 0.82,
+                                        delay: 0.22 + i * 0.13,
+                                        ease: [0.25, 0.46, 0.45, 0.94],
+                                    }}
+                                    style={{
+                                        display: "block",
+                                        color: i === 2 ? "#C9A96E" : undefined,
+                                        marginBottom: i < 2 ? "0.04em" : undefined,
+                                    }}
+                                >
+                                    {line}
+                                </motion.span>
+                            </span>
+                        ))}
+                    </h1>
 
                     {/* subtitle */}
                     <motion.p

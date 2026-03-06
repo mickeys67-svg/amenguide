@@ -57,7 +57,7 @@ export function Logo({
             {/* 아이콘 마크 (텍스트 없는 PNG) */}
             <img
                 src="/logo.png?v=3"
-                alt=""
+                alt="Catholica 로고"
                 style={{
                     height: size + "px",
                     width: "auto",

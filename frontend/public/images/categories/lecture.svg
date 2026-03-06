@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1A6B40"/>
+      <stop offset="100%" stop-color="#0E4028"/>
+    </linearGradient>
+    <pattern id="lines" width="20" height="20" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="20" x2="20" y2="0" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <rect width="800" height="600" fill="url(#lines)"/>
+  <!-- Open book -->
+  <g transform="translate(400,260)">
+    <!-- Left page -->
+    <path d="M-10 -40 Q-60 -50 -100 -30 L-100 60 Q-60 40 -10 50 Z" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <!-- Right page -->
+    <path d="M10 -40 Q60 -50 100 -30 L100 60 Q60 40 10 50 Z" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <!-- Spine -->
+    <path d="M-10 -40 Q0 -30 10 -40 Q0 -30 10 50 Q0 40 -10 50 Q0 40 -10 -40" fill="rgba(255,255,255,0.04)"/>
+    <!-- Text lines left -->
+    <line x1="-80" y1="-10" x2="-25" y2="-5" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <line x1="-75" y1="5" x2="-20" y2="10" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+    <line x1="-70" y1="20" x2="-25" y2="25" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+    <!-- Text lines right -->
+    <line x1="25" y1="-5" x2="80" y2="-10" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <line x1="20" y1="10" x2="75" y2="5" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+    <line x1="25" y1="25" x2="70" y2="20" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+  </g>
+  <!-- Cross bookmark -->
+  <rect x="396" y="180" width="8" height="50" rx="2" fill="rgba(201,169,110,0.2)"/>
+  <rect x="390" y="195" width="20" height="6" rx="2" fill="rgba(201,169,110,0.2)"/>
+  <text x="400" y="420" text-anchor="middle" font-family="serif" font-size="42" font-weight="700" fill="rgba(255,255,255,0.85)" letter-spacing="0.15em">강의</text>
+  <text x="400" y="455" text-anchor="middle" font-family="monospace" font-size="13" fill="rgba(201,169,110,0.6)" letter-spacing="0.3em">LECTURE</text>
+</svg>

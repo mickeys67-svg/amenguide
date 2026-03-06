@@ -9,8 +9,9 @@ import { Logo } from "@/components/common/Logo";
 import { EventData } from "@/types/event";
 import {
     User, Mail, LogOut, Save, ChevronDown,
-    Bookmark, BookmarkX, ArrowLeft,
+    Bookmark, BookmarkX, ArrowLeft, Bell, BellOff,
 } from "lucide-react";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const API_BASE =
     process.env.NEXT_PUBLIC_API_URL ??
@@ -32,6 +33,98 @@ function readUser(): AuthUser | null {
         const raw = localStorage.getItem("authUser");
         return raw ? JSON.parse(raw) : null;
     } catch { return null; }
+}
+
+/* ── 알림 설정 카드 ──────────────────────────────────────────────── */
+function NotificationCard() {
+    const { isSupported, isSubscribed, loading, permission, subscribe, unsubscribe } = usePushNotifications();
+
+    if (!isSupported) {
+        return (
+            <div style={{
+                marginTop: "16px",
+                backgroundColor: "#FFFFFF", borderRadius: "16px",
+                border: "1.5px solid #E8E5DF",
+                padding: "24px clamp(28px, 4vw, 40px)",
+            }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <BellOff size={16} color="#9C9891" />
+                    <p style={{
+                        fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px",
+                        fontWeight: 500, color: "#9C9891",
+                    }}>푸시 알림</p>
+                </div>
+                <p style={{
+                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px",
+                    color: "#9C9891", lineHeight: 1.7,
+                }}>
+                    이 브라우저는 푸시 알림을 지원하지 않습니다.
+                </p>
+            </div>
+        );
+    }
+
+    const denied = permission === "denied";
+
+    return (
+        <div style={{
+            marginTop: "16px",
+            backgroundColor: "#FFFFFF", borderRadius: "16px",
+            border: "1.5px solid #E8E5DF",
+            padding: "24px clamp(28px, 4vw, 40px)",
+        }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <Bell size={16} color={isSubscribed ? "#C9A96E" : "#9C9891"} />
+                    <div>
+                        <p style={{
+                            fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px",
+                            fontWeight: 500, color: "#100F0F", marginBottom: "2px",
+                        }}>행사 알림</p>
+                        <p style={{
+                            fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px",
+                            color: "#9C9891", lineHeight: 1.6,
+                        }}>
+                            즐겨찾기한 행사 7일 전·1일 전에 알림을 받습니다
+                        </p>
+                    </div>
+                </div>
+
+                {/* 토글 스위치 */}
+                <button
+                    onClick={isSubscribed ? unsubscribe : subscribe}
+                    disabled={loading || denied}
+                    aria-label={isSubscribed ? "알림 끄기" : "알림 켜기"}
+                    style={{
+                        width: "48px", height: "28px", borderRadius: "14px",
+                        backgroundColor: isSubscribed ? "#0B2040" : "#E8E5DF",
+                        border: "none", cursor: loading || denied ? "not-allowed" : "pointer",
+                        position: "relative", flexShrink: 0,
+                        transition: "background-color 0.25s ease",
+                        opacity: loading || denied ? 0.5 : 1,
+                    }}
+                >
+                    <span style={{
+                        display: "block", width: "22px", height: "22px",
+                        borderRadius: "50%", backgroundColor: "#FFFFFF",
+                        position: "absolute", top: "3px",
+                        left: isSubscribed ? "23px" : "3px",
+                        transition: "left 0.25s ease",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                    }} />
+                </button>
+            </div>
+
+            {denied && (
+                <p style={{
+                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px",
+                    color: "#DC2626", marginTop: "10px", lineHeight: 1.6,
+                }}>
+                    알림 권한이 차단되어 있습니다. 브라우저 설정에서 알림을 허용해 주세요.
+                </p>
+            )}
+        </div>
+    );
 }
 
 export default function MyPage() {
@@ -388,7 +481,10 @@ export default function MyPage() {
                                 </div>
                             </div>
 
-                            {/* 계정 관?*/}
+                            {/* 알림 설정 */}
+                            <NotificationCard />
+
+                            {/* 계정 관리 */}
                             <div style={{
                                 marginTop: "16px",
                                 backgroundColor: "#FFFFFF", borderRadius: "16px",

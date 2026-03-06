@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#8B1A1A"/>
+      <stop offset="100%" stop-color="#5C1010"/>
+    </linearGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60 0 L0 0 L0 60" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <rect width="800" height="600" fill="url(#grid)"/>
+  <!-- Arch window -->
+  <path d="M320 420 L320 240 Q320 160 400 160 Q480 160 480 240 L480 420" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+  <path d="M340 420 L340 250 Q340 180 400 180 Q460 180 460 250 L460 420" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  <!-- Chalice -->
+  <path d="M370 320 L370 290 Q370 260 400 250 Q430 260 430 290 L430 320" fill="rgba(201,169,110,0.15)" stroke="rgba(201,169,110,0.3)" stroke-width="1.5"/>
+  <rect x="385" y="320" width="30" height="8" rx="2" fill="rgba(201,169,110,0.2)"/>
+  <rect x="380" y="328" width="40" height="4" rx="2" fill="rgba(201,169,110,0.2)"/>
+  <!-- Host circle -->
+  <circle cx="400" cy="230" r="20" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+  <path d="M390 230 L410 230 M400 220 L400 240" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <!-- Rays -->
+  <g opacity="0.06" stroke="rgba(201,169,110,1)" stroke-width="1">
+    <line x1="400" y1="200" x2="400" y2="150"/>
+    <line x1="420" y1="210" x2="450" y2="170"/>
+    <line x1="380" y1="210" x2="350" y2="170"/>
+  </g>
+  <text x="400" y="460" text-anchor="middle" font-family="serif" font-size="42" font-weight="700" fill="rgba(255,255,255,0.85)" letter-spacing="0.15em">미사</text>
+  <text x="400" y="495" text-anchor="middle" font-family="monospace" font-size="13" fill="rgba(201,169,110,0.6)" letter-spacing="0.3em">MASS</text>
+</svg>

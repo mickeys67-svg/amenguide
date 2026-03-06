@@ -1,5 +1,7 @@
 "use client";
 
+import { DIOCESES } from "../../constants/dioceses";
+
 interface FilterBarProps {
     sortBy: string;
     onSortChange: (sort: string) => void;
@@ -9,7 +11,29 @@ interface FilterBarProps {
     geoLoading?: boolean;
     geoError?: string | null;
     userLocation?: { lat: number; lng: number } | null;
+    /** 교구 필터 */
+    selectedDiocese: string;
+    onDioceseChange: (diocese: string) => void;
 }
+
+const selectStyle = (isActive: boolean, activeColor = "#0B6B70", activeBg = "rgba(11,107,112,0.07)", activeBorder = "rgba(11,107,112,0.3)") => ({
+    fontFamily: "'Noto Sans KR', sans-serif",
+    fontSize: "12px",
+    color: isActive ? activeColor : "#52504B",
+    backgroundColor: isActive ? activeBg : "transparent",
+    border: "1.5px solid",
+    borderColor: isActive ? activeBorder : "#E8E5DF",
+    borderRadius: "8px",
+    padding: "5px 28px 5px 10px",
+    cursor: "pointer" as const,
+    outline: "none",
+    appearance: "none" as const,
+    WebkitAppearance: "none" as const,
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239C9891' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 9px center",
+    transition: "all 0.15s ease",
+});
 
 export function FilterBar({
     sortBy,
@@ -20,7 +44,11 @@ export function FilterBar({
     geoLoading,
     geoError,
     userLocation,
+    selectedDiocese,
+    onDioceseChange,
 }: FilterBarProps) {
+    const hasDiocese = selectedDiocese !== "";
+
     return (
         <div
             style={{
@@ -42,6 +70,8 @@ export function FilterBar({
                         justifyContent: "space-between",
                         paddingTop: "9px",
                         paddingBottom: "9px",
+                        flexWrap: "wrap",
+                        gap: "6px",
                     }}
                 >
                     {/* 좌: 건수 + GPS 상태 */}
@@ -94,33 +124,31 @@ export function FilterBar({
                         )}
                     </div>
 
-                    {/* 우: 정렬 + 뷰 토글 */}
+                    {/* 우: 교구 필터 + 정렬 + 뷰 토글 */}
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+
+                        {/* 교구 select */}
+                        <select
+                            value={selectedDiocese}
+                            onChange={(e) => onDioceseChange(e.target.value)}
+                            style={selectStyle(
+                                hasDiocese,
+                                "#0B2040",
+                                "rgba(11,32,64,0.06)",
+                                "rgba(11,32,64,0.25)",
+                            )}
+                        >
+                            <option value="">전체 교구</option>
+                            {DIOCESES.map((d) => (
+                                <option key={d} value={d}>{d}</option>
+                            ))}
+                        </select>
 
                         {/* 정렬 select */}
                         <select
                             value={sortBy}
                             onChange={(e) => onSortChange(e.target.value)}
-                            style={{
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "12px",
-                                color: sortBy === "distance" ? "#0B6B70" : "#52504B",
-                                backgroundColor: sortBy === "distance"
-                                    ? "rgba(11,107,112,0.07)"
-                                    : "transparent",
-                                border: "1.5px solid",
-                                borderColor: sortBy === "distance" ? "rgba(11,107,112,0.3)" : "#E8E5DF",
-                                borderRadius: "8px",
-                                padding: "5px 28px 5px 10px",
-                                cursor: "pointer",
-                                outline: "none",
-                                appearance: "none",
-                                WebkitAppearance: "none",
-                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239C9891' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-                                backgroundRepeat: "no-repeat",
-                                backgroundPosition: "right 9px center",
-                                transition: "all 0.15s ease",
-                            }}
+                            style={selectStyle(sortBy === "distance")}
                         >
                             <option value="date">날짜 가까운순</option>
                             <option value="latest">최근 등록순</option>

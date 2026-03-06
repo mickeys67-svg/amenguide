@@ -6,8 +6,31 @@ import { motion } from "framer-motion";
 import { MapPin, Calendar, ArrowLeft, Share2, ExternalLink } from "lucide-react";
 import { Navigation } from "../../../components/main/Navigation";
 import { Footer } from "../../../components/main/Footer";
+import { ReviewSection } from "../../../components/review/ReviewSection";
 import { EventData, CATEGORY_COLORS, CATEGORY_IMAGES, RETREAT_IMG } from "../../../types/event";
 import { apiFetch } from "../../../utils/api";
+
+function EventJsonLd({ event, catColor }: { event: EventData; catColor: string }) {
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        name: event.title,
+        description: event.aiSummary || event.description || "",
+        startDate: event.date || undefined,
+        location: event.location
+            ? { "@type": "Place", name: event.location }
+            : undefined,
+        organizer: { "@type": "Organization", name: "Catholica" },
+        eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+        url: typeof window !== "undefined" ? window.location.href : undefined,
+    };
+    return (
+        <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+    );
+}
 
 export default function EventDetailPage() {
     const { id } = useParams();
@@ -116,6 +139,7 @@ export default function EventDetailPage() {
 
     return (
         <div style={{ backgroundColor: "#F8F7F4", minHeight: "100vh" }}>
+            <EventJsonLd event={event} catColor={catColor} />
             <Navigation activeFilter="전체" onFilterChange={() => {}} onSearchOpen={() => {}} />
 
             {/* ── Hero header with image ── */}
@@ -131,6 +155,8 @@ export default function EventDetailPage() {
                 <img
                     src={CATEGORY_IMAGES[event.category] || RETREAT_IMG}
                     alt={event.title}
+                    loading="eager"
+                    decoding="async"
                     style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.35 }}
                 />
                 {/* Gradient overlay */}
@@ -355,6 +381,8 @@ export default function EventDetailPage() {
                                 <Share2 size={16} />
                             </button>
                         </div>
+                        {/* ── 후기 섹션 ── */}
+                        <ReviewSection eventId={String(id)} />
                     </motion.div>
 
                     {/* Right — sticky sidebar */}

@@ -483,7 +483,7 @@ export default function AdminPage() {
                                 <input
                                     type="email" value={loginEmail}
                                     onChange={e => { setLoginEmail(e.target.value); setAuthError(null); }}
-                                    placeholder="admin@amenguide.kr" autoFocus disabled={authLoading}
+                                    placeholder="이메일을 입력하세요" autoComplete="off" autoFocus disabled={authLoading}
                                     style={{ width: "100%", padding: "13px 16px", backgroundColor: "rgba(255,255,255,0.08)", border: `1.5px solid ${authError ? "#F87171" : "rgba(255,255,255,0.15)"}`, borderRadius: "12px", color: "#FFFFFF", fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px", outline: "none" }}
                                 />
                             </div>

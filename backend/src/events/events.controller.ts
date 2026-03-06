@@ -231,6 +231,16 @@ export class EventsController {
     return this.eventsService.adminDeleteEvent(id);
   }
 
+  /** 기존 이벤트에 교구 정보 일괄 반영 */
+  @Post('admin/backfill-diocese')
+  async backfillDiocese(
+    @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
+  ) {
+    requireAdmin(key, auth);
+    return this.eventsService.backfillDiocese();
+  }
+
   @Post('admin/diocese-sync')
   async dioceseSync(
     @Headers('x-admin-key') key: string,
@@ -243,8 +253,8 @@ export class EventsController {
   }
 
   @Get()
-  async findAll() {
-    return this.eventsService.findAll();
+  async findAll(@Query('diocese') diocese?: string) {
+    return this.eventsService.findAll(diocese);
   }
 
   // ── Admin mutation ────────────────────────────────────────────────────────

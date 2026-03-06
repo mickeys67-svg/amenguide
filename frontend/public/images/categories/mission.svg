@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#C83A1E"/>
+      <stop offset="100%" stop-color="#7A2210"/>
+    </linearGradient>
+    <pattern id="rays" width="800" height="600" patternUnits="userSpaceOnUse">
+      <line x1="400" y1="250" x2="100" y2="0" stroke="rgba(255,255,255,0.015)" stroke-width="40"/>
+      <line x1="400" y1="250" x2="700" y2="0" stroke="rgba(255,255,255,0.015)" stroke-width="40"/>
+      <line x1="400" y1="250" x2="0" y2="400" stroke="rgba(255,255,255,0.01)" stroke-width="40"/>
+      <line x1="400" y1="250" x2="800" y2="400" stroke="rgba(255,255,255,0.01)" stroke-width="40"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <rect width="800" height="600" fill="url(#rays)"/>
+  <!-- Dove (abstract) -->
+  <g transform="translate(400,220)">
+    <!-- Body -->
+    <ellipse cx="0" cy="0" rx="30" ry="16" fill="rgba(255,255,255,0.1)" transform="rotate(-10)"/>
+    <!-- Left wing -->
+    <path d="M-10 -5 Q-50 -50 -80 -30 Q-50 -20 -15 -10" fill="rgba(255,255,255,0.08)"/>
+    <!-- Right wing -->
+    <path d="M10 -5 Q50 -50 80 -30 Q50 -20 15 -10" fill="rgba(255,255,255,0.08)"/>
+    <!-- Head -->
+    <circle cx="25" cy="-10" r="8" fill="rgba(255,255,255,0.1)"/>
+    <!-- Olive branch -->
+    <path d="M30 -5 Q45 5 55 0" fill="none" stroke="rgba(201,169,110,0.2)" stroke-width="1"/>
+    <ellipse cx="52" cy="-2" rx="5" ry="3" fill="rgba(201,169,110,0.12)" transform="rotate(-20 52 -2)"/>
+  </g>
+  <!-- Globe outline below -->
+  <circle cx="400" cy="320" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  <ellipse cx="400" cy="320" rx="50" ry="20" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.8"/>
+  <ellipse cx="400" cy="320" rx="20" ry="50" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.8"/>
+  <line x1="350" y1="320" x2="450" y2="320" stroke="rgba(255,255,255,0.04)" stroke-width="0.8"/>
+  <!-- Cross on globe -->
+  <rect x="397" y="265" width="6" height="25" rx="1.5" fill="rgba(201,169,110,0.15)"/>
+  <rect x="391" y="272" width="18" height="6" rx="1.5" fill="rgba(201,169,110,0.15)"/>
+  <text x="400" y="440" text-anchor="middle" font-family="serif" font-size="42" font-weight="700" fill="rgba(255,255,255,0.85)" letter-spacing="0.15em">선교</text>
+  <text x="400" y="475" text-anchor="middle" font-family="monospace" font-size="13" fill="rgba(201,169,110,0.6)" letter-spacing="0.3em">MISSION</text>
+</svg>

@@ -6,6 +6,7 @@ import { AiRefinerService } from '../scrapers/ai-refiner.service';
 import { SacredWhisperService } from '../scrapers/sacred-whisper.service';
 import { DioceseSyncService } from '../scrapers/diocese-sync.service';
 import { normalizeCategory } from '../scrapers/scraper-constants';
+import { inferDiocese } from '../scrapers/diocese-mapper';
 
 
 @Injectable()
@@ -115,6 +116,7 @@ export class EventsService implements OnModuleInit {
           title: result.title,
           date: result.date?.startsWith('1970') ? null : new Date(result.date),
           location: result.location,
+          diocese: inferDiocese(result.location),
           aiSummary: result.aiSummary,
           themeColor: result.themeColor,
           originUrl: url,
@@ -128,12 +130,16 @@ export class EventsService implements OnModuleInit {
     }
   }
 
-  async findAll() {
+  async findAll(diocese?: string) {
     try {
       // 만료된 이벤트는 cleanupExpiredEvents()가 매일 삭제 — 별도 날짜 필터 불필요
       // date = null 인 이벤트는 날짜 미정이므로 항상 포함
+      const where: any = { status: 'APPROVED' };
+      if (diocese) {
+        where.diocese = diocese;
+      }
       const rows = await this.prisma.event.findMany({
-        where: { status: 'APPROVED' },
+        where,
         orderBy: [
           { date: 'asc' },    // 다가오는 행사 먼저 (null은 마지막)
           { createdAt: 'desc' },
@@ -150,8 +156,10 @@ export class EventsService implements OnModuleInit {
           'Table "event" not found, attempting on-the-fly creation.',
         );
         await this.nuclearReset();
+        const where2: any = { status: 'APPROVED' };
+        if (diocese) where2.diocese = diocese;
         const retryRows = await this.prisma.event.findMany({
-          where: { status: 'APPROVED' },
+          where: where2,
           orderBy: [
             { date: 'asc' },
             { createdAt: 'desc' },
@@ -200,6 +208,7 @@ export class EventsService implements OnModuleInit {
         title: data.title,
         date: data.date ? new Date(data.date) : null,
         location: data.location ?? null,
+        diocese: inferDiocese(data.location),
         aiSummary: data.aiSummary ?? null,
         themeColor: data.themeColor ?? '#457B9D',
         originUrl: data.originUrl ?? null,
@@ -226,6 +235,7 @@ export class EventsService implements OnModuleInit {
         title: data.title,
         date: data.date ? new Date(data.date) : null,
         location: data.location ?? null,
+        diocese: inferDiocese(data.location),
         aiSummary: data.description ?? null,
         originUrl: data.originUrl ?? null,
         category: data.category ?? '피정',
@@ -349,6 +359,27 @@ export class EventsService implements OnModuleInit {
     }
   }
 
+
+  /** 기존 이벤트 중 diocese가 null인 것을 location에서 자동 추론하여 채움 */
+  async backfillDiocese() {
+    const events = await this.prisma.event.findMany({
+      where: { diocese: null, location: { not: null } },
+      select: { id: true, location: true },
+    });
+    let updated = 0;
+    for (const ev of events) {
+      const diocese = inferDiocese(ev.location);
+      if (diocese) {
+        await this.prisma.event.update({
+          where: { id: ev.id },
+          data: { diocese } as any,
+        });
+        updated++;
+      }
+    }
+    this.logger.log(`Diocese backfill: ${updated}/${events.length} events updated`);
+    return { total: events.length, updated };
+  }
 
   async debugTables() {
     try {

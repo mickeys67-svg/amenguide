@@ -17,24 +17,31 @@ export interface EventData {
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
-    피정: "#1B4080",  // deep blue
-    미사: "#8B1A1A",  // deep crimson (전례색)
-    강의: "#1A6B40",  // forest green
-    순례: "#7B5230",  // warm brown (순례·대지)
-    청년: "#0B6B70",  // deep teal
-    문화: "#6E2882",  // royal purple
-    선교: "#C83A1E",  // vermillion
+    피정: "#1B4080",     // deep blue
+    미사: "#8B1A1A",     // deep crimson (전례색)
+    강의: "#1A6B40",     // forest green
+    순례: "#7B5230",     // warm brown (순례·대지)
+    청년: "#0B6B70",     // deep teal
+    문화: "#6E2882",     // royal purple
+    선교: "#C83A1E",     // vermillion
+    강론: "#6E2882",     // royal purple
+    특강: "#C83A1E",     // vermillion
+    피정의집: "#0B6B70", // deep teal
 };
 
-export const RETREAT_IMG = "https://images.unsplash.com/photo-1761048152614-c525d49f31ee?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb25hc3RlcnklMjBzaWxlbnQlMjByZXRyZWF0JTIwbW91bnRhaW4lMjBuYXR1cmV8ZW58MXx8fHwxNzcxNTUxMDA3fDA&ixlib=rb-4.1.0&q=80&w=1080";
+/** 기본 폴백 이미지 (피정) */
+export const RETREAT_IMG = "/images/categories/retreat.svg";
 
-/** Category-specific church images shown in event cards */
+/** Category-specific placeholder images (로컬 SVG — 외부 의존성 없음) */
 export const CATEGORY_IMAGES: Record<string, string> = {
-    피정: "https://images.pexels.com/photos/34192029/pexels-photo-34192029.jpeg?auto=compress&cs=tinysrgb&w=800",
-    미사: "https://images.pexels.com/photos/16376254/pexels-photo-16376254.jpeg?auto=compress&cs=tinysrgb&w=800",
-    강의: "https://images.pexels.com/photos/7168678/pexels-photo-7168678.jpeg?auto=compress&cs=tinysrgb&w=800",
-    순례: "https://images.pexels.com/photos/19664221/pexels-photo-19664221.jpeg?auto=compress&cs=tinysrgb&w=800",
-    청년: "https://images.pexels.com/photos/30737060/pexels-photo-30737060.jpeg?auto=compress&cs=tinysrgb&w=800",
-    문화: "https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=800",
-    선교: "https://images.pexels.com/photos/6646917/pexels-photo-6646917.jpeg?auto=compress&cs=tinysrgb&w=800",
+    피정: "/images/categories/retreat.svg",
+    미사: "/images/categories/mass.svg",
+    강의: "/images/categories/lecture.svg",
+    순례: "/images/categories/pilgrimage.svg",
+    청년: "/images/categories/youth.svg",
+    문화: "/images/categories/culture.svg",
+    선교: "/images/categories/mission.svg",
+    강론: "/images/categories/retreat.svg",
+    특강: "/images/categories/lecture.svg",
+    피정의집: "/images/categories/retreat.svg",
 };

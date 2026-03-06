@@ -324,6 +324,8 @@ export function EventCard({
                     <img
                         src={cardImage}
                         alt={event.title}
+                        loading="lazy"
+                        decoding="async"
                         style={{
                             width: "100%",
                             height: "100%",
@@ -503,6 +505,7 @@ export function EventCard({
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 title="원문 보기"
+                                aria-label={`${event.title} 원문 보기`}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",

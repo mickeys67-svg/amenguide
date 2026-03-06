@@ -25,18 +25,26 @@ export class AdminAuthService implements OnModuleInit {
   }
 
   private async seedInitialAdmin() {
-    // UPSERT: 계정이 없으면 생성, 있으면 ADMIN_API_KEY 변경 시 비밀번호 갱신
-    const password = (process.env.ADMIN_API_KEY || 'amenguide_admin_2026').trim();
-    const passwordHash = await this.hashPassword(password);
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_API_KEY;
+
+    // 환경변수 미설정 시 시드 건너뜀 (하드코딩 기본값 제거)
+    if (!adminEmail || !adminPassword) {
+      console.log('AdminAuthService: ADMIN_EMAIL 또는 ADMIN_API_KEY 미설정 — 시드 건너뜀');
+      return;
+    }
+
+    const passwordHash = await this.hashPassword(adminPassword.trim());
     const id = crypto.randomUUID();
     await this.prisma.$executeRawUnsafe(
       `INSERT INTO "Admin" ("id","email","name","passwordHash","createdAt","updatedAt")
-       VALUES ($1,'admin@amenguide.kr','관리자',$2,NOW(),NOW())
-       ON CONFLICT ("email") DO UPDATE SET "passwordHash" = $2, "updatedAt" = NOW()`,
+       VALUES ($1,$2,'관리자',$3,NOW(),NOW())
+       ON CONFLICT ("email") DO UPDATE SET "passwordHash" = $3, "updatedAt" = NOW()`,
       id,
+      adminEmail.toLowerCase().trim(),
       passwordHash,
     );
-    console.log('AdminAuthService: admin@amenguide.kr seeded/updated');
+    console.log(`AdminAuthService: ${adminEmail} seeded/updated`);
   }
 
   // ── 비밀번호 해싱 ─────────────────────────────────────────────────────────
@@ -68,8 +76,14 @@ export class AdminAuthService implements OnModuleInit {
   }
 
   // ── Admin 토큰 (payload에 role:'admin' 포함) ──────────────────────────────
+  private _fallbackSecret?: string;
   private get secret() {
-    return process.env.JWT_SECRET || 'catholica-hmac-secret-change-in-production';
+    if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+    if (!this._fallbackSecret) {
+      this._fallbackSecret = crypto.randomBytes(32).toString('hex');
+      console.error('[SECURITY] JWT_SECRET 환경변수가 설정되지 않았습니다! 임시 랜덤 시크릿을 사용합니다.');
+    }
+    return this._fallbackSecret;
   }
 
   createAdminToken(adminId: string): string {
@@ -148,8 +162,11 @@ export class AdminAuthService implements OnModuleInit {
   async createAdmin(name: string, email: string, password: string) {
     if (!name?.trim()) throw new BadRequestException('이름을 입력해주세요.');
     if (!email?.trim()) throw new BadRequestException('이메일을 입력해주세요.');
-    if (!password || password.length < 6) {
-      throw new BadRequestException('비밀번호는 6자 이상이어야 합니다.');
+    if (!password || password.length < 8) {
+      throw new BadRequestException('비밀번호는 8자 이상이어야 합니다.');
+    }
+    if (!/\d/.test(password)) {
+      throw new BadRequestException('비밀번호에 숫자가 1개 이상 포함되어야 합니다.');
     }
     const normalizedEmail = email.toLowerCase().trim();
     const exists: any[] = await this.prisma.$queryRawUnsafe(
@@ -194,8 +211,11 @@ export class AdminAuthService implements OnModuleInit {
 
   // ── 비밀번호 변경 ─────────────────────────────────────────────────────────
   async changePassword(adminId: string, oldPassword: string, newPassword: string) {
-    if (!newPassword || newPassword.length < 6) {
-      throw new BadRequestException('새 비밀번호는 6자 이상이어야 합니다.');
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('새 비밀번호는 8자 이상이어야 합니다.');
+    }
+    if (!/\d/.test(newPassword)) {
+      throw new BadRequestException('비밀번호에 숫자가 1개 이상 포함되어야 합니다.');
     }
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT "passwordHash" FROM "Admin" WHERE "id"=$1 LIMIT 1`,

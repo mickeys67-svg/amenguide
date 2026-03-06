@@ -4,7 +4,38 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {
+    // 만료된 임시 코드 5분마다 정리
+    setInterval(() => this.cleanupExpiredCodes(), 5 * 60 * 1000);
+  }
+
+  // ── 임시 인증 코드 저장소 (OAuth 콜백용) ───────────────────────────
+  private authCodeStore = new Map<string, { token: string; user: any; expiresAt: number }>();
+
+  createAuthCode(token: string, user: any): string {
+    const code = crypto.randomBytes(32).toString('hex');
+    this.authCodeStore.set(code, {
+      token,
+      user,
+      expiresAt: Date.now() + 60_000, // 60초 TTL
+    });
+    return code;
+  }
+
+  exchangeAuthCode(code: string): { token: string; user: any } | null {
+    const entry = this.authCodeStore.get(code);
+    if (!entry) return null;
+    this.authCodeStore.delete(code); // 일회용 — 즉시 삭제
+    if (Date.now() > entry.expiresAt) return null; // 만료
+    return { token: entry.token, user: entry.user };
+  }
+
+  private cleanupExpiredCodes() {
+    const now = Date.now();
+    for (const [code, entry] of this.authCodeStore) {
+      if (now > entry.expiresAt) this.authCodeStore.delete(code);
+    }
+  }
 
   // ── 비밀번호 해싱 (crypto.scrypt) ─────────────────────────────────
   private hashPassword(password: string): Promise<string> {
@@ -35,8 +66,15 @@ export class AuthService {
   }
 
   // ── 토큰 생성/검증 (HMAC-SHA256) ──────────────────────────────────
+  private _fallbackSecret?: string;
   private get secret() {
-    return process.env.JWT_SECRET || 'catholica-hmac-secret-change-in-production';
+    if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+    // JWT_SECRET 미설정 → 랜덤 시크릿 자동 생성 (재시작 시 무효화됨)
+    if (!this._fallbackSecret) {
+      this._fallbackSecret = crypto.randomBytes(32).toString('hex');
+      console.error('[SECURITY] JWT_SECRET 환경변수가 설정되지 않았습니다! 임시 랜덤 시크릿을 사용합니다. 프로덕션에서는 반드시 JWT_SECRET을 설정하세요.');
+    }
+    return this._fallbackSecret;
   }
 
   createToken(userId: string): string {
@@ -69,7 +107,8 @@ export class AuthService {
   async register(name: string, email: string, password: string) {
     if (!name?.trim()) throw new BadRequestException('이름을 입력해주세요.');
     if (!email?.trim()) throw new BadRequestException('이메일을 입력해주세요.');
-    if (!password || password.length < 6) throw new BadRequestException('비밀번호는 6자 이상이어야 합니다.');
+    if (!password || password.length < 8) throw new BadRequestException('비밀번호는 8자 이상이어야 합니다.');
+    if (!/\d/.test(password)) throw new BadRequestException('비밀번호에 숫자가 1개 이상 포함되어야 합니다.');
 
     const normalizedEmail = email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });

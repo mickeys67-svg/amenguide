@@ -221,7 +221,7 @@ const CustomMap = ({ events = [] }: MapProps) => {
                     title:   entry.ev.title,
                     content: makePinEl(color(entry.ev)),
                 });
-                marker.addListener('click', () => {
+                marker.addListener('gmp-click', () => {
                     infoWindow.setContent(
                         makeInfoHtml(entry.ev, color(entry.ev), userLoc ? entry.dist : undefined),
                     );

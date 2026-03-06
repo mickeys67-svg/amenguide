@@ -109,6 +109,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
     const [sortBy, setSortBy] = useState("date");
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [searchOpen, setSearchOpen] = useState(false);
+    const [selectedDiocese, setSelectedDiocese] = useState("");
     const eventsRef = useRef<HTMLDivElement>(null);
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -196,17 +197,21 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
     };
 
     useEffect(() => {
-        // SSR에서 데이터를 받았으면 클라이언트 fetch 불필요
-        if (initialEvents.length > 0) return;
+        // SSR에서 데이터를 받았고 교구 필터가 없으면 클라이언트 fetch 불필요
+        if (initialEvents.length > 0 && !selectedDiocese) return;
 
-        // SSR 실패 시 fallback: 클라이언트에서 직접 fetch
         const fetchEvents = async () => {
             setIsLoading(true);
             setError(null);
             try {
-                const data = await apiFetch<EventData[]>("/events");
+                const endpoint = selectedDiocese
+                    ? `/events?diocese=${encodeURIComponent(selectedDiocese)}`
+                    : "/events";
+                const data = await apiFetch<EventData[]>(endpoint);
                 if (data && data.length > 0) {
                     setEvents(mapRawEvents(data));
+                } else {
+                    setEvents([]);
                 }
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : "Failed to load events.";
@@ -217,7 +222,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
             }
         };
         fetchEvents();
-    }, []);
+    }, [selectedDiocese]);
 
     const filteredEvents = useMemo(() => {
         const today = new Date();
@@ -273,7 +278,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
     // 필터/정렬 변경 시 첫 페이지로 리셋
     useEffect(() => {
         setCurrentPage(1);
-    }, [activeFilter, sortBy]);
+    }, [activeFilter, sortBy, selectedDiocese]);
 
     const countByCategory = useMemo(() => {
         const today = new Date();
@@ -472,6 +477,8 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                     geoLoading={geoLoading}
                     geoError={geoError}
                     userLocation={userLocation}
+                    selectedDiocese={selectedDiocese}
+                    onDioceseChange={setSelectedDiocese}
                 />
 
                 <div className="sacred-rail" style={{ paddingTop: "44px" }}>
@@ -1028,8 +1035,8 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                         lineHeight: 1.25,
                                         marginBottom: "16px",
                                     }}>
-                                        {authUser.name}??<br />
-                                        <span style={{ color: "#C9A96E" }}>???셨?니??</span>
+                                        {authUser.name}님,<br />
+                                        <span style={{ color: "#C9A96E" }}>돌아오셨군요!</span>
                                     </h2>
 
                                     {/* ?명 */}
@@ -1042,8 +1049,8 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                         marginBottom: "32px",
                                         flexGrow: 1,
                                     }}>
-                                        ?국 가?릭 ?사??색?고<br />
-                                        관???사?즐겨찾기 ?보?요.
+                                        전국 가톨릭 행사를 검색하고<br />
+                                        관심 행사를 즐겨찾기 해보세요.
                                     </p>
 
                                     {/* 기능 목록 */}
@@ -1107,7 +1114,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                                 el.style.transform = "translateY(0)";
                                             }}
                                         >
-                                            ?사 ?러보기
+                                            행사 둘러보기
                                             <ArrowRight size={15} />
                                         </button>
                                         <button
@@ -1146,7 +1153,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                             }}
                                         >
                                             <LogOut size={14} />
-                                            로그?웃
+                                            로그아웃
                                         </button>
                                     </div>
                                 </>

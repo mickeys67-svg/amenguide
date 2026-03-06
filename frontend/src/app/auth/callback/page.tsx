@@ -3,6 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-775250805671.us-west1.run.app";
+
 function CallbackInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -10,8 +12,7 @@ function CallbackInner() {
     const [message, setMessage] = useState("로그인 처리 중...");
 
     useEffect(() => {
-        const token = searchParams.get("token");
-        const userStr = searchParams.get("user");
+        const code = searchParams.get("code");
         const error = searchParams.get("error");
 
         if (error) {
@@ -25,20 +26,28 @@ function CallbackInner() {
             return;
         }
 
-        if (token && userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                localStorage.setItem("authToken", token);
-                localStorage.setItem("authUser", JSON.stringify(user));
-                setStatus("success");
-                setMessage(`환영합니다, ${user.name || user.email}!`);
-                // window.location.href 로 전체 새로고침 → Navigation이 localStorage 재읽음
-                setTimeout(() => { window.location.href = "/"; }, 1200);
-            } catch {
-                setStatus("error");
-                setMessage("인증 정보 처리에 실패했습니다.");
-                setTimeout(() => { window.location.href = "/login"; }, 2500);
-            }
+        if (code) {
+            // 임시 코드 → JWT 토큰 교환 (보안: URL에 토큰 노출 방지)
+            (async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/auth/exchange`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ code }),
+                    });
+                    if (!res.ok) throw new Error("exchange failed");
+                    const { token, user } = await res.json();
+                    localStorage.setItem("authToken", token);
+                    localStorage.setItem("authUser", JSON.stringify(user));
+                    setStatus("success");
+                    setMessage(`환영합니다, ${user.name || user.email}!`);
+                    setTimeout(() => { window.location.href = "/"; }, 1200);
+                } catch {
+                    setStatus("error");
+                    setMessage("인증 정보 처리에 실패했습니다.");
+                    setTimeout(() => { window.location.href = "/login"; }, 2500);
+                }
+            })();
         } else {
             setStatus("error");
             setMessage("잘못된 요청입니다.");

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Catholica | 가톨릭 행사 허브",
     description: "전국 가톨릭 피정·강의·강론·특강 정보를 한곳에서",
-    url: "https://amenguide-git-775250805671.us-west1.run.app",
+    url: "https://catholica.kr",
     siteName: "Catholica",
     locale: "ko_KR",
     type: "website",

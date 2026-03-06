@@ -6,20 +6,22 @@ import Link from "next/link";
 
 const LINKS: Record<string, { label: string; href: string | null }[]> = {
     카테고리: [
-        { label: "피정",     href: "/?category=피정"     },
-        { label: "강의",     href: "/?category=강의"     },
-        { label: "강론",     href: "/?category=강론"     },
-        { label: "특강",     href: "/?category=특강"     },
-        { label: "피정의집", href: "/?category=피정의집" },
+        { label: "피정", href: "/?category=피정" },
+        { label: "미사", href: "/?category=미사" },
+        { label: "강의", href: "/?category=강의" },
+        { label: "순례", href: "/?category=순례" },
+        { label: "청년", href: "/?category=청년" },
+        { label: "문화", href: "/?category=문화" },
+        { label: "선교", href: "/?category=선교" },
     ],
     정보: [
-        { label: "행사 등록",       href: "/admin" },
-        { label: "이용 안내",       href: null     },
-        { label: "단체 파트너십",   href: null     },
-        { label: "자주 묻는 질문",  href: null     },
+        { label: "행사 등록",       href: "/admin"   },
+        { label: "자주 묻는 질문",  href: "/faq"     },
+        { label: "개인정보처리방침", href: "/privacy" },
+        { label: "이용약관",        href: "/terms"   },
     ],
     연결: [
-        { label: "카카오 채널",   href: null },
+        { label: "카카오 채널",   href: "https://pf.kakao.com/_TyTZX/friend" },
         { label: "뉴스레터 구독", href: null },
     ],
 };
@@ -264,10 +266,14 @@ export function Footer() {
                         © {currentYear} 가톨릭 행사 허브. All rights reserved.
                     </p>
                     <div className="flex items-center gap-5">
-                        {["개인정보처리방침", "이용약관", "사이트맵"].map((item) => (
-                            <a
-                                key={item}
-                                href="#"
+                        {[
+                            { label: "개인정보처리방침", href: "/privacy" },
+                            { label: "이용약관", href: "/terms" },
+                            { label: "사이트맵", href: "/sitemap.xml" },
+                        ].map(({ label, href }) => (
+                            <Link
+                                key={label}
+                                href={href}
                                 style={{
                                     fontFamily: "'Noto Sans KR', sans-serif",
                                     color: "#9C9891",
@@ -282,8 +288,8 @@ export function Footer() {
                                     ((e.currentTarget as HTMLElement).style.color = "#9C9891")
                                 }
                             >
-                                {item}
-                            </a>
+                                {label}
+                            </Link>
                         ))}
                     </div>
                 </div>

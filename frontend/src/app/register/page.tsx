@@ -60,7 +60,7 @@ export default function RegisterPage() {
     const [socialLoading, setSocialLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const pwStrength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3;
+    const pwStrength = password.length === 0 ? 0 : (password.length < 8 || !/\d/.test(password)) ? 1 : password.length < 12 ? 2 : 3;
     const pwMatch = confirm.length > 0 && password === confirm;
     const pwMismatch = confirm.length > 0 && password !== confirm;
 
@@ -75,7 +75,8 @@ export default function RegisterPage() {
         e.preventDefault();
         if (!name || !email || !password || !confirm) { setError("모든 항목을 입력해주세요."); return; }
         if (password !== confirm) { setError("비밀번호가 일치하지 않습니다."); return; }
-        if (password.length < 6) { setError("비밀번호는 6자 이상이어야 합니다."); return; }
+        if (password.length < 8) { setError("비밀번호는 8자 이상이어야 합니다."); return; }
+        if (!/\d/.test(password)) { setError("비밀번호에 숫자가 1개 이상 포함되어야 합니다."); return; }
         if (!agreed) { setError("이용약관에 동의해주세요."); return; }
         setLoading(true); setError(null);
         try {
@@ -251,7 +252,7 @@ export default function RegisterPage() {
                                     <div>
                                         <label style={{ display: "block", fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.16em", color: "#52504B", textTransform: "uppercase" as const, marginBottom: "7px" }}>비밀번호</label>
                                         <div style={{ position: "relative" }}>
-                                            <input className="auth-input" type={showPw ? "text" : "password"} placeholder="8자 이상 권장" value={password} onChange={e => setPassword(e.target.value)} style={{ paddingRight: "48px" }} />
+                                            <input className="auth-input" type={showPw ? "text" : "password"} placeholder="8자 이상, 숫자 포함" value={password} onChange={e => setPassword(e.target.value)} style={{ paddingRight: "48px" }} />
                                             <button type="button" onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9C9891", display: "flex" }}>
                                                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                                             </button>
