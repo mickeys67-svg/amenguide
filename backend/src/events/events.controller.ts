@@ -33,7 +33,8 @@ function verifyAdminBearer(auth: string | undefined): boolean {
   if (parts.length !== 2) return false;
   const [payload, sig] = parts;
   try {
-    const secret = process.env.JWT_SECRET || 'catholica-hmac-secret-change-in-production';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return false; // JWT_SECRET 미설정 시 Bearer auth 거부 (기본값 하드코딩 금지)
     const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
     const sigBuf = Buffer.from(sig, 'base64url');
     const expBuf = Buffer.from(expectedSig, 'base64url');
@@ -69,7 +70,8 @@ export class EventsController {
   }
 
   @Get('diag')
-  async getDiagnostics() {
+  async getDiagnostics(@Headers('x-admin-key') key: string, @Headers('authorization') auth: string) {
+    requireAdmin(key, auth);
     return this.eventsService.getDiagnostics();
   }
 

@@ -66,14 +66,15 @@ export class DioceseSyncService {
     });
     await this.delay(2000);
 
-    // ── 신규 교구 (Phase 2) ──────────────────────────────────────────────
+    // ── 신규 교구 (Phase 2) — ★ 2026-03-06 실제 URL 검증 결과 적용 ────
     const seoul = await this.runGenericBoard({
       name: '서울대교구',
       defaultLocation: '서울대교구',
       urls: [
-        'https://www.catholic.or.kr/schedule/schedule.asp',
-        'https://seoul.catholic.or.kr/news/notice',
-        'https://seoul.catholic.or.kr/bbs/bbs_list.asp?menu=4726',
+        // ★ 실제 검증된 도메인: aos.catholic.or.kr
+        'https://aos.catholic.or.kr/con710',
+        'https://aos.catholic.or.kr/news/notice',
+        'https://aos.catholic.or.kr/schedule',
       ],
     }).catch((e) => { this.logger.error(`[Seoul] 실패: ${e.message}`); return 0; });
     await this.delay(2000);
@@ -82,20 +83,22 @@ export class DioceseSyncService {
       name: '수원교구',
       defaultLocation: '수원교구',
       urls: [
-        'https://www.suwon.catholic.or.kr/news/notice',
-        'https://www.suwon.catholic.or.kr/board/list.php?code=notice',
-        'https://www.suwon.catholic.or.kr/bbs/bbs_list.asp',
+        // ★ 실제 검증된 도메인: www.casuwon.or.kr
+        'https://www.casuwon.or.kr/info/event',
+        'https://www.casuwon.or.kr/info/notice',
+        'https://www.casuwon.or.kr/info/schedule',
       ],
     }).catch((e) => { this.logger.error(`[Suwon] 실패: ${e.message}`); return 0; });
     await this.delay(2000);
 
+    // ★ 인천교구 (www.caincheon.or.kr) — 현재 서버 다운 상태, 복구 시 자동 동작
     const incheon = await this.runGenericBoard({
       name: '인천교구',
       defaultLocation: '인천교구',
       urls: [
-        'https://www.icatholic.or.kr/front/board/list.do?boCode=BD_NOTICE',
-        'https://www.icatholic.or.kr/catholic/news/notice',
-        'https://icatholic.or.kr/bbs/board.php?bo_table=notice',
+        'https://www.caincheon.or.kr/news/notice',
+        'https://www.caincheon.or.kr/board/list',
+        'https://www.caincheon.or.kr/home.do',
       ],
     }).catch((e) => { this.logger.error(`[Incheon] 실패: ${e.message}`); return 0; });
 
@@ -139,7 +142,8 @@ export class DioceseSyncService {
   }
 
   private async fetchBusanMonth(date: string): Promise<number> {
-    const url = `https://catholicbusan.or.kr/news/schedule/schedule?date=${date}&type=month`;
+    // ★ www 필수 — catholicbusan.or.kr (www 없이) → ECONNREFUSED
+    const url = `https://www.catholicbusan.or.kr/news/schedule/schedule?date=${date}&type=month`;
     this.logger.log(`[Busan] GET ${url}`);
 
     // 부산교구 사이트는 Cloudflare 보호 적용 — 서버사이드 직접 요청 차단 가능
@@ -161,10 +165,40 @@ export class DioceseSyncService {
 
     const body = res.data as any;
 
+    // ★ API 응답 유효성 검증 — HTML/봇차단 페이지가 반환될 경우 대응
+    if (typeof body === 'string') {
+      const lower = body.toLowerCase();
+      if (lower.includes('<!doctype') || lower.includes('<html')) {
+        this.logger.warn(`[Busan] ${date} → JSON 대신 HTML 반환됨 (봇 차단 가능성)`);
+        return 0;
+      }
+      if (lower.includes('captcha') || lower.includes('enable javascript') || lower.includes('접근이 차단')) {
+        this.logger.warn(`[Busan] ${date} → 봇 차단 감지: CAPTCHA/JS 요구`);
+        return 0;
+      }
+      // 문자열이지만 JSON일 수 있음 — 파싱 시도
+      try {
+        const parsed = JSON.parse(body);
+        return this.processBusanItems(parsed, date);
+      } catch {
+        this.logger.warn(`[Busan] ${date} → 파싱 불가 응답: ${body.slice(0, 100)}`);
+        return 0;
+      }
+    }
+
+    return this.processBusanItems(body, date);
+  }
+
+  private async processBusanItems(body: any, date: string): Promise<number> {
     // 응답이 배열이거나 {schedule: [...]} 형태 모두 대응
     const items: any[] = Array.isArray(body)
       ? body
       : (body?.schedule ?? body?.data ?? body?.items ?? body?.list ?? []);
+
+    if (!Array.isArray(items)) {
+      this.logger.warn(`[Busan] ${date} → 응답에서 배열 추출 실패 (keys: ${Object.keys(body || {}).join(',')})`);
+      return 0;
+    }
 
     this.logger.log(`[Busan] ${date} → ${items.length}개 항목`);
 
@@ -293,6 +327,8 @@ export class DioceseSyncService {
       res.headers['content-type'],
     );
 
+    if (this.detectBotBlock(html, 'Daegu')) return 0;
+
     const events = this.parseDaeguHtml(html, year, month);
     this.logger.log(`[Daegu] ${year}-${month} → ${events.length}개 이벤트 파싱`);
 
@@ -312,14 +348,15 @@ export class DioceseSyncService {
     const seen = new Set<string>();
 
     // ── 패턴 1: 상세 페이지 링크 파싱 ──────────────────────────────────────
-    //   href 에 view / idx= / no= / seq= 가 있고, 텍스트가 한국어인 링크
+    //   ★ 내부 태그 허용: <a href="..."><span>제목</span></a> 도 매칭
     const linkRe =
-      /href="([^"]*(?:news_view|board_view|view|detail|read|idx=|no=|seq=)[^"]*)"[^>]*>\s*((?:[가-힣a-zA-Z0-9\s·\-·「」『』《》<>〈〉【】\[\]\/()（）%&!?,.·…]{3,80}?))\s*<\/a>/gi;
+      /href="([^"]*(?:news_view|board_view|view|detail|read|idx=|no=|seq=)[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
 
     let m: RegExpExecArray | null;
     while ((m = linkRe.exec(html)) !== null) {
       const href = m[1].trim();
-      const rawTitle = m[2].trim().replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+      // ★ 내부 HTML 태그 제거 후 텍스트만 추출
+      const rawTitle = m[2].replace(/<[^>]+>/g, '').trim().replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
 
       if (!rawTitle || seen.has(rawTitle)) continue;
       if (rawTitle.length < 3 || /^\d+$/.test(rawTitle)) continue;
@@ -374,7 +411,7 @@ export class DioceseSyncService {
         const category = this.detectCategory(line, '');
         events.push({
           title: line,
-          date: new Date(year, month - 1, 1),
+          date: null, // 날짜 불명확한 텍스트 폴백 행사는 null로
           location: '대구대교구',
           originUrl: `https://daegu-archdiocese.or.kr/page/news.html?srl=schedule&nYear=${year}&nMonth=${month}`,
           category,
@@ -412,7 +449,7 @@ export class DioceseSyncService {
   }
 
   private async fetchDaejeonPage(page: number): Promise<number> {
-    const url = `http://www.djcatholic.or.kr/home/news/monthplan.php?pg=${page}`;
+    const url = `https://www.djcatholic.or.kr/home/news/monthplan.php?pg=${page}`;
     this.logger.log(`[Daejeon] GET ${url}`);
 
     const res = await axios.get<ArrayBuffer>(url, {
@@ -430,6 +467,8 @@ export class DioceseSyncService {
       res.headers['content-type'],
     );
 
+    if (this.detectBotBlock(html, 'Daejeon')) return 0;
+
     const events = this.parseDaejeonHtml(html);
     this.logger.log(`[Daejeon] 페이지${page} → ${events.length}개 파싱`);
 
@@ -446,23 +485,29 @@ export class DioceseSyncService {
 
     // 실제 대전교구 URL 패턴: /home/news/monthplan.php?enter=v&idx=XXXXX
     // 또는 gnuboard 패턴(wr_id=) 도 대응
+    // ★ 내부 태그 허용: <a href="..."><span>제목</span></a> 도 매칭
     const linkRe =
-      /href="([^"]*(?:enter=v|view|read|plan_view|monthplan_view|wr_id=)[^"]*(?:idx=|wr_id=)\d+[^"]*)"[^>]*>\s*((?:[가-힣a-zA-Z0-9\s·\-「」]{3,80}?))\s*<\/a>/gi;
+      /href="([^"]*(?:enter=v|view|read|plan_view|monthplan_view|wr_id=)[^"]*(?:idx=|wr_id=)\d+[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
 
     let m: RegExpExecArray | null;
     while ((m = linkRe.exec(html)) !== null) {
       const href = m[1].trim();
-      const rawTitle = m[2].trim().replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+      // ★ 내부 HTML 태그 제거 후 텍스트만 추출
+      const rawTitle = m[2].replace(/<[^>]+>/g, '').trim().replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
 
       if (!rawTitle || seen.has(rawTitle)) continue;
       if (rawTitle.length < 3 || /^\d+$/.test(rawTitle)) continue;
       if (['목록', '검색', '이전', '다음'].includes(rawTitle)) continue;
+      // ★ "행사계획표" 등 월별 일람 페이지 → 개별 행사 아님 → 스킵
+      if (/행사계획표|월간일정|행사일정표|일정안내$/.test(rawTitle)) continue;
+      // ★ 단순 날짜 제목 ("2026년 3월" 등) 스킵
+      if (/^\d{4}년\s*\d{1,2}월\s*$/.test(rawTitle.trim())) continue;
 
       seen.add(rawTitle);
 
       const originUrl = href.startsWith('http')
         ? href
-        : `http://www.djcatholic.or.kr${href.startsWith('/') ? '' : '/'}${href}`;
+        : `https://www.djcatholic.or.kr${href.startsWith('/') ? '' : '/'}${href}`;
 
       // 날짜: 링크 주변 텍스트에서 YYYY-MM-DD 또는 YYYY.MM.DD 탐색
       const surroundingText = html.slice(
@@ -472,13 +517,13 @@ export class DioceseSyncService {
       const dateMatch = surroundingText.match(
         /(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/,
       );
-      const date = dateMatch
+      const date: Date | null = dateMatch
         ? new Date(
             parseInt(dateMatch[1]),
             parseInt(dateMatch[2]) - 1,
             parseInt(dateMatch[3]),
           )
-        : new Date();
+        : null;
 
       const category = this.detectCategory(rawTitle, '');
       events.push({
@@ -502,7 +547,8 @@ export class DioceseSyncService {
     evt: DioceseEvent,
     prefix: string,
   ): Promise<boolean> {
-    // 중복 체크: originUrl 우선, 없으면 title+date 조합 (title 단독 체크는 연간 반복 행사를 영구 차단하는 버그)
+    // 중복 체크: originUrl 우선, 없으면 title+date 조합
+    // ★ title 단독 체크 시 30일 윈도우 적용 → 연간 반복 행사 영구 차단 방지
     let dupWhere: any;
     if (evt.originUrl) {
       dupWhere = { originUrl: evt.originUrl };
@@ -517,7 +563,13 @@ export class DioceseSyncService {
         date: { gte: dayStart, lte: dayEnd },
       };
     } else {
-      dupWhere = { title: evt.title };
+      // ★ 제목 단독 + 최근 30일 내 생성된 것만 중복으로 판단
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      dupWhere = {
+        title: evt.title,
+        createdAt: { gte: thirtyDaysAgo },
+      };
     }
     const dup = await this.prisma.event.findFirst({ where: dupWhere });
 
@@ -543,6 +595,29 @@ export class DioceseSyncService {
       `${prefix} ✅ 저장: "${evt.title}" [${evt.category}] @ ${evt.location}`,
     );
     return true;
+  }
+
+  /** 봇 차단 / CAPTCHA 감지 — HTML 응답이 실제 콘텐츠인지 검증 */
+  private detectBotBlock(html: string, label: string): boolean {
+    const lower = html.toLowerCase();
+    if (lower.includes('captcha') || lower.includes('recaptcha')) {
+      this.logger.warn(`[${label}] 봇 차단 감지: CAPTCHA 페이지`);
+      return true;
+    }
+    if (lower.includes('enable javascript') || lower.includes('javascript를 활성화')) {
+      this.logger.warn(`[${label}] 봇 차단 감지: JS 요구 페이지`);
+      return true;
+    }
+    if (lower.includes('접근이 차단') || lower.includes('access denied') || lower.includes('403 forbidden')) {
+      this.logger.warn(`[${label}] 봇 차단 감지: 접근 거부`);
+      return true;
+    }
+    // 극단적으로 짧은 HTML(200자 미만)은 빈 페이지/리다이렉트일 가능성
+    if (html.length < 200 && !html.includes('<table') && !html.includes('<div')) {
+      this.logger.warn(`[${label}] 의심: HTML이 ${html.length}자로 매우 짧음`);
+      return true;
+    }
+    return false;
   }
 
   /** 한국어 HTML 인코딩 감지 및 디코딩 (UTF-8 / EUC-KR) */
@@ -636,6 +711,9 @@ export class DioceseSyncService {
         });
 
         const html = this.decodeKorean(Buffer.from(res.data), res.headers['content-type']);
+
+        if (this.detectBotBlock(html, config.name)) continue;
+
         const events = this.parseGenericBoard(html, url, config.defaultLocation, config.linkRe);
 
         if (events.length === 0) {
@@ -680,14 +758,17 @@ export class DioceseSyncService {
     }
 
     // 한국 가톨릭 CMS(그누보드·XE·자체) 공통 상세 페이지 URL 패턴
+    // ★ 내부 태그 허용: <a href="..."><span>제목</span></a> 도 매칭
     const re =
       linkRe ??
-      /href="([^"]*(?:view|read|detail|notice_view|board_view|schedule_view|plan_view|idx=|no=|seq=|wr_id=)\d*[^"]*)"[^>]*>\s*((?:[가-힣a-zA-Z0-9\s·\-「」『』《》【】\/()（）%&!?,.…]{3,80}?))\s*<\/a>/gi;
+      /href="([^"]*(?:view|read|detail|notice_view|board_view|schedule_view|plan_view|idx=|no=|seq=|wr_id=)\d*[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
 
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) !== null) {
       const href = m[1].trim();
+      // ★ 내부 HTML 태그 제거 후 텍스트만 추출
       const rawTitle = m[2]
+        .replace(/<[^>]+>/g, '')
         .trim()
         .replace(/&amp;/g, '&')
         .replace(/&nbsp;/g, ' ')
@@ -714,21 +795,19 @@ export class DioceseSyncService {
       // 주변 텍스트에서 날짜 추출 (YYYY-MM-DD 또는 YYYY.MM.DD)
       const context = html.slice(Math.max(0, m.index - 400), m.index + 100);
       const dateMatch = context.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
-      const date = dateMatch
+      const date: Date | null = dateMatch
         ? new Date(
             parseInt(dateMatch[1]),
             parseInt(dateMatch[2]) - 1,
             parseInt(dateMatch[3]),
           )
-        : new Date();
+        : null;
 
-      // 과거 이벤트(2주 이상 지난 것) 필터
-      const twoWeeksAgo = new Date();
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      if (date < twoWeeksAgo && !dateMatch) {
-        // 날짜 불명 → 일단 포함
-      } else if (date < twoWeeksAgo) {
-        continue;
+      // 날짜를 파악한 경우에만 과거 이벤트 필터 적용 (날짜 불명 → 포함)
+      if (date !== null) {
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        if (date < twoWeeksAgo) continue;
       }
 
       const category = this.detectCategory(rawTitle, '');

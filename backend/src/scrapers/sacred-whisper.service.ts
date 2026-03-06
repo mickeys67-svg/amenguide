@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { BaseScraperService } from './base-scraper.service';
 import { AiRefinerService } from './ai-refiner.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizeCategory } from './scraper-constants';
 
 @Injectable()
 export class SacredWhisperService {
@@ -50,13 +51,12 @@ export class SacredWhisperService {
       await this.prisma.event.create({
         data: {
           title: result.title,
-          date: new Date(result.date),
+          date: result.date?.startsWith('1970') ? null : new Date(result.date),
           location: result.location,
           aiSummary: result.aiSummary,
           themeColor: result.themeColor,
           originUrl: url,
-          category: ['피정','미사','강의','순례','청년','문화','선교'].includes((result as any).category)
-            ? (result as any).category : '선교',
+          category: normalizeCategory((result as any).category),
           status: 'APPROVED', // 스크래핑 행사는 즉시 공개
         } as any,
       });

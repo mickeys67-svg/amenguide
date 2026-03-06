@@ -4,5 +4,6 @@ export interface ScrapingResult {
   location: string;
   aiSummary: string;
   themeColor: string;
+  category?: string;
   originUrl?: string;
 }

@@ -45,6 +45,23 @@ const anthropic = process.env.ANTHROPIC_API_KEY
 // ─── 리소스 차단 ───────────────────────────────────────────────────────────────
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font', 'stylesheet']);
 
+// ─── 비행사 블랙리스트 (임명·인사·부고 등 뉴스 기사 차단) ───────────────────
+// passesTextPreFilter에서 우선 검사 → 매칭 시 즉시 스킵
+// ⚠️ '서품','축성','수품' 제거 — "서품 감사미사", "축성식" 등 합법 공개 행사 오탐 방지
+const NON_EVENT_KEYWORDS = [
+  '임명', '서임', '착좌', '선종', '선출',
+  '임기', '사임', '은퇴', '인사발령', '주교회의 결정',
+  '성명서', '청원서', '부고', '영면', '선종 알림',
+  // ★ 뉴스 기사 / 교황 메시지 / 논평 등 비행사 콘텐츠
+  '기도지향', '교황 메시지', '교황청', '사목교서',
+  '여행후기', '탐방기', '순례후기', '방문기',
+  // ★ 출판사 북 프로모션 / 도서 이벤트
+  '도서 이벤트', '독서 이벤트',
+];
+
+// 블랙리스트 키워드가 있어도 행사 키워드가 함께 있으면 통과시키는 "구제" 키워드
+const RESCUE_KEYWORDS = ['미사', '축하', '기념', '감사', '안내', '행사', '초대'];
+
 // ─── 행사 관련 키워드 (사전 필터 + 카테고리 분류 공용) ────────────────────────
 const EVENT_KEYWORDS = [
   '피정', '강의', '강좌', '특강', '행사', '모집', '신청', '순례',
@@ -86,9 +103,12 @@ function normalizeUrl(url: string): string {
   }
 }
 
-// ─── 과거 이벤트 필터 ─────────────────────────────────────────────────────────
-const TWO_DAYS_AGO = new Date();
-TWO_DAYS_AGO.setDate(TWO_DAYS_AGO.getDate() - 2);
+// ─── 과거 이벤트 필터 (동적 계산 — 스크립트 실행 중 날짜 변경 대응) ──────────
+function getTwoDaysAgo(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - 2);
+  return d;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 규칙 기반 파서 — AI 호출 없이 핵심 필드 추출
@@ -102,9 +122,15 @@ function extractTitle(rawTitle: string, bodyFirstLine: string): string {
   return bodyFirstLine.split('\n')[0].trim().slice(0, 80);
 }
 
-/** 날짜: 한국어 날짜 패턴 → ISO 8601 (미래 날짜만 채택) */
+/** 날짜: 한국어 날짜 패턴 → ISO 8601 (2일 전 이후 날짜 채택) */
 function extractDate(text: string): string {
-  const today = new Date();
+  // ★ 시간 제거 → 당일 이벤트도 "미래"로 판정
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - 2); // 2일 전까지 허용 (진행 중 행사 포함)
+
+  const currentYear = new Date().getFullYear();
+
   const patterns: RegExp[] = [
     /(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/g,
     /(\d{4})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})/g, // 구분자 사이 공백 허용 (2026. 03. 05 포함)
@@ -117,32 +143,59 @@ function extractDate(text: string): string {
       const day = parseInt(match[3]);
       if (year < 2020 || month < 1 || month > 12 || day < 1 || day > 31) continue;
       const candidate = new Date(year, month - 1, day);
-      // 현재 날짜 이후인 경우만 채택 (미래 행사)
-      if (candidate >= today) {
+      // ★ 2일 전 이후 날짜 채택 (당일 + 진행 중 행사 포함)
+      if (candidate >= cutoff) {
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00`;
       }
     }
   }
+
+  // ★ 신규: 연도 생략 패턴 (MM월 DD일 → 올해 추정)
+  const shortPattern = /(\d{1,2})월\s*(\d{1,2})일/g;
+  let shortMatch: RegExpExecArray | null;
+  while ((shortMatch = shortPattern.exec(text)) !== null) {
+    const month = parseInt(shortMatch[1]);
+    const day = parseInt(shortMatch[2]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) continue;
+    const candidate = new Date(currentYear, month - 1, day);
+    if (candidate >= cutoff) {
+      return `${currentYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00`;
+    }
+  }
+
   return '1970-01-01T00:00:00'; // 날짜 미정
 }
 
 /** 장소: "장소:" 패턴 또는 장소명 키워드 앞 단어 포함 캡처 */
 function extractLocation(text: string): string {
-  // 패턴 1: 명시적 "장소:" 레이블
-  const labelMatch = text.match(/(?:장소|개최\s*장소|행사\s*장소|주\s*소)\s*[:：]\s*([^\n\r]{4,50})/);
+  // 패턴 1: 명시적 "장소:" 레이블 (중간 공백 허용: "장 소:")
+  const labelMatch = text.match(/(?:장\s*소|개최\s*장소|행사\s*장소|주\s*소|위\s*치)\s*[:：]\s*([^\n\r]{3,60})/);
   if (labelMatch?.[1]) {
     const loc = labelMatch[1].trim().replace(/\s+/g, ' ');
-    if (loc.length >= 3 && loc.length <= 50) return loc;
+    if (loc.length >= 3 && loc.length <= 60) return loc;
   }
 
-  // 패턴 2: 시설명 키워드 앞에 붙은 지명까지 함께 캡처 (후행 조사 제외)
-  // 예: "예수회 피정의집" / "명동 성당" / "한국 순교자 성지"
+  // 패턴 2: 시설명 키워드 앞에 붙은 지명까지 함께 캡처
   const facilityMatch = text.match(
-    /((?:[가-힣a-zA-Z0-9]+\s+){0,2}(?:피정의집|수련원|영성원|수도원|성당|성지|회관|센터|교육관|신학교|묵상의\s*집))/,
+    /((?:[가-힣a-zA-Z0-9]+\s+){0,2}(?:피정의집|수련원|영성원|수도원|성당|성지|회관|센터|교육관|신학교|묵상의\s*집|본당|교회|공소))/,
   );
   if (facilityMatch?.[1]) {
     const loc = facilityMatch[1].trim().replace(/\s+/g, ' ');
-    if (loc.length >= 3 && loc.length <= 40) return loc;
+    if (loc.length >= 3 && loc.length <= 50) return loc;
+  }
+
+  // ★ 패턴 3: 주소 형식 (시/도/구/동)
+  const addrMatch = text.match(
+    /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)\s*(?:특별시|광역시|도)?\s*[가-힣]{1,5}(?:시|군|구)\s*[가-힣]{1,10}(?:동|로|길)/,
+  );
+  if (addrMatch?.[0]) {
+    const loc = addrMatch[0].trim();
+    if (loc.length >= 5 && loc.length <= 50) return loc;
+  }
+
+  // ★ 패턴 4: 온라인 행사
+  if (/온라인|Zoom|zoom|비대면|화상|유튜브|YouTube|라이브/i.test(text)) {
+    return '온라인';
   }
 
   return '장소 미정';
@@ -306,6 +359,10 @@ async function extractLinks(page: import('playwright').Page, source: Source): Pr
       ? matched
       : matched.filter(({ title }) => {
           if (title.length < 4) return true; // 제목 없으면 일단 방문
+          // ★ 비행사 블랙리스트: 구제 키워드 공존 시 통과
+          const hitBlacklist = NON_EVENT_KEYWORDS.some((kw) => title.includes(kw));
+          const hitRescue = RESCUE_KEYWORDS.some((kw) => title.includes(kw));
+          if (hitBlacklist && !hitRescue) return false;
           return EVENT_KEYWORDS.some((kw) => title.includes(kw));
         });
 
@@ -329,9 +386,14 @@ async function extractPageData(page: import('playwright').Page, url: string): Pr
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => page.waitForTimeout(2000));
 
   return page.evaluate(() => {
-    (['script', 'style', 'nav', 'header', 'footer', 'iframe', 'noscript'] as string[]).forEach(
-      (tag) => document.querySelectorAll(tag).forEach((el) => el.remove()),
-    );
+    // ★ 본문 외 요소 제거 — 사이드바 네비게이션 텍스트가 카테고리/장소로 오인되는 것 방지
+    (['script', 'style', 'nav', 'header', 'footer', 'iframe', 'noscript',
+      'aside', '.sidebar', '.side_menu', '.snb', '.lnb', '.sub_menu',
+      '.gnb', '.breadcrumb', '.pagination', '#sidebar', '#side', '.aside',
+      '.left_menu', '.right_menu', '.menu_wrap', '.category_list',
+    ] as string[]).forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => el.remove());
+    });
 
     // 제목 추출: og:title > h1/board-title > <title>
     const ogTitle = document.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.content?.trim();
@@ -361,6 +423,19 @@ async function extractPageData(page: import('playwright').Page, url: string): Pr
 
 // ─── 텍스트 사전필터 (AI 호출 전) ─────────────────────────────────────────────
 function passesTextPreFilter(text: string, url: string): boolean {
+  // 1단계: 비행사 블랙리스트 — 임명·인사·부고 등 뉴스 기사 조기 차단
+  // 제목+본문 앞 200자에서 검사 (전체 텍스트 검사는 "교육부 발령" 같은 무관한 단어에도 걸릴 수 있음)
+  // ★ 구제 키워드가 함께 있으면 통과 (예: "서품 감사미사 안내")
+  const headText = text.slice(0, 200);
+  const isNonEvent = NON_EVENT_KEYWORDS.some((kw) => headText.includes(kw));
+  const hasRescue = RESCUE_KEYWORDS.some((kw) => headText.includes(kw));
+  if (isNonEvent && !hasRescue) {
+    console.log(`[PRE-FILTER] Skip (non-event): ${url.slice(0, 80)}`);
+    skippedByPreFilter++;
+    return false;
+  }
+
+  // 2단계: 미래 연도 또는 행사 키워드 필수
   const hasFutureYear = /202[6-9]|20[3-9]\d/.test(text); // 2030-2099 커버
   const hasKeyword = EVENT_KEYWORDS.some((kw) => text.includes(kw));
   if (!hasFutureYear && !hasKeyword) {
@@ -415,14 +490,16 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
       // 과거 이벤트 조기 스킵 (AI 호출 없이)
       if (!finalDate.startsWith('1970')) {
         const eventDate = new Date(finalDate);
-        if (eventDate < TWO_DAYS_AGO) {
+        if (eventDate < getTwoDaysAgo()) {
           console.log(`[SCRAPER] Skip (past event ${finalDate}): ${canonicalUrl}`);
           return;
         }
       }
 
-      // 날짜+장소 모두 미정 → 저장 가치 없음
-      if (finalDate.startsWith('1970') && finalLocation === '장소 미정') {
+      // 날짜+장소 모두 미정 → 제목에 강한 행사 키워드 있으면 구제
+      const STRONG_EVENT_KW = ['피정', '순례', '강의', '특강', '미사', '세미나', '기도회', '강좌', '수련', '캠프'];
+      const hasStrongKw = STRONG_EVENT_KW.some((kw) => finalTitle.includes(kw));
+      if (finalDate.startsWith('1970') && finalLocation === '장소 미정' && !hasStrongKw) {
         console.log(`[SCRAPER] Skip (no event data): ${canonicalUrl}`);
         return;
       }
@@ -486,6 +563,13 @@ async function scrapeAndSave(page: import('playwright').Page, url: string): Prom
 }
 
 // ─── 소스 목록 ────────────────────────────────────────────────────────────────
+// ★ 2026-03-06 정밀 분석 결과: 6개 소스 제거/교체
+// - menu=4780: 실제로는 영화/음악 게시판 (피정 아님)
+// - menu=4782: 실제로는 유머 게시판 (순례 아님)
+// - menu=4784: "게시판 없음" 에러 (DEAD)
+// - menu=4786: "게시판 없음" 에러 (DEAD)
+// - menu=4788: 주교님 축하글 게시판 (특강 아님)
+// - 광주 linkFilter: 서브도메인만 → 메인 도메인 포함으로 확대
 const SOURCES: Source[] = [
   {
     name: '굿뉴스 행사공지',
@@ -498,47 +582,13 @@ const SOURCES: Source[] = [
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4785',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4785'),
     maxItems: 15,
+    bypassTitleFilter: true,
   },
   {
     name: '굿뉴스 선교게시판',
     listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4783',
     linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4783'),
     maxItems: 15,
-  },
-  {
-    name: '굿뉴스 피정',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4780',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4780'),
-    maxItems: 20,
-    bypassTitleFilter: true,
-  },
-  {
-    name: '굿뉴스 성지순례',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4782',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4782'),
-    maxItems: 15,
-    bypassTitleFilter: true,
-  },
-  {
-    name: '굿뉴스 청년/성소',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4784',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4784'),
-    maxItems: 15,
-    bypassTitleFilter: true,
-  },
-  {
-    name: '굿뉴스 성소안내',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4786',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4786'),
-    maxItems: 10,
-    bypassTitleFilter: true,
-  },
-  {
-    name: '굿뉴스 특강/세미나',
-    listUrl: 'https://bbs.catholic.or.kr/bbs/bbs_list.asp?menu=4788',
-    linkFilter: (h) => h.includes('bbs_view.asp') && h.includes('menu=4788'),
-    maxItems: 15,
-    bypassTitleFilter: true,
   },
   {
     name: 'CBCK 소식',
@@ -556,16 +606,19 @@ const SOURCES: Source[] = [
     name: '광주대교구 행사',
     listUrl: 'https://www.gjcatholic.or.kr/nota/event',
     linkFilter: (h) =>
-      /(?:youth|samog|vocatio|cateb)\.gjcatholic\.or\.kr\/(?:picture|leaflet|board)\/\d+/.test(h),
-    maxItems: 10,
+      // ★ 확대: 메인 도메인 + 모든 서브도메인, 게시판 패턴 포괄
+      h.includes('gjcatholic.or.kr') &&
+      (/(?:picture|leaflet|board|view|detail|nota)\/\d+/.test(h) ||
+       /(?:idx=|no=|seq=)\d+/.test(h)),
+    maxItems: 15,
     waitSelector: '.board-list, ul.list, .event-list, table',
     bypassTitleFilter: true,
   },
   {
     name: '대전교구 행사공지',
     listUrl: 'https://www.djcatholic.or.kr/home/news/monthplan.php',
-    linkFilter: (h) => h.includes('djcatholic.or.kr') && h.includes('enter=v') && h.includes('idx='),
-    maxItems: 8,
+    linkFilter: (h) => h.includes('djcatholic.or.kr') && (h.includes('enter=v') || h.includes('view')),
+    maxItems: 12,
     waitSelector: '.board, table, .list, tbody',
   },
 ];
@@ -586,10 +639,11 @@ async function main() {
   );
   if ((cleanedDummy.rowCount ?? 0) > 0) console.log(`[CLEANUP] 더미 ${cleanedDummy.rowCount}개 제거`);
 
-  const twoDaysAgo = new Date();
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  // ★ 2일 → 14일: 다일간 행사(7일 피정 등) 진행 중 삭제 방지
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
   const cleanedExpired = await dbClient.query(
-    `DELETE FROM "Event" WHERE date IS NOT NULL AND date < $1`, [twoDaysAgo],
+    `DELETE FROM "Event" WHERE date IS NOT NULL AND date < $1`, [fourteenDaysAgo],
   );
   if ((cleanedExpired.rowCount ?? 0) > 0) console.log(`[CLEANUP] 만료 ${cleanedExpired.rowCount}개 삭제`);
 
@@ -613,26 +667,26 @@ async function main() {
   try {
     const sourceStats: Record<string, { processed: number; saved: number }> = {};
 
+    // 단일 컨텍스트 재사용 — 소스마다 new context 생성 대신 공유 (메모리·시간 절감)
+    const context = await browser.newContext({
+      locale: 'ko-KR',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+    });
+    const page = await context.newPage();
+    await page.route('**/*', (route) => {
+      BLOCKED_RESOURCE_TYPES.has(route.request().resourceType()) ? route.abort() : route.continue();
+    });
+
     for (const source of SOURCES) {
       console.log(`\n━━━ ${source.name} ━━━`);
       const processedBefore = processedCount;
       const savedBefore = savedCount;
 
-      const context = await browser.newContext({
-        locale: 'ko-KR',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-      });
-      const page = await context.newPage();
-      await page.route('**/*', (route) => {
-        BLOCKED_RESOURCE_TYPES.has(route.request().resourceType()) ? route.abort() : route.continue();
-      });
-
       const links = await extractLinks(page, source);
       for (const url of links) {
         await scrapeAndSave(page, url);
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(500); // 1000ms → 500ms 단축
       }
-      await context.close();
 
       sourceStats[source.name] = {
         processed: processedCount - processedBefore,
@@ -640,6 +694,7 @@ async function main() {
       };
       console.log(`[STAT] ${source.name}: 시도 ${processedCount - processedBefore}건 → 저장 ${savedCount - savedBefore}건`);
     }
+    await context.close();
 
     console.log('\n━━━ 소스별 결과 요약 ━━━');
     for (const [name, stat] of Object.entries(sourceStats)) {

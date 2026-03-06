@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { ScrapingResult } from './interfaces/scraping-result.interface';
+import { normalizeCategory } from './scraper-constants';
 
 @Injectable()
 export class AiRefinerService {
@@ -28,16 +29,20 @@ IMPORTANT DATE DISTINCTION:
 - "publication_date" = when the notice was posted (IGNORE this for skip decisions)
 - Example: A notice posted 3 months ago about an upcoming retreat SHOULD be extracted.
 
-SKIP and return {"skip": true} ONLY if:
+SKIP and return {"skip": true} if ANY of these apply:
 - The event_date (not publication date) is more than 2 weeks before today (${today})
 - It is purely an internal administrative/committee meeting with no public participation
 - It is a news report about a COMPLETED event with no upcoming schedule info
 - There is no actual event at all (editorial, petition, obituary, etc.)
+- It is a NEWS ARTICLE about a person (cardinal, bishop, pope) making a statement, visit, or speech — NOT an event announcement with registration/participation info
+- It is a papal prayer intention (기도지향), pastoral letter, or church document
+- It is a travel review, pilgrimage review (후기/탐방기), or personal reflection
+- It is a personnel appointment (임명/인사발령) or congratulatory post
 
 Otherwise return ONLY valid JSON (no markdown fences) with these fields:
 - title (string): Official event name in Korean.
 - date (string): ISO 8601 date of the EVENT e.g. "2026-05-20T10:00:00". Use "1970-01-01T00:00:00" if unknown.
-- location (string): Venue name and city in Korean. Use "장소 미정" if unknown.
+- location (string): Venue name and city in Korean. Use "장소 미정" if unknown. IMPORTANT: Do NOT use website navigation menu text (like "성지순례ㅣ여행후기", "피정", "교구소식") as the location — those are section titles, not venues.
 - aiSummary (string): 2-3 Korean sentences, warm spiritual tone (은총이 가득한 따뜻한 어조).
 - themeColor (string): One of #E63946 #457B9D #FFB703 #06D6A0 #C9A96E
 - category (string): One of "피정" | "강론" | "강의" | "특강" | "피정의집" | "순례" | "청년" | "문화" | "선교" | "미사"
@@ -58,7 +63,9 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
       throw new Error('AI service is not configured (missing ANTHROPIC_API_KEY).');
     }
 
-    const contentForAi = text.slice(0, 8000);
+    // 한국 가톨릭 행사 페이지는 제목·날짜·장소가 앞부분에 집중 → 1500자면 충분
+    // 8000자(~1600토큰) → 1500자(~300토큰): 입력 토큰 약 81% 절감
+    const contentForAi = text.slice(0, 1500);
 
     try {
       const message = await this.anthropic.messages.create({
@@ -97,10 +104,7 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
       }
     }
     // category 기본값 보장 — 유효하지 않으면 선교로 폴백
-    const validCategories = ['피정', '강론', '강의', '특강', '피정의집', '순례', '청년', '문화', '선교', '미사'];
-    if (!data.category || !validCategories.includes(data.category)) {
-      data.category = '선교';
-    }
+    data.category = normalizeCategory(data.category);
 
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data.date)) {
       this.logger.warn(`AI returned non-ISO date: ${data.date}. Defaulting to 1970.`);

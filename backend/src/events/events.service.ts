@@ -1,10 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { BaseScraperService } from '../scrapers/base-scraper.service';
 import { AiRefinerService } from '../scrapers/ai-refiner.service';
 import { SacredWhisperService } from '../scrapers/sacred-whisper.service';
 import { DioceseSyncService } from '../scrapers/diocese-sync.service';
+import { normalizeCategory } from '../scrapers/scraper-constants';
 
 
 @Injectable()
@@ -30,10 +31,11 @@ export class EventsService implements OnModuleInit {
     setInterval(run, ONE_DAY_MS);
   }
 
-  /** 행사 종료 2일 후 이벤트 레코드 삭제 + Supabase Storage 이미지 삭제 */
+  /** 행사 종료 14일 후 이벤트 레코드 삭제 + Supabase Storage 이미지 삭제
+   *  ★ 2일→14일: 다일간 행사(7일 피정 등) 진행 중 삭제 방지 */
   private async cleanupExpiredEvents() {
     const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 14);
 
     // 1. 만료된 이벤트의 Supabase 이미지 먼저 삭제
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -53,14 +55,15 @@ export class EventsService implements OnModuleInit {
         this.logger.log(`Cleaning images for ${eventsWithImages.length} expired event(s)`);
         const supabase = createClient(supabaseUrl, supabaseKey);
         const prefix = `${supabaseUrl}/storage/v1/object/public/event-images/`;
-        for (const event of eventsWithImages) {
+        // 배치 삭제 — N번 개별 remove() → 1번 remove([...all]) 으로 API 호출 절감
+        const fileNames = eventsWithImages
+          .filter((e) => e.imageUrl?.startsWith(prefix))
+          .map((e) => e.imageUrl!.slice(prefix.length));
+        if (fileNames.length > 0) {
           try {
-            if (event.imageUrl?.startsWith(prefix)) {
-              const fileName = event.imageUrl.slice(prefix.length);
-              await supabase.storage.from('event-images').remove([fileName]);
-            }
+            await supabase.storage.from('event-images').remove(fileNames);
           } catch (err) {
-            this.logger.error(`Failed to delete image for event ${event.id}: ${err.message}`);
+            this.logger.error(`Batch image delete failed: ${err.message}`);
           }
         }
       }
@@ -110,12 +113,12 @@ export class EventsService implements OnModuleInit {
       return this.prisma.event.create({
         data: {
           title: result.title,
-          date: new Date(result.date),
+          date: result.date?.startsWith('1970') ? null : new Date(result.date),
           location: result.location,
           aiSummary: result.aiSummary,
           themeColor: result.themeColor,
           originUrl: url,
-          category: '선교', // Default category
+          category: normalizeCategory(result.category),
           status: 'APPROVED', // 스크래핑 행사는 즉시 공개
         } as any,
       });
@@ -173,9 +176,13 @@ export class EventsService implements OnModuleInit {
   }
 
   async findOne(id: string) {
-    return this.prisma.event.findUnique({
+    const event = await this.prisma.event.findUnique({
       where: { id },
     });
+    if (!event) {
+      throw new NotFoundException(`Event with id "${id}" not found`);
+    }
+    return event;
   }
 
   async adminCreateEvent(data: {
@@ -308,6 +315,11 @@ export class EventsService implements OnModuleInit {
 
       // 3. AI Refinement
       const result = await this.aiRefiner.refine(text);
+
+      // AI가 skip 판단(과거 행사·비행사 콘텐츠)한 경우 null 반환
+      if (!result) {
+        throw new Error('AI skip: not an event (past, internal meeting, or no event)');
+      }
 
       return {
         ...result,
