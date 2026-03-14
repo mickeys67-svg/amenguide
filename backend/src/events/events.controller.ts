@@ -83,6 +83,14 @@ export class EventsController {
     return this.semanticSearch.search(query.slice(0, 200));
   }
 
+  @Post('ai-recommend')
+  async aiRecommend(@Body() body: { feeling: string }) {
+    if (!body.feeling?.trim() || body.feeling.trim().length < 2) {
+      throw new BadRequestException('feeling은 2자 이상 입력해 주세요');
+    }
+    return this.semanticSearch.recommend(body.feeling.slice(0, 500));
+  }
+
   @Get('nuclear-reset')
   async nuclearReset(@Headers('x-admin-key') key: string, @Headers('authorization') auth: string) {
     requireAdmin(key, auth);

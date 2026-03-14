@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Menu, X, LogIn, LogOut, Compass, Map, User } from "lucide-react";
+import { Search, Menu, X, LogIn, LogOut, Compass, Map, User, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/common/Logo";
 
@@ -10,15 +10,18 @@ interface NavigationProps {
     activeFilter: string;
     onFilterChange: (filter: string) => void;
     onSearchOpen: () => void;
+    onAiRecommendOpen?: () => void;
 }
 
 // ── 반응형 breakpoint (Tailwind 신뢰 불가 → CSS 직접 제어) ──────────────
 const NAV_STYLE = `
     .nav-desktop-links { display: flex; align-items: center; gap: 4px; }
+    .nav-desktop-only  { display: inline; }
     .nav-login-btn      { display: flex; }
     .nav-hamburger      { display: none; }
     @media (max-width: 767px) {
         .nav-desktop-links { display: none; }
+        .nav-desktop-only  { display: none; }
         .nav-login-btn      { display: none; }
         .nav-hamburger      { display: flex; }
     }
@@ -40,7 +43,7 @@ function readAuthUser(): AuthUser | null {
     }
 }
 
-export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: NavigationProps) {
+export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRecommendOpen }: NavigationProps) {
     const [scrolled, setScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -156,6 +159,36 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
 
                     {/* ── Actions ── */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+
+                        {/* 세실리아 AI 상담 */}
+                        <button
+                            type="button"
+                            aria-label="AI 마음 상담"
+                            onClick={onAiRecommendOpen}
+                            style={{
+                                display: "flex", alignItems: "center", gap: "5px",
+                                padding: "6px 12px", borderRadius: "8px",
+                                border: "1.5px solid rgba(201,169,110,0.3)",
+                                backgroundColor: "rgba(201,169,110,0.06)",
+                                color: "#C9A96E", cursor: "pointer",
+                                transition: "all 0.15s ease",
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                fontSize: "12.5px", fontWeight: 500,
+                            }}
+                            onMouseEnter={e => {
+                                const el = e.currentTarget as HTMLElement;
+                                el.style.backgroundColor = "rgba(201,169,110,0.12)";
+                                el.style.borderColor = "#C9A96E";
+                            }}
+                            onMouseLeave={e => {
+                                const el = e.currentTarget as HTMLElement;
+                                el.style.backgroundColor = "rgba(201,169,110,0.06)";
+                                el.style.borderColor = "rgba(201,169,110,0.3)";
+                            }}
+                        >
+                            <Heart size={13} strokeWidth={2} />
+                            <span className="nav-desktop-only">세실리아</span>
+                        </button>
 
                         {/* 검색 아이콘 */}
                         <button
@@ -304,6 +337,34 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen }: Navig
                             transition={{ duration: 0.18, ease: "easeOut" }}
                         >
                             <div className="sacred-rail">
+                                {/* 세실리아 AI 상담 (모바일) */}
+                                <button
+                                    type="button"
+                                    onClick={() => { setMenuOpen(false); onAiRecommendOpen?.(); }}
+                                    style={{
+                                        width: "100%", display: "flex", alignItems: "center",
+                                        justifyContent: "space-between",
+                                        padding: "14px 0",
+                                        borderBottom: "1px solid #F0EFE9",
+                                        border: "none", borderBottomWidth: "1px",
+                                        borderBottomStyle: "solid", borderBottomColor: "#F0EFE9",
+                                        background: "none", cursor: "pointer",
+                                        textAlign: "left",
+                                    }}
+                                >
+                                    <span style={{
+                                        fontFamily: "'Noto Sans KR', sans-serif", fontSize: "15px",
+                                        color: "#C9A96E", fontWeight: 500,
+                                        display: "flex", alignItems: "center", gap: "6px",
+                                    }}>
+                                        <Heart size={14} strokeWidth={2} />
+                                        세실리아 AI 상담
+                                    </span>
+                                    <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891" }}>
+                                        마음에 맞는 행사 추천
+                                    </span>
+                                </button>
+
                                 {[
                                     { label: "탐색", id: "events", desc: "카테고리별 행사 탐색" },
                                     { label: "지도", id: "map",    desc: "지도에서 주변 행사 찾기" },

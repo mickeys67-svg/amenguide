@@ -9,6 +9,7 @@ import { FilterBar } from "./FilterBar";
 import { EventCard } from "./EventCard";
 import { Footer } from "./Footer";
 import { SearchModal } from "./SearchModal";
+import { AiRecommendModal } from "./AiRecommendModal";
 import CustomMap from "../map/CustomMap";
 import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
@@ -109,6 +110,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
     const [sortBy, setSortBy] = useState("date");
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [searchOpen, setSearchOpen] = useState(false);
+    const [aiRecommendOpen, setAiRecommendOpen] = useState(false);
     const [selectedDiocese, setSelectedDiocese] = useState("");
     const eventsRef = useRef<HTMLDivElement>(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -311,6 +313,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                 activeFilter={activeFilter}
                 onFilterChange={setActiveFilter}
                 onSearchOpen={() => setSearchOpen(true)}
+                onAiRecommendOpen={() => setAiRecommendOpen(true)}
             />
 
             {/* ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═
@@ -1316,6 +1319,10 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                 isOpen={searchOpen}
                 onClose={() => setSearchOpen(false)}
                 events={events}
+            />
+            <AiRecommendModal
+                isOpen={aiRecommendOpen}
+                onClose={() => setAiRecommendOpen(false)}
             />
         </div>
     );
