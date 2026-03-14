@@ -164,6 +164,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                         <button
                             type="button"
                             aria-label="AI 마음 상담"
+                            title="세실리아 AI 영성 상담 — 마음을 나누면 맞춤 행사와 성가를 추천해 드립니다"
                             onClick={onAiRecommendOpen}
                             style={{
                                 display: "flex", alignItems: "center", gap: "5px",
