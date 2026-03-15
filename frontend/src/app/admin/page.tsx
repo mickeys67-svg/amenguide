@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Check, AlertCircle, Shield, PlusCircle, RotateCcw, Calendar, MapPin, List, LogOut, X, Trash2, Edit2, CheckCircle, XCircle, Clock, Users, KeyRound, Mail, User } from "lucide-react";
+import { Check, AlertCircle, Shield, PlusCircle, RotateCcw, Calendar, MapPin, List, LogOut, X, Trash2, Edit2, CheckCircle, XCircle, Clock, Users, KeyRound, Mail, User, FileText, Pin } from "lucide-react";
 import { Logo } from "@/components/common/Logo";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://amenguide-backend-775250805671.us-west1.run.app";
@@ -30,7 +30,7 @@ const STATUS_BG: Record<string, string> = {
     APPROVED: "#F0FDF4", PENDING: "#FFFBEB", REJECTED: "#FEF2F2",
 };
 
-type Tab = "pending" | "list" | "new" | "admins";
+type Tab = "pending" | "list" | "new" | "admins" | "notices";
 type StatusMsg = { type: "success" | "error"; msg: string } | null;
 
 // ─── 수정 모달 ───────────────────────────────────────────────────────────
@@ -216,6 +216,11 @@ export default function AdminPage() {
     const [createLoading, setCreateLoading] = useState(false);
     const [createStatus, setCreateStatus] = useState<StatusMsg>(null);
 
+    // ── 공지사항 관리 상태 ────────────────────────────────────────────
+    const [noticesList, setNoticesList] = useState<any[]>([]);
+    const [noticesLoading, setNoticesLoading] = useState(false);
+    const [noticesFilter, setNoticesFilter] = useState("");
+
     // ── 관리자 관리 상태 ─────────────────────────────────────────────
     const [adminsList, setAdminsList] = useState<any[]>([]);
     const [adminsLoading, setAdminsLoading] = useState(false);
@@ -346,12 +351,24 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [adminToken]);
 
+    const fetchNotices = useCallback(async () => {
+        setNoticesLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (noticesFilter) params.set("status", noticesFilter);
+            const res = await fetch(`${API_BASE}/notices/admin/list?${params}`, { headers: authHeader() });
+            if (res.ok) setNoticesList(await res.json());
+        } finally { setNoticesLoading(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [adminToken, noticesFilter]);
+
     useEffect(() => {
         if (!authenticated) return;
         if (activeTab === "pending") fetchPending();
         else if (activeTab === "list") fetchAll();
         else if (activeTab === "admins") fetchAdmins();
-    }, [authenticated, activeTab, fetchPending, fetchAll, fetchAdmins]);
+        else if (activeTab === "notices") fetchNotices();
+    }, [authenticated, activeTab, fetchPending, fetchAll, fetchAdmins, fetchNotices]);
 
     const handleApprove = async (id: string) => {
         setActionLoading(id);
@@ -524,6 +541,7 @@ export default function AdminPage() {
         { id: "pending", icon: <Clock size={15} />, label: "대기 중", badge: pendingEvents.length || undefined },
         { id: "list", icon: <List size={15} />, label: "행사 목록" },
         { id: "new", icon: <PlusCircle size={15} />, label: "행사 등록" },
+        { id: "notices", icon: <FileText size={15} />, label: "공지사항 관리", badge: noticesList.filter((n: any) => n.status === "PENDING").length || undefined },
         { id: "admins", icon: <Users size={15} />, label: "관리자 관리" },
     ];
 
@@ -765,6 +783,154 @@ export default function AdminPage() {
         </div>
     );
 
+    // ── 공지사항 관리 액션 ──────────────────────────────────────────
+    const handleNoticeApprove = async (id: string, status: "APPROVED" | "REJECTED") => {
+        try {
+            const res = await fetch(`${API_BASE}/notices/${id}/approve`, {
+                method: "PATCH", headers: { ...authHeader(), "Content-Type": "application/json" },
+                body: JSON.stringify({ status }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(`승인/거절 실패: ${err.message || res.statusText}`);
+                return;
+            }
+            fetchNotices();
+        } catch (e: any) {
+            alert(`승인/거절 오류: ${e.message || "네트워크 에러"}`);
+        }
+    };
+
+    const handleNoticePin = async (id: string) => {
+        try {
+            await fetch(`${API_BASE}/notices/${id}/pin`, {
+                method: "PATCH", headers: authHeader(),
+            });
+            fetchNotices();
+        } catch {}
+    };
+
+    const handleNoticeDelete = async (id: string) => {
+        if (!confirm("이 공지를 삭제하시겠습니까?")) return;
+        try {
+            await fetch(`${API_BASE}/notices/${id}`, {
+                method: "DELETE", headers: authHeader(),
+            });
+            fetchNotices();
+        } catch {}
+    };
+
+    // ── 탭 콘텐츠: 공지사항 관리 ────────────────────────────────────
+    const renderNotices = () => (
+        <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+                <h2 style={{ fontFamily: "'Noto Serif KR', serif", fontWeight: 900, fontSize: "22px", color: "#100F0F" }}>공지사항 관리</h2>
+                <div style={{ display: "flex", gap: "6px" }}>
+                    {["", "PENDING", "APPROVED", "REJECTED"].map(s => (
+                        <button key={s} onClick={() => setNoticesFilter(s)}
+                            style={{
+                                padding: "6px 14px", borderRadius: "8px", border: "none", cursor: "pointer",
+                                fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", fontWeight: 500,
+                                backgroundColor: noticesFilter === s ? "#0B2040" : "rgba(11,32,64,0.06)",
+                                color: noticesFilter === s ? "#FFFFFF" : "#52504B",
+                            }}>
+                            {s === "" ? "전체" : STATUS_LABEL[s] || s}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {noticesLoading ? (
+                <p style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "#9C9891", textAlign: "center", padding: "40px" }}>불러오는 중...</p>
+            ) : noticesList.length === 0 ? (
+                <p style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "#9C9891", textAlign: "center", padding: "40px" }}>공지사항이 없습니다.</p>
+            ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {noticesList.map((notice: any) => (
+                        <div key={notice.id} style={{
+                            backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E8E5DF",
+                            padding: "16px 20px", display: "flex", alignItems: "center", gap: "16px",
+                        }}>
+                            {/* 상태 배지 */}
+                            <span style={{
+                                padding: "3px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 600,
+                                fontFamily: "'DM Mono', monospace",
+                                backgroundColor: STATUS_BG[notice.status] || "#F8F7F4",
+                                color: STATUS_COLOR[notice.status] || "#52504B",
+                                flexShrink: 0,
+                            }}>
+                                {STATUS_LABEL[notice.status] || notice.status}
+                            </span>
+
+                            {/* 카테고리 */}
+                            <span style={{
+                                padding: "3px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: 500,
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                                backgroundColor: "rgba(11,32,64,0.06)", color: "#0B2040",
+                                flexShrink: 0,
+                            }}>
+                                {notice.category}
+                            </span>
+
+                            {/* 제목 + 작성자 */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    {notice.isPinned && <Pin size={12} color="#C9A96E" />}
+                                    <span style={{
+                                        fontFamily: "'Noto Sans KR', sans-serif", fontSize: "14px",
+                                        fontWeight: 500, color: "#100F0F",
+                                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                    }}>
+                                        {notice.title}
+                                    </span>
+                                </div>
+                                <span style={{
+                                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891",
+                                }}>
+                                    {notice.author?.name || "?"} · {new Date(notice.createdAt).toLocaleDateString("ko-KR")}
+                                    {notice._count?.comments > 0 && ` · 댓글 ${notice._count.comments}`}
+                                </span>
+                            </div>
+
+                            {/* 액션 버튼들 */}
+                            <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                                {notice.status === "PENDING" && (
+                                    <>
+                                        <button onClick={() => handleNoticeApprove(notice.id, "APPROVED")}
+                                            title="승인"
+                                            style={{ width: "32px", height: "32px", borderRadius: "8px", border: "none", backgroundColor: "rgba(22,163,74,0.1)", color: "#16A34A", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                            <CheckCircle size={15} />
+                                        </button>
+                                        <button onClick={() => handleNoticeApprove(notice.id, "REJECTED")}
+                                            title="거절"
+                                            style={{ width: "32px", height: "32px", borderRadius: "8px", border: "none", backgroundColor: "rgba(220,38,38,0.1)", color: "#DC2626", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                            <XCircle size={15} />
+                                        </button>
+                                    </>
+                                )}
+                                <button onClick={() => handleNoticePin(notice.id)}
+                                    title={notice.isPinned ? "고정 해제" : "고정"}
+                                    style={{
+                                        width: "32px", height: "32px", borderRadius: "8px", border: "none",
+                                        backgroundColor: notice.isPinned ? "rgba(201,169,110,0.15)" : "rgba(11,32,64,0.06)",
+                                        color: notice.isPinned ? "#C9A96E" : "#9C9891",
+                                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                    }}>
+                                    <Pin size={14} />
+                                </button>
+                                <button onClick={() => handleNoticeDelete(notice.id)}
+                                    title="삭제"
+                                    style={{ width: "32px", height: "32px", borderRadius: "8px", border: "none", backgroundColor: "rgba(220,38,38,0.06)", color: "#DC2626", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
     // ── 탭 콘텐츠: 관리자 관리 ────────────────────────────────────
     const renderAdmins = () => (
         <div>
@@ -959,6 +1125,7 @@ export default function AdminPage() {
                     {activeTab === "pending" && renderPending()}
                     {activeTab === "list" && renderList()}
                     {activeTab === "new" && renderNew()}
+                    {activeTab === "notices" && renderNotices()}
                     {activeTab === "admins" && renderAdmins()}
                 </main>
             </div>

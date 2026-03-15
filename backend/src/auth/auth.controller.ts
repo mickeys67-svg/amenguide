@@ -100,7 +100,7 @@ export class AuthController {
   ) {
     const frontendUrl =
       process.env.FRONTEND_URL ||
-      'https://amenguide-git-775250805671.us-west1.run.app';
+      'https://catholica.kr';
 
     // 사용자가 구글 로그인 취소한 경우
     if (error || !code) {

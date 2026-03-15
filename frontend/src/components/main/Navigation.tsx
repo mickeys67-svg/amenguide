@@ -2,14 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Menu, X, LogIn, LogOut, Compass, Map, User, Heart } from "lucide-react";
+import { Search, Menu, X, LogIn, LogOut, Compass, Map, User, Heart, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/common/Logo";
+import dynamic from "next/dynamic";
+
+const AiRecommendModal = dynamic(() => import("@/components/main/AiRecommendModal").then(m => m.AiRecommendModal), { ssr: false });
 
 interface NavigationProps {
-    activeFilter: string;
-    onFilterChange: (filter: string) => void;
-    onSearchOpen: () => void;
+    activeFilter?: string;
+    onFilterChange?: (filter: string) => void;
+    onSearchOpen?: () => void;
     onAiRecommendOpen?: () => void;
 }
 
@@ -47,7 +50,11 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
     const [scrolled, setScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+    const [internalAiOpen, setInternalAiOpen] = useState(false);
     const router = useRouter();
+
+    // 외부에서 onAiRecommendOpen이 없으면 내부 모달 사용
+    const handleAiOpen = onAiRecommendOpen ?? (() => setInternalAiOpen(true));
 
     // 마운트 시 + storage 이벤트 시 auth 상태 갱신
     useEffect(() => {
@@ -87,6 +94,9 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
             const offset = id === "events" ? 110 : 60;
             const y = el.getBoundingClientRect().top + window.scrollY - offset;
             window.scrollTo({ top: y, behavior: "smooth" });
+        } else {
+            // 홈이 아닌 페이지에서는 홈으로 이동 후 해당 섹션으로 스크롤
+            router.push(`/#${id}`);
         }
         setMenuOpen(false);
     };
@@ -116,7 +126,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                         variant="dark"
                         size={64}
                         style={{ flexShrink: 0 }}
-                        onClick={() => { onFilterChange("전체"); router.push("/"); }}
+                        onClick={() => { onFilterChange?.("전체"); router.push("/"); }}
                     />
 
                     <div style={{ flex: 1 }} />
@@ -124,13 +134,14 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                     {/* ── 데스크탑 링크 (768px+) ── */}
                     <nav className="nav-desktop-links" aria-label="메인 내비게이션">
                         {[
-                            { label: "탐색", id: "events", icon: <Compass size={13} strokeWidth={2} /> },
-                            { label: "지도", id: "map",    icon: <Map size={13} strokeWidth={2} /> },
-                        ].map(({ label, id, icon }) => (
+                            { label: "탐색", id: "events", icon: <Compass size={13} strokeWidth={2} />, href: undefined },
+                            { label: "지도", id: "map",    icon: <Map size={13} strokeWidth={2} />, href: undefined },
+                            { label: "공지사항", id: "notices", icon: <FileText size={13} strokeWidth={2} />, href: "/notices" },
+                        ].map(({ label, id, icon, href }) => (
                             <button
                                 key={id}
                                 type="button"
-                                onClick={() => scrollTo(id)}
+                                onClick={() => href ? router.push(href) : scrollTo(id)}
                                 style={{
                                     display: "flex", alignItems: "center", gap: "5px",
                                     fontFamily: "'Noto Sans KR', sans-serif",
@@ -165,7 +176,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             type="button"
                             aria-label="AI 마음 상담"
                             title="세실리아 AI 영성 상담 — 마음을 나누면 맞춤 행사와 성가를 추천해 드립니다"
-                            onClick={onAiRecommendOpen}
+                            onClick={handleAiOpen}
                             style={{
                                 display: "flex", alignItems: "center", gap: "5px",
                                 padding: "6px 12px", borderRadius: "8px",
@@ -195,7 +206,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                         <button
                             type="button"
                             aria-label="검색"
-                            onClick={onSearchOpen}
+                            onClick={() => onSearchOpen?.()}
                             style={{
                                 width: "36px", height: "36px",
                                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -341,7 +352,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                 {/* 세실리아 AI 상담 (모바일) */}
                                 <button
                                     type="button"
-                                    onClick={() => { setMenuOpen(false); onAiRecommendOpen?.(); }}
+                                    onClick={() => { setMenuOpen(false); handleAiOpen(); }}
                                     style={{
                                         width: "100%", display: "flex", alignItems: "center",
                                         justifyContent: "space-between",
@@ -367,13 +378,14 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                 </button>
 
                                 {[
-                                    { label: "탐색", id: "events", desc: "카테고리별 행사 탐색" },
-                                    { label: "지도", id: "map",    desc: "지도에서 주변 행사 찾기" },
-                                ].map(({ label, id, desc }) => (
+                                    { label: "탐색", id: "events", desc: "카테고리별 행사 탐색", href: undefined as string | undefined },
+                                    { label: "지도", id: "map",    desc: "지도에서 주변 행사 찾기", href: undefined as string | undefined },
+                                    { label: "공지사항", id: "notices", desc: "공지사항 게시판", href: "/notices" as string | undefined },
+                                ].map(({ label, id, desc, href }) => (
                                     <button
                                         key={id}
                                         type="button"
-                                        onClick={() => scrollTo(id)}
+                                        onClick={() => { if (href) { router.push(href); setMenuOpen(false); } else { scrollTo(id); } }}
                                         style={{
                                             width: "100%", display: "flex", alignItems: "center",
                                             justifyContent: "space-between",
@@ -456,6 +468,11 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                     </>
                 )}
             </AnimatePresence>
+
+            {/* 외부 핸들러 없을 때 내부 모달 */}
+            {!onAiRecommendOpen && (
+                <AiRecommendModal isOpen={internalAiOpen} onClose={() => setInternalAiOpen(false)} />
+            )}
         </>
     );
 }

@@ -116,6 +116,57 @@ export class PrismaService
     `;
     await this.$executeRawUnsafe(newTablesSql);
 
+    // Notice tables (게시판)
+    const noticeSql = `
+      CREATE TABLE IF NOT EXISTS "Notice" (
+        "id" TEXT PRIMARY KEY,
+        "title" TEXT NOT NULL,
+        "content" TEXT NOT NULL,
+        "category" TEXT DEFAULT '일반',
+        "isPinned" BOOLEAN DEFAULT false,
+        "status" TEXT DEFAULT 'PENDING',
+        "viewCount" INTEGER DEFAULT 0,
+        "authorId" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS "NoticeComment" (
+        "id" TEXT PRIMARY KEY,
+        "content" TEXT NOT NULL,
+        "authorId" TEXT NOT NULL REFERENCES "User"("id"),
+        "noticeId" TEXT NOT NULL REFERENCES "Notice"("id") ON DELETE CASCADE,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS "NoticeAttachment" (
+        "id" TEXT PRIMARY KEY,
+        "fileName" TEXT NOT NULL,
+        "fileUrl" TEXT NOT NULL,
+        "fileSize" INTEGER NOT NULL,
+        "noticeId" TEXT NOT NULL REFERENCES "Notice"("id") ON DELETE CASCADE,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS "Notice_status_createdAt_idx" ON "Notice"("status", "createdAt");
+      CREATE INDEX IF NOT EXISTS "Notice_authorId_idx" ON "Notice"("authorId");
+      CREATE INDEX IF NOT EXISTS "NoticeComment_noticeId_idx" ON "NoticeComment"("noticeId");
+    `;
+    await this.$executeRawUnsafe(noticeSql);
+
+    // AI 사용 로그 (하루 3명 제한)
+    const aiUsageSql = `
+      CREATE TABLE IF NOT EXISTS "AiUsageLog" (
+        "id" TEXT PRIMARY KEY,
+        "ipHash" TEXT NOT NULL,
+        "usedDate" TEXT NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("ipHash", "usedDate")
+      );
+      CREATE INDEX IF NOT EXISTS "AiUsageLog_usedDate_idx" ON "AiUsageLog"("usedDate");
+    `;
+    await this.$executeRawUnsafe(aiUsageSql);
+
     // Add new columns for existing tables (idempotent ALTER TABLE)
     const alterSql = `
       ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "status" TEXT DEFAULT 'PENDING';

@@ -34,17 +34,26 @@ export class AdminAuthService implements OnModuleInit {
       return;
     }
 
+    // 기존 계정이 있으면 건너뜀 (비밀번호 변경 보존)
+    const existing = await this.prisma.$queryRawUnsafe(
+      `SELECT "id" FROM "Admin" WHERE "email" = $1 LIMIT 1`,
+      adminEmail.toLowerCase().trim(),
+    ) as any[];
+    if (existing.length > 0) {
+      console.log(`AdminAuthService: ${adminEmail} already exists — skipping seed`);
+      return;
+    }
+
     const passwordHash = await this.hashPassword(adminPassword.trim());
     const id = crypto.randomUUID();
     await this.prisma.$executeRawUnsafe(
       `INSERT INTO "Admin" ("id","email","name","passwordHash","createdAt","updatedAt")
-       VALUES ($1,$2,'관리자',$3,NOW(),NOW())
-       ON CONFLICT ("email") DO UPDATE SET "passwordHash" = $3, "updatedAt" = NOW()`,
+       VALUES ($1,$2,'관리자',$3,NOW(),NOW())`,
       id,
       adminEmail.toLowerCase().trim(),
       passwordHash,
     );
-    console.log(`AdminAuthService: ${adminEmail} seeded/updated`);
+    console.log(`AdminAuthService: ${adminEmail} seeded`);
   }
 
   // ── 비밀번호 해싱 ─────────────────────────────────────────────────────────

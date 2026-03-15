@@ -717,7 +717,7 @@ async function main() {
   }
 
   if (savedCount > 0) {
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://amenguide-git-775250805671.us-west1.run.app';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://catholica.kr';
     const revalidateSecret = process.env.REVALIDATE_SECRET;
     if (revalidateSecret) {
       try {

@@ -21,6 +21,8 @@ model User {
   bookmarks      Bookmark[]
   reviews        Review[]
   pushSubscriptions PushSubscription[]
+  notices        Notice[]
+  noticeComments NoticeComment[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -100,4 +102,55 @@ model NotificationLog {
   sentAt    DateTime @default(now())
 
   @@unique([userId, eventId, type])
+}
+
+model Notice {
+  id          String             @id @default(uuid())
+  title       String
+  content     String             @db.Text
+  category    String             @default("일반")    // 일반, 공지, 긴급
+  isPinned    Boolean            @default(false)
+  status      String             @default("PENDING") // PENDING, APPROVED, REJECTED
+  viewCount   Int                @default(0)
+  authorId    String
+  author      User               @relation(fields: [authorId], references: [id])
+  comments    NoticeComment[]
+  attachments NoticeAttachment[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@index([authorId])
+}
+
+model NoticeComment {
+  id        String   @id @default(uuid())
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  noticeId  String
+  notice    Notice   @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([noticeId])
+}
+
+model NoticeAttachment {
+  id        String   @id @default(uuid())
+  fileName  String
+  fileUrl   String
+  fileSize  Int
+  noticeId  String
+  notice    Notice   @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model AiUsageLog {
+  id        String   @id @default(uuid())
+  ipHash    String   // SHA-256 해시 (개인정보 보호)
+  usedDate  String   // YYYY-MM-DD (일별 카운팅용)
+  createdAt DateTime @default(now())
+
+  @@unique([ipHash, usedDate])
+  @@index([usedDate])
 }

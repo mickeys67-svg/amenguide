@@ -282,6 +282,23 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
         setCurrentPage(1);
     }, [activeFilter, sortBy, selectedDiocese]);
 
+    // URL 해시(#events, #map)로 이동 시 해당 섹션으로 스크롤
+    useEffect(() => {
+        const hash = window.location.hash.replace("#", "");
+        if (!hash) return;
+        const timer = setTimeout(() => {
+            const el = document.getElementById(hash);
+            if (el) {
+                const offset = hash === "events" ? 110 : 60;
+                const y = el.getBoundingClientRect().top + window.scrollY - offset;
+                window.scrollTo({ top: y, behavior: "smooth" });
+            }
+            // 해시 제거 (뒤로가기 시 재트리거 방지)
+            window.history.replaceState(null, "", window.location.pathname);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, []);
+
     const countByCategory = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);

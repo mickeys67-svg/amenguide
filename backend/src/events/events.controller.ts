@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, ForbiddenException, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, Req, ForbiddenException, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import * as crypto from 'crypto';
@@ -83,12 +84,30 @@ export class EventsController {
     return this.semanticSearch.search(query.slice(0, 200));
   }
 
+  /** 세실리아 AI 잔여 사용량 확인 */
+  @Get('ai-availability')
+  async aiAvailability(@Req() req: Request) {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '0.0.0.0';
+    return this.semanticSearch.checkAvailability(ip);
+  }
+
   @Post('ai-recommend')
-  async aiRecommend(@Body() body: { feeling: string }) {
+  async aiRecommend(
+    @Req() req: Request,
+    @Body() body: {
+      feeling: string;
+      history?: { role: 'user' | 'assistant'; content: string }[];
+    },
+  ) {
     if (!body.feeling?.trim() || body.feeling.trim().length < 2) {
       throw new BadRequestException('feeling은 2자 이상 입력해 주세요');
     }
-    return this.semanticSearch.recommend(body.feeling.slice(0, 500));
+    // history 유효성: 최대 6턴, 각 content 최대 1000자
+    const history = (body.history || [])
+      .filter((h) => h.role === 'user' || h.role === 'assistant')
+      .slice(-6)
+      .map((h) => ({ role: h.role, content: (h.content || '').slice(0, 1000) }));
+    return this.semanticSearch.recommend(body.feeling.slice(0, 500), history);
   }
 
   @Get('nuclear-reset')

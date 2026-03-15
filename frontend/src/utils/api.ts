@@ -7,13 +7,16 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
     try {
+        const isFormData = options?.body instanceof FormData;
+        const headers: Record<string, string> = {
+            ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+            ...(options?.headers as Record<string, string>),
+        };
+
         const response = await fetch(url, {
             ...options,
             signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
+            headers,
         });
 
         if (!response.ok) {
