@@ -24,7 +24,7 @@ const selectStyle = (isActive: boolean, activeColor = "#0B6B70", activeBg = "rgb
     border: "1.5px solid",
     borderColor: isActive ? activeBorder : "#E8E5DF",
     borderRadius: "8px",
-    padding: "5px 28px 5px 10px",
+    padding: "8px 28px 8px 10px",
     cursor: "pointer" as const,
     outline: "none",
     appearance: "none" as const,
@@ -68,10 +68,10 @@ export function FilterBar({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        paddingTop: "9px",
-                        paddingBottom: "9px",
+                        paddingTop: "10px",
+                        paddingBottom: "10px",
                         flexWrap: "wrap",
-                        gap: "6px",
+                        gap: "8px",
                     }}
                 >
                     {/* 좌: 건수 + GPS 상태 */}
@@ -166,8 +166,8 @@ export function FilterBar({
                                 onClick={() => onViewModeChange(mode)}
                                 aria-label={mode === "grid" ? "그리드 보기" : "리스트 보기"}
                                 style={{
-                                    width: "30px",
-                                    height: "30px",
+                                    width: "36px",
+                                    height: "36px",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",

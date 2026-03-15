@@ -360,7 +360,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                             .cat-tiles::-webkit-scrollbar { display: none; }
                             .cat-tile {
                                 flex: 0 0 auto;
-                                width: clamp(100px, 13vw, 152px);
+                                width: clamp(90px, 12vw, 148px);
                                 display: flex;
                                 flex-direction: column;
                                 align-items: center;
@@ -513,7 +513,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                         <h2 style={{
                             fontFamily: "'Noto Serif KR', serif",
                             fontWeight: 700,
-                            fontSize: "clamp(24px, 3vw, 38px)",
+                            fontSize: "clamp(22px, 2.5vw, 34px)",
                             color: "#100F0F",
                             letterSpacing: "-0.02em",
                             lineHeight: 1.2,
@@ -599,12 +599,12 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.35 }}
+                            className="event-card-grid"
                             style={{
                                 display: "grid",
-                                /* 고정 3컬럼 ??카드 ?이 균일 */
-                                gridTemplateColumns: "repeat(3, 1fr)",
+                                gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
                                 gridAutoRows: "1fr",
-                                gap: "22px",
+                                gap: "20px",
                             }}
                         >
                             {pagedEvents.map((event, i) => (

@@ -113,7 +113,7 @@ export function EventCard({
                             style={{ width: "4px", flexShrink: 0, backgroundColor: catColor, minHeight: "200px" }}
                             className="hidden md:block"
                         />
-                        <div style={{ padding: "clamp(28px, 4vw, 48px)", flex: 1 }}>
+                        <div style={{ padding: "clamp(20px, 3vw, 40px)", flex: 1 }}>
                             <div className="flex items-start justify-between gap-4 mb-5">
                                 <span style={{
                                     display: "inline-block",
@@ -135,7 +135,7 @@ export function EventCard({
                             </div>
                             <h2 style={{
                                 fontFamily: "'Noto Serif KR', serif",
-                                fontSize: "clamp(20px, 2.8vw, 32px)",
+                                fontSize: "clamp(18px, 2.2vw, 28px)",
                                 fontWeight: 700,
                                 color: "#100F0F",
                                 lineHeight: 1.35,
@@ -314,7 +314,9 @@ export function EventCard({
                 {/* ── Image ── */}
                 <div
                     style={{
-                        height: "210px",
+                        aspectRatio: "16 / 10",
+                        minHeight: "160px",
+                        maxHeight: "220px",
                         position: "relative",
                         overflow: "hidden",
                         flexShrink: 0,
@@ -330,8 +332,9 @@ export function EventCard({
                             width: "100%",
                             height: "100%",
                             objectFit: "cover",
-                            transform: hovered ? "scale(1.06)" : "scale(1)",
+                            transform: hovered ? "scale(1.04)" : "scale(1)",
                             transition: "transform 0.55s ease",
+                            willChange: "transform",
                         }}
                         onError={e => {
                             (e.currentTarget as HTMLImageElement).src = fallbackImg;

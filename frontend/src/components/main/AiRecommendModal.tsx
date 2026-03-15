@@ -643,10 +643,10 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
 
                     {/* Modal */}
                     <motion.div
+                        className="cecilia-modal-wrap"
                         style={{
                             position: "fixed", inset: 0, zIndex: 201,
                             display: "flex", alignItems: "center", justifyContent: "center",
-                            padding: "20px",
                             pointerEvents: "none",
                         }}
                         initial={{ opacity: 0 }}
@@ -654,6 +654,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                         exit={{ opacity: 0 }}
                     >
                         <motion.div
+                            className="cecilia-modal-inner"
                             style={{
                                 width: "100%", maxWidth: "640px",
                                 maxHeight: "85vh",
@@ -1033,8 +1034,8 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                 display: "flex", alignItems: "center", gap: "6px",
                                                 padding: "4px 14px",
                                                 borderRadius: "16px",
-                                                backgroundColor: (GRADE_THEMES[lastAiMsg.emotionGrade]?.gradient[0] || "#C9A96E") + "15",
-                                                border: `1px solid ${(GRADE_THEMES[lastAiMsg.emotionGrade]?.gradient[0] || "#C9A96E")}30`,
+                                                backgroundColor: (GRADE_THEMES[lastAiMsg.emotionGrade]?.cardBg1 || "#C9A96E") + "15",
+                                                border: `1px solid ${(GRADE_THEMES[lastAiMsg.emotionGrade]?.cardBg1 || "#C9A96E")}30`,
                                             }}>
                                                 <span style={{ fontSize: "14px" }}>
                                                     {GRADE_THEMES[lastAiMsg.emotionGrade]?.emoji}
@@ -1042,7 +1043,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                 <span style={{
                                                     fontFamily: "'DM Mono', monospace",
                                                     fontSize: "11px", fontWeight: 500,
-                                                    color: GRADE_THEMES[lastAiMsg.emotionGrade]?.gradient[0] || "#C9A96E",
+                                                    color: GRADE_THEMES[lastAiMsg.emotionGrade]?.cardBg1 || "#C9A96E",
                                                 }}>
                                                     {GRADE_THEMES[lastAiMsg.emotionGrade]?.label} · {GRADE_THEMES[lastAiMsg.emotionGrade]?.latin}
                                                 </span>
@@ -1193,7 +1194,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
 
                             {/* ── Input Bar ── */}
                             <div style={{
-                                padding: "16px 24px 20px",
+                                padding: "12px 16px 16px",
                                 borderTop: "1px solid #E8E5DF",
                                 backgroundColor: "#FAFAF8",
                             }}>
@@ -1254,11 +1255,24 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                         </motion.div>
                     </motion.div>
 
-                    {/* 타이핑 커서 깜빡임 애니메이션 */}
+                    {/* 모바일 최적화 + 타이핑 커서 */}
                     <style>{`
                         @keyframes blink {
                             0%, 100% { opacity: 1; }
                             50% { opacity: 0; }
+                        }
+                        @media (min-width: 641px) {
+                            .cecilia-modal-wrap {
+                                padding: 20px;
+                            }
+                        }
+                        @media (max-width: 640px) {
+                            .cecilia-modal-inner {
+                                max-height: 100vh !important;
+                                max-height: 100dvh !important;
+                                height: 100% !important;
+                                border-radius: 0 !important;
+                            }
                         }
                     `}</style>
                 </>

@@ -87,7 +87,7 @@ export function Footer() {
                             style={{
                                 fontFamily: "'Noto Serif KR', serif",
                                 color: "#100F0F",
-                                fontSize: "clamp(22px, 3.2vw, 34px)",
+                                fontSize: "clamp(22px, 2.5vw, 30px)",
                                 fontWeight: 700,
                                 letterSpacing: "-0.02em",
                                 lineHeight: 1.3,

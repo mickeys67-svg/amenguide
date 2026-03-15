@@ -208,7 +208,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             aria-label="검색"
                             onClick={() => onSearchOpen?.()}
                             style={{
-                                width: "36px", height: "36px",
+                                width: "44px", height: "44px",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 borderRadius: "8px", border: "none",
                                 backgroundColor: "transparent", color: "#52504B",
@@ -313,7 +313,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             onClick={() => setMenuOpen(true)}
                             className="nav-hamburger"
                             style={{
-                                width: "36px", height: "36px",
+                                width: "44px", height: "44px",
                                 alignItems: "center", justifyContent: "center",
                                 color: "#100F0F", border: "none",
                                 backgroundColor: "transparent", cursor: "pointer",
@@ -338,10 +338,11 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                         />
                         <motion.div
                             style={{
-                                position: "fixed", top: "60px", left: 0, right: 0, zIndex: 100,
+                                position: "fixed", top: "72px", left: 0, right: 0, zIndex: 100,
                                 backgroundColor: "#FFFFFF", borderBottom: "1px solid #E8E5DF",
                                 boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
                                 padding: "8px 0 16px",
+                                maxHeight: "calc(100vh - 72px)", overflowY: "auto",
                             }}
                             initial={{ opacity: 0, y: -8 }}
                             animate={{ opacity: 1, y: 0 }}

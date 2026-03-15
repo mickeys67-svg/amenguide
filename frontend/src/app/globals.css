@@ -9,6 +9,17 @@
 
 html {
   scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+/* iOS safe-area insets */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 button {
@@ -67,8 +78,8 @@ body {
   max-width: 1280px;
   margin-left: auto;
   margin-right: auto;
-  padding-left: 20px;
-  padding-right: 20px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 @media (min-width: 640px) {
@@ -85,6 +96,14 @@ body {
   }
 }
 
+/* ─ Mobile: GPU-accelerated smooth scroll ─ */
+@media (max-width: 767px) {
+  .sacred-rail {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
 /* ─ Scrollbar utils ─ */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -93,4 +112,17 @@ body {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+}
+
+/* ─ Mobile touch stability ─ */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent layout shift from address bar */
+@supports (height: 100dvh) {
+  :root {
+    --vh-full: 100dvh;
+  }
 }

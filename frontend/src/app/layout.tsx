@@ -1,5 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover" as const,
+};
 
 export const metadata: Metadata = {
   title: "Catholica | 가톨릭 행사 허브",
@@ -26,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="antialiased">
+      <body className="antialiased" style={{ overflowX: "hidden" }}>
         {children}
       </body>
     </html>

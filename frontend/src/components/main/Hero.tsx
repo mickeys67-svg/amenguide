@@ -4,6 +4,18 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
+function useIsMobile(breakpoint = 768) {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+        setIsMobile(mq.matches);
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, [breakpoint]);
+    return isMobile;
+}
+
 // 히어로 이미지 — public 폴더에 hero.jpg (또는 hero.png) 배치
 const HERO_IMAGE = "/hero.jpg";
 const HERO_IMAGE_FALLBACK = "/hero.jpg";
@@ -22,13 +34,14 @@ const STAT_LABELS = [
 export function Hero({ eventCount, onScrollDown }: HeroProps) {
     const [imgLoaded, setImgLoaded] = useState(false);
     const [imgSrc, setImgSrc] = useState(HERO_IMAGE);
+    const isMobile = useIsMobile();
 
     return (
         <section
             style={{
                 backgroundColor: "#FFFFFF",
                 paddingTop: "72px",          // nav height
-                minHeight: "clamp(560px, 88vh, 960px)",
+                minHeight: isMobile ? "auto" : "min(88vh, 960px)",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -53,11 +66,11 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                 style={{
                     flex: 1,
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "clamp(32px, 5vw, 80px)",
+                    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                    gap: isMobile ? "32px" : "clamp(40px, 4vw, 80px)",
                     alignItems: "center",
-                    paddingTop:    "clamp(48px, 5vw, 72px)",
-                    paddingBottom: "clamp(48px, 5vw, 72px)",
+                    paddingTop:    isMobile ? "36px" : "clamp(48px, 4vw, 72px)",
+                    paddingBottom: isMobile ? "36px" : "clamp(48px, 4vw, 72px)",
                     position: "relative",
                     zIndex: 1,
                 }}
@@ -90,7 +103,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                     {/* headline — 3-line reveal */}
                     <h1 style={{
                         fontFamily: "'Noto Serif KR', serif",
-                        fontSize: "clamp(42px, 6.5vw, 90px)",
+                        fontSize: isMobile ? "34px" : "clamp(48px, 5.5vw, 80px)",
                         fontWeight: 900,
                         letterSpacing: "-0.04em",
                         lineHeight: 1.12,
@@ -126,7 +139,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                         transition={{ duration: 0.7, delay: 0.72 }}
                         style={{
                             fontFamily: "'Noto Sans KR', sans-serif",
-                            fontSize: "clamp(13.5px, 1.4vw, 15.5px)",
+                            fontSize: isMobile ? "13.5px" : "clamp(14px, 1.2vw, 15.5px)",
                             color: "#52504B",
                             fontWeight: 300,
                             lineHeight: 1.95,
@@ -211,7 +224,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                                 <div
                                     style={{
                                         fontFamily: "'DM Mono', monospace",
-                                        fontSize: "clamp(22px, 3vw, 36px)",
+                                        fontSize: isMobile ? "22px" : "clamp(24px, 2.5vw, 36px)",
                                         fontWeight: 500,
                                         color: "#0B2040",
                                         lineHeight: 1,
@@ -236,18 +249,21 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                 </div>
 
                 {/* ══════════════════════════
-                    RIGHT — 이미지 영역
+                    RIGHT — 이미지 영역 (모바일 축소)
                 ══════════════════════════ */}
                 <motion.div
-                    initial={{ opacity: 0, x: 32, scale: 0.97 }}
+                    initial={{ opacity: 0, x: isMobile ? 0 : 32, scale: 0.97 }}
                     animate={{ opacity: 1, x: 0, scale: 1 }}
                     transition={{ duration: 1, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
                     style={{
                         position: "relative",
-                        borderRadius: "20px",
+                        borderRadius: isMobile ? "16px" : "20px",
                         overflow: "hidden",
-                        aspectRatio: "4 / 5",
-                        boxShadow: "0 32px 80px rgba(11,32,64,0.18), 0 8px 24px rgba(11,32,64,0.1)",
+                        aspectRatio: isMobile ? "16 / 9" : "4 / 5",
+                        boxShadow: isMobile
+                            ? "0 12px 32px rgba(11,32,64,0.12)"
+                            : "0 32px 80px rgba(11,32,64,0.18), 0 8px 24px rgba(11,32,64,0.1)",
+                        maxHeight: isMobile ? "200px" : undefined,
                     }}
                 >
                     <img
