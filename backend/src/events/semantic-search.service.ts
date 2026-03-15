@@ -88,12 +88,20 @@ export class SemanticSearchService {
    * AI 마음 상담 추천: 사용자의 마음 상태를 받아 적합한 행사를 추천 + 이유 설명
    * history: 이전 대화 이력 (멀티턴 지원)
    */
+  /** 마음 카드 발급 — 기록 + 잔여 확인 */
+  async claimHeartCard(ip: string): Promise<{ allowed: boolean; remaining: number; alreadyUsed: boolean }> {
+    return this.recordUsage(ip);
+  }
+
   async recommend(
     feeling: string,
     history?: { role: 'user' | 'assistant'; content: string }[],
   ): Promise<{
     message: string;
     hymn?: string;
+    emotionGrade?: string;
+    prayer?: string;
+    bibleVerse?: string;
     recommendations: { eventId: string; reason: string }[];
   }> {
     const events = await this.prisma.event.findMany({
@@ -174,10 +182,25 @@ export class SemanticSearchService {
   - 생명의전화: 1588-9191
 - 행사 추천은 하되, 전문 상담을 우선 권유하세요
 
+# 감정 등급 분류 (emotionGrade)
+사용자의 감정 상태를 아래 5등급 중 하나로 분류하세요:
+- "pax" — 평화: 감사, 기쁨, 평안한 상태
+- "consolatio" — 위로: 외로움, 피로, 지침
+- "sanatio" — 치유: 깊은 슬픔, 상실, 고통
+- "fortitudo" — 용기: 불안, 두려움, 분노, 억울함
+- "lux" — 빛: 신앙 갈증, 영적 탐구, 진로 고민
+
+# 맞춤 기도문 (prayer)
+사용자의 감정에 맞춘 개인 기도문을 3~4줄로 작성하세요.
+형식: "사랑하시는 하느님, ... 아멘." (자연스럽고 따뜻한 기도)
+
 # 응답 형식 (반드시 유효한 JSON만 반환)
 {
   "message": "공감 메시지 (3~4문장, 감정 인식 → 공감 → 성경 인용 → 따뜻한 격려)",
   "hymn": "가톨릭 성가 1곡 (성가번호 + 곡명 + 가사 1~2소절 인용, 마음 상태와 연결하는 한 마디)",
+  "emotionGrade": "pax|consolatio|sanatio|fortitudo|lux 중 하나",
+  "prayer": "개인 맞춤 기도문 (3~4줄)",
+  "bibleVerse": "성경 구절 원문과 출처 (예: 두려워하지 마라. 내가 너와 함께 있다. — 이사야 41,10)",
   "recommendations": [
     { "eventId": "행사ID", "reason": "추천 이유 (감정과 행사를 구체적으로 연결, 1~2문장)" }
   ]
@@ -186,6 +209,9 @@ export class SemanticSearchService {
 # 규칙
 - 행사 목록에 적합한 것이 없으면 recommendations를 빈 배열로 하고 message에서 격려
 - recommendations는 최대 5개
+- emotionGrade는 반드시 5개 중 하나만 반환
+- prayer는 반드시 포함
+- bibleVerse는 message에 인용한 성경 구절을 별도 필드로도 반환
 - 반드시 유효한 JSON만 반환 (설명 텍스트 없이 JSON 객체만)`,
         messages: [
           // 멀티턴: 이전 대화 이력이 있으면 포함 (최근 6턴만, 토큰 절약)
@@ -215,7 +241,44 @@ export class SemanticSearchService {
       if (!jsonMatch) {
         return { message: '추천을 생성하지 못했습니다.', recommendations: [] };
       }
-      const parsed = JSON.parse(jsonMatch[0]);
+
+      // 견고한 JSON 파싱: trailing comma, 잘린 JSON 등 대응
+      let parsed: any;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        // trailing comma 제거 후 재시도
+        let cleaned = jsonMatch[0]
+          .replace(/,\s*([}\]])/g, '$1')  // trailing comma 제거
+          .replace(/[\x00-\x1f]/g, ' '); // 제어 문자 제거
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch {
+          // 마지막 시도: recommendations 배열이 잘린 경우 닫아주기
+          if (!cleaned.endsWith('}')) {
+            // 열린 배열/객체를 닫기
+            const openBraces = (cleaned.match(/\{/g) || []).length;
+            const closeBraces = (cleaned.match(/\}/g) || []).length;
+            const openBrackets = (cleaned.match(/\[/g) || []).length;
+            const closeBrackets = (cleaned.match(/\]/g) || []).length;
+            cleaned += ']'.repeat(Math.max(0, openBrackets - closeBrackets));
+            cleaned += '}'.repeat(Math.max(0, openBraces - closeBraces));
+            // trailing comma 다시 정리
+            cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+          }
+          try {
+            parsed = JSON.parse(cleaned);
+          } catch (finalErr) {
+            this.logger.warn(`JSON recovery failed, returning raw message`);
+            // JSON 파싱 완전 실패 시 원본 텍스트에서 message 추출 시도
+            const msgMatch = jsonMatch[0].match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            return {
+              message: msgMatch ? msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n') : '마음에 맞는 행사를 찾아보았습니다.',
+              recommendations: [],
+            };
+          }
+        }
+      }
 
       // eventId 유효성 검증
       const validIds = new Set(events.map((e) => e.id));
@@ -226,6 +289,9 @@ export class SemanticSearchService {
       return {
         message: parsed.message || '마음에 맞는 행사를 찾아보았습니다.',
         hymn: parsed.hymn || undefined,
+        emotionGrade: parsed.emotionGrade || 'consolatio',
+        prayer: parsed.prayer || undefined,
+        bibleVerse: parsed.bibleVerse || undefined,
         recommendations: validRecs.slice(0, 5),
       };
     } catch (error) {

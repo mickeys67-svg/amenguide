@@ -2,9 +2,18 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Sparkles, ArrowUpRight, Heart, Music, RotateCcw, Phone } from "lucide-react";
+import { X, Send, Sparkles, ArrowUpRight, Heart, Music, RotateCcw, Phone, Gift, Download, Share2, BookOpen } from "lucide-react";
 import { EventData, CATEGORY_COLORS } from "../../types/event";
 import { apiFetch } from "../../utils/api";
+import {
+    type EmotionGrade,
+    type HeartCardData,
+    generateHeartCard,
+    generateCeciliaLetter,
+    downloadCard,
+    shareCard,
+    GRADE_THEMES,
+} from "../../utils/heartCardCanvas";
 import Link from "next/link";
 
 interface AiRecommendModalProps {
@@ -21,6 +30,9 @@ interface Recommendation {
 interface AiResponse {
     message: string;
     hymn?: string;
+    emotionGrade?: EmotionGrade;
+    prayer?: string;
+    bibleVerse?: string;
     recommendations: { eventId: string; reason: string }[];
 }
 
@@ -28,6 +40,9 @@ interface ChatMessage {
     role: "user" | "assistant";
     content: string;
     hymn?: string;
+    emotionGrade?: EmotionGrade;
+    prayer?: string;
+    bibleVerse?: string;
     recommendations?: Recommendation[];
 }
 
@@ -383,6 +398,13 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [showCrisis, setShowCrisis] = useState(false);
     const [activeCategory, setActiveCategory] = useState<number | null>(null);
+    // ── 마음치료 상태 ──
+    const [therapyMode, setTherapyMode] = useState<null | "card" | "letter">(null);
+    const [cardImageUrl, setCardImageUrl] = useState<string | null>(null);
+    const [letterImageUrl, setLetterImageUrl] = useState<string | null>(null);
+    const [therapyLoading, setTherapyLoading] = useState(false);
+    const [cardClaimed, setCardClaimed] = useState(false);
+    const [therapyMessage, setTherapyMessage] = useState<string | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -396,6 +418,12 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
             setIsLoading(false);
             setShowCrisis(false);
             setActiveCategory(null);
+            setTherapyMode(null);
+            setCardImageUrl(null);
+            setLetterImageUrl(null);
+            setTherapyLoading(false);
+            setCardClaimed(false);
+            setTherapyMessage(null);
         }
     }, [isOpen]);
 
@@ -490,6 +518,9 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                 role: "assistant",
                 content: data.message,
                 hymn: data.hymn || undefined,
+                emotionGrade: data.emotionGrade || "consolatio",
+                prayer: data.prayer || undefined,
+                bibleVerse: data.bibleVerse || undefined,
                 recommendations: recsWithEvents,
             };
             setMessages((prev) => [...prev, aiMsg]);
@@ -517,8 +548,79 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
         setInput("");
         setShowCrisis(false);
         setActiveCategory(null);
+        setTherapyMode(null);
+        setCardImageUrl(null);
+        setLetterImageUrl(null);
+        setTherapyLoading(false);
+        setCardClaimed(false);
+        setTherapyMessage(null);
         setTimeout(() => inputRef.current?.focus(), 100);
     };
+
+    // ── 마음치료 핸들러 ──
+    const lastAiMsg = [...messages].reverse().find((m) => m.role === "assistant" && m.emotionGrade);
+
+    const handleTherapy = useCallback(async (mode: "card" | "letter") => {
+        if (!lastAiMsg || therapyLoading) return;
+        setTherapyLoading(true);
+        setTherapyMessage(null);
+
+        try {
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://amenguide-backend-775250805671.us-west1.run.app";
+
+            // 카운터 차감 (이미 차감했으면 건너뜀)
+            if (!cardClaimed) {
+                const res = await fetch(`${API_BASE}/events/ai-heart-card`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                });
+                const result = await res.json();
+                if (!result.allowed) {
+                    if (result.alreadyUsed) {
+                        setTherapyMessage("오늘은 이미 마음 선물을 받으셨어요. 내일 다시 만나요 \u{1F54A}\uFE0F");
+                    } else {
+                        setTherapyMessage("오늘의 마음 선물은 모두 전해졌어요. 내일 다시 만나요 \u{1F54A}\uFE0F");
+                    }
+                    setTherapyLoading(false);
+                    return;
+                }
+                setCardClaimed(true);
+            }
+
+            const grade = (lastAiMsg.emotionGrade || "consolatio") as EmotionGrade;
+
+            if (mode === "card") {
+                const cardData: HeartCardData = {
+                    message: lastAiMsg.content,
+                    hymn: lastAiMsg.hymn,
+                    emotionGrade: grade,
+                    prayer: lastAiMsg.prayer,
+                    bibleVerse: lastAiMsg.bibleVerse,
+                    cardNumber: 0, // 서버에서 정확한 번호를 받으면 교체
+                };
+                const url = await generateHeartCard(cardData);
+                setCardImageUrl(url);
+                setTherapyMode("card");
+            } else {
+                if (!lastAiMsg.prayer) {
+                    setTherapyMessage("기도문을 생성하지 못했어요. 다시 상담해 주세요.");
+                    setTherapyLoading(false);
+                    return;
+                }
+                const url = await generateCeciliaLetter({
+                    prayer: lastAiMsg.prayer,
+                    emotionGrade: grade,
+                    bibleVerse: lastAiMsg.bibleVerse,
+                });
+                setLetterImageUrl(url);
+                setTherapyMode("letter");
+            }
+        } catch {
+            setTherapyMessage("카드 생성 중 문제가 발생했습니다.");
+        } finally {
+            setTherapyLoading(false);
+        }
+    }, [lastAiMsg, therapyLoading, cardClaimed]);
 
     const hasConversation = messages.length > 0;
 
@@ -823,6 +925,265 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             margin: 0,
                                         }}>
                                             세실리아가 마음을 읽고 있습니다...
+                                        </p>
+                                    </motion.div>
+                                )}
+
+                                {/* ── 마음치료 배너 ── */}
+                                {lastAiMsg && !isLoading && !therapyMode && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.5 }}
+                                        style={{
+                                            padding: "16px 18px",
+                                            borderRadius: "14px",
+                                            background: "linear-gradient(135deg, rgba(201,169,110,0.08) 0%, rgba(11,32,64,0.04) 100%)",
+                                            border: "1px solid rgba(201,169,110,0.2)",
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                                            <Gift size={16} color="#C9A96E" />
+                                            <p style={{
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "13px", fontWeight: 600,
+                                                color: "#0B2040", margin: 0,
+                                            }}>
+                                                {cardClaimed
+                                                    ? "마음 선물을 이미 받으셨어요"
+                                                    : "오늘의 마음 선물이 남아있어요 \u2728"}
+                                            </p>
+                                        </div>
+                                        {therapyMessage && (
+                                            <p style={{
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "12px", color: "#9C9891",
+                                                margin: "0 0 8px", lineHeight: 1.6,
+                                            }}>
+                                                {therapyMessage}
+                                            </p>
+                                        )}
+                                        {!cardClaimed && !therapyMessage && (
+                                            <p style={{
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "11px", color: "#9C9891",
+                                                margin: "0 0 10px", lineHeight: 1.5,
+                                            }}>
+                                                하루 3명에게만 드리는 특별한 선물입니다
+                                            </p>
+                                        )}
+                                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                            <button
+                                                onClick={() => handleTherapy("card")}
+                                                disabled={therapyLoading || (!!therapyMessage && !cardClaimed)}
+                                                style={{
+                                                    padding: "8px 16px",
+                                                    borderRadius: "10px",
+                                                    border: "1px solid #C9A96E",
+                                                    backgroundColor: cardClaimed ? "rgba(201,169,110,0.05)" : "#C9A96E",
+                                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                                    fontSize: "12px", fontWeight: 600,
+                                                    color: cardClaimed ? "#C9A96E" : "#FFFFFF",
+                                                    cursor: therapyLoading || (!!therapyMessage && !cardClaimed) ? "default" : "pointer",
+                                                    opacity: therapyLoading || (!!therapyMessage && !cardClaimed) ? 0.5 : 1,
+                                                    display: "flex", alignItems: "center", gap: "6px",
+                                                    transition: "all 0.15s ease",
+                                                }}
+                                            >
+                                                <Heart size={13} />
+                                                {therapyLoading ? "생성 중..." : "마음 카드"}
+                                            </button>
+                                            <button
+                                                onClick={() => handleTherapy("letter")}
+                                                disabled={therapyLoading || (!!therapyMessage && !cardClaimed)}
+                                                style={{
+                                                    padding: "8px 16px",
+                                                    borderRadius: "10px",
+                                                    border: "1px solid #0B2040",
+                                                    backgroundColor: cardClaimed ? "rgba(11,32,64,0.05)" : "#0B2040",
+                                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                                    fontSize: "12px", fontWeight: 600,
+                                                    color: cardClaimed ? "#0B2040" : "#FFFFFF",
+                                                    cursor: therapyLoading || (!!therapyMessage && !cardClaimed) ? "default" : "pointer",
+                                                    opacity: therapyLoading || (!!therapyMessage && !cardClaimed) ? 0.5 : 1,
+                                                    display: "flex", alignItems: "center", gap: "6px",
+                                                    transition: "all 0.15s ease",
+                                                }}
+                                            >
+                                                <BookOpen size={13} />
+                                                {therapyLoading ? "생성 중..." : "세실리아의 편지"}
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* ── 마음 카드 / 세실리아의 편지 미리보기 ── */}
+                                {therapyMode && (cardImageUrl || letterImageUrl) && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        style={{
+                                            display: "flex", flexDirection: "column",
+                                            alignItems: "center", gap: "12px",
+                                        }}
+                                    >
+                                        {/* 등급 배지 */}
+                                        {lastAiMsg?.emotionGrade && (
+                                            <div style={{
+                                                display: "flex", alignItems: "center", gap: "6px",
+                                                padding: "4px 14px",
+                                                borderRadius: "16px",
+                                                backgroundColor: (GRADE_THEMES[lastAiMsg.emotionGrade]?.gradient[0] || "#C9A96E") + "15",
+                                                border: `1px solid ${(GRADE_THEMES[lastAiMsg.emotionGrade]?.gradient[0] || "#C9A96E")}30`,
+                                            }}>
+                                                <span style={{ fontSize: "14px" }}>
+                                                    {GRADE_THEMES[lastAiMsg.emotionGrade]?.emoji}
+                                                </span>
+                                                <span style={{
+                                                    fontFamily: "'DM Mono', monospace",
+                                                    fontSize: "11px", fontWeight: 500,
+                                                    color: GRADE_THEMES[lastAiMsg.emotionGrade]?.gradient[0] || "#C9A96E",
+                                                }}>
+                                                    {GRADE_THEMES[lastAiMsg.emotionGrade]?.label} · {GRADE_THEMES[lastAiMsg.emotionGrade]?.latin}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* 카드 이미지 */}
+                                        <div style={{
+                                            width: "100%", maxWidth: "400px",
+                                            borderRadius: "12px", overflow: "hidden",
+                                            boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+                                        }}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={therapyMode === "card" ? cardImageUrl! : letterImageUrl!}
+                                                alt={therapyMode === "card" ? "마음 카드" : "세실리아의 편지"}
+                                                style={{ width: "100%", height: "auto", display: "block" }}
+                                            />
+                                        </div>
+
+                                        {/* 저장/공유 버튼 */}
+                                        <div style={{ display: "flex", gap: "8px" }}>
+                                            <button
+                                                onClick={() => {
+                                                    const url = therapyMode === "card" ? cardImageUrl! : letterImageUrl!;
+                                                    const name = therapyMode === "card" ? "cecilia-heart-card.png" : "cecilia-letter.png";
+                                                    downloadCard(url, name);
+                                                }}
+                                                style={{
+                                                    padding: "8px 18px",
+                                                    borderRadius: "10px",
+                                                    border: "1px solid #E8E5DF",
+                                                    backgroundColor: "#FFFFFF",
+                                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                                    fontSize: "12px", fontWeight: 500,
+                                                    color: "#52504B",
+                                                    cursor: "pointer",
+                                                    display: "flex", alignItems: "center", gap: "6px",
+                                                    transition: "all 0.15s ease",
+                                                }}
+                                            >
+                                                <Download size={13} />
+                                                저장
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const url = therapyMode === "card" ? cardImageUrl! : letterImageUrl!;
+                                                    const title = therapyMode === "card" ? "세실리아 마음 카드" : "세실리아의 편지";
+                                                    const shared = await shareCard(url, title);
+                                                    if (!shared) {
+                                                        downloadCard(url, "cecilia-card.png");
+                                                    }
+                                                }}
+                                                style={{
+                                                    padding: "8px 18px",
+                                                    borderRadius: "10px",
+                                                    border: "1px solid #C9A96E",
+                                                    backgroundColor: "rgba(201,169,110,0.05)",
+                                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                                    fontSize: "12px", fontWeight: 500,
+                                                    color: "#C9A96E",
+                                                    cursor: "pointer",
+                                                    display: "flex", alignItems: "center", gap: "6px",
+                                                    transition: "all 0.15s ease",
+                                                }}
+                                            >
+                                                <Share2 size={13} />
+                                                공유
+                                            </button>
+                                        </div>
+
+                                        {/* 다른 카드 보기 (이미 카드를 받은 경우) */}
+                                        {cardClaimed && (
+                                            <div style={{ display: "flex", gap: "8px" }}>
+                                                {therapyMode === "card" && (
+                                                    <button
+                                                        onClick={() => handleTherapy("letter")}
+                                                        style={{
+                                                            padding: "6px 14px",
+                                                            borderRadius: "8px",
+                                                            border: "none",
+                                                            backgroundColor: "transparent",
+                                                            fontFamily: "'Noto Sans KR', sans-serif",
+                                                            fontSize: "11px", color: "#9C9891",
+                                                            cursor: "pointer",
+                                                            textDecoration: "underline",
+                                                        }}
+                                                    >
+                                                        세실리아의 편지도 보기
+                                                    </button>
+                                                )}
+                                                {therapyMode === "letter" && (
+                                                    <button
+                                                        onClick={() => handleTherapy("card")}
+                                                        style={{
+                                                            padding: "6px 14px",
+                                                            borderRadius: "8px",
+                                                            border: "none",
+                                                            backgroundColor: "transparent",
+                                                            fontFamily: "'Noto Sans KR', sans-serif",
+                                                            fontSize: "11px", color: "#9C9891",
+                                                            cursor: "pointer",
+                                                            textDecoration: "underline",
+                                                        }}
+                                                    >
+                                                        마음 카드도 보기
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                )}
+
+                                {/* 기도문 표시 (심화 치료 후) */}
+                                {cardClaimed && lastAiMsg?.prayer && !therapyMode && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        style={{
+                                            padding: "16px 18px",
+                                            borderRadius: "12px",
+                                            backgroundColor: "rgba(11,32,64,0.02)",
+                                            border: "1px solid rgba(11,32,64,0.06)",
+                                        }}
+                                    >
+                                        <p style={{
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: "10px", fontWeight: 500,
+                                            color: "#C9A96E", margin: "0 0 8px",
+                                            letterSpacing: "0.06em",
+                                        }}>
+                                            세실리아가 드리는 기도문
+                                        </p>
+                                        <p style={{
+                                            fontFamily: "'Noto Serif KR', serif",
+                                            fontSize: "13px", lineHeight: 1.8,
+                                            color: "#0B2040", margin: 0,
+                                            fontStyle: "italic",
+                                            whiteSpace: "pre-line",
+                                        }}>
+                                            {lastAiMsg.prayer}
                                         </p>
                                     </motion.div>
                                 )}

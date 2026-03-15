@@ -91,6 +91,13 @@ export class EventsController {
     return this.semanticSearch.checkAvailability(ip);
   }
 
+  /** 마음 카드 발급 (하루 3명, 1인 1회) */
+  @Post('ai-heart-card')
+  async aiHeartCard(@Req() req: Request) {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '0.0.0.0';
+    return this.semanticSearch.claimHeartCard(ip);
+  }
+
   @Post('ai-recommend')
   async aiRecommend(
     @Req() req: Request,
