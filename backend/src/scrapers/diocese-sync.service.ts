@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import * as https from 'https';
 import { convert } from 'html-to-text';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require('pdf-parse');
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── 내부 DTO ─────────────────────────────────────────────────────────────────
@@ -12,6 +15,7 @@ interface DioceseEvent {
   category: string;
   themeColor: string;
   aiSummary?: string | null;
+  diocese?: string | null;
 }
 
 export interface DioceseSyncResult {
@@ -21,6 +25,16 @@ export interface DioceseSyncResult {
   seoul: number;
   suwon: number;
   incheon: number;
+  gwangju: number;
+  chuncheon: number;
+  jeju: number;
+  wonju: number;
+  uijeongbu: number;
+  cheongju: number;
+  masan: number;
+  andong: number;
+  gunjong: number;
+  cbck: number;
   total: number;
 }
 
@@ -48,6 +62,21 @@ export class DioceseSyncService {
   async runAll(monthsAhead = 3): Promise<DioceseSyncResult> {
     this.logger.log(`[DioceseSync] 시작 — 앞으로 ${monthsAhead}개월 수집`);
 
+    // ── 과거 행사 정리: 날짜가 지난 이벤트 삭제 ──────────────────────────
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(23, 59, 59, 999);
+      const deleted = await this.prisma.event.deleteMany({
+        where: { date: { lt: yesterday } },
+      });
+      if (deleted.count > 0) {
+        this.logger.log(`[DioceseSync] 과거 행사 ${deleted.count}건 삭제`);
+      }
+    } catch (err) {
+      this.logger.error(`[DioceseSync] 과거 행사 삭제 실패: ${(err as Error).message}`);
+    }
+
     const busan = await this.runBusan(monthsAhead).catch((e) => {
       this.logger.error(`[Busan] 전체 실패: ${e.message}`);
       return 0;
@@ -60,18 +89,25 @@ export class DioceseSyncService {
     });
     await this.delay(2000);
 
-    const daejeon = await this.runDaejeon(monthsAhead).catch((e) => {
+    const daejeonBoard = await this.runDaejeon(monthsAhead).catch((e) => {
       this.logger.error(`[Daejeon] 전체 실패: ${e.message}`);
       return 0;
     });
+    await this.delay(2000);
+
+    const daejeonPdf = await this.runDaejeonJubo().catch((e) => {
+      this.logger.error(`[Daejeon Jubo] 실패: ${e.message}`);
+      return 0;
+    });
+    const daejeon = daejeonBoard + daejeonPdf;
     await this.delay(2000);
 
     // ── 신규 교구 (Phase 2) — ★ 2026-03-06 실제 URL 검증 결과 적용 ────
     const seoul = await this.runGenericBoard({
       name: '서울대교구',
       defaultLocation: '서울대교구',
+      diocese: '서울대교구',
       urls: [
-        // ★ 실제 검증된 도메인: aos.catholic.or.kr
         'https://aos.catholic.or.kr/con710',
         'https://aos.catholic.or.kr/news/notice',
         'https://aos.catholic.or.kr/schedule',
@@ -82,8 +118,8 @@ export class DioceseSyncService {
     const suwon = await this.runGenericBoard({
       name: '수원교구',
       defaultLocation: '수원교구',
+      diocese: '수원교구',
       urls: [
-        // ★ 실제 검증된 도메인: www.casuwon.or.kr
         'https://www.casuwon.or.kr/info/event',
         'https://www.casuwon.or.kr/info/notice',
         'https://www.casuwon.or.kr/info/schedule',
@@ -91,16 +127,134 @@ export class DioceseSyncService {
     }).catch((e) => { this.logger.error(`[Suwon] 실패: ${e.message}`); return 0; });
     await this.delay(2000);
 
-    // ★ 인천교구 (www.caincheon.or.kr) — 현재 서버 다운 상태, 복구 시 자동 동작
-    const incheon = await this.runGenericBoard({
+    // ★ 인천교구 — http:// 필수 (https 미지원), iframe 내부 /home.do 사용
+    //   + 주보 PDF 자동 다운로드 (/upload/magazine/YYYYMM/YYYYMMDD_XXXX.pdf)
+    const incheonBoard = await this.runGenericBoard({
       name: '인천교구',
       defaultLocation: '인천교구',
+      diocese: '인천교구',
       urls: [
-        'https://www.caincheon.or.kr/news/notice',
-        'https://www.caincheon.or.kr/board/list',
-        'https://www.caincheon.or.kr/home.do',
+        'http://www.caincheon.or.kr/n/board/normal_mboard_list.do?i_sBidx=12',
+        'http://www.caincheon.or.kr/n/board/normal_mboard_list.do?i_sBidx=11',
       ],
-    }).catch((e) => { this.logger.error(`[Incheon] 실패: ${e.message}`); return 0; });
+    }).catch((e) => { this.logger.error(`[Incheon Board] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const incheonPdf = await this.runIncheonJubo().catch((e) => {
+      this.logger.error(`[Incheon Jubo] 실패: ${e.message}`);
+      return 0;
+    });
+    const incheon = incheonBoard + incheonPdf;
+    await this.delay(2000);
+
+    // ── 추가 교구 (Phase 3) ────────────────────────────────────────────────
+    const gwangju = await this.runGenericBoard({
+      name: '광주대교구',
+      defaultLocation: '광주대교구',
+      diocese: '광주대교구',
+      urls: [
+        'https://samog.gjcatholic.or.kr/event/list/request/45',
+        'https://samog.gjcatholic.or.kr/event/list/request/47',
+        'https://www.gjcatholic.or.kr/nota/event',
+        'https://www.gjcatholic.or.kr/archdiocese/archbishop/news',
+      ],
+    }).catch((e) => { this.logger.error(`[Gwangju] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const chuncheonBoard = await this.runGenericBoard({
+      name: '춘천교구',
+      defaultLocation: '춘천교구',
+      diocese: '춘천교구',
+      urls: [
+        'https://www.cccatholic.or.kr/news/diocese',
+        'https://www.cccatholic.or.kr/news/church',
+      ],
+    }).catch((e) => { this.logger.error(`[Chuncheon Board] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const chuncheonPdf = await this.runChuncheonJubo().catch((e) => {
+      this.logger.error(`[Chuncheon Jubo] 실패: ${e.message}`);
+      return 0;
+    });
+    const chuncheon = chuncheonBoard + chuncheonPdf;
+    await this.delay(2000);
+
+    const jeju = await this.runGenericBoard({
+      name: '제주교구',
+      defaultLocation: '제주교구',
+      diocese: '제주교구',
+      urls: [
+        'https://www.diocesejeju.or.kr/board_diocese',
+        'https://www.diocesejeju.or.kr/board_inform',
+        'https://www.diocesejeju.or.kr/board_church',
+      ],
+    }).catch((e) => { this.logger.error(`[Jeju] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const wonju = await this.runGenericBoard({
+      name: '원주교구',
+      defaultLocation: '원주교구',
+      diocese: '원주교구',
+      urls: [
+        'http://www.wjcatholic.or.kr/board/schedule',
+        'http://www.wjcatholic.or.kr/board/notice',
+        'http://www.wjcatholic.or.kr/board/notice2',
+      ],
+    }).catch((e) => { this.logger.error(`[Wonju] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const uijeongbu = await this.runGenericBoard({
+      name: '의정부교구',
+      defaultLocation: '의정부교구',
+      diocese: '의정부교구',
+      urls: [
+        // ★ ucatholic.or.kr = 의정부교구 공식 그누보드 사이트 (cen.or.kr ASP보다 파싱 용이)
+        'http://ucatholic.or.kr/bbs/board.php?bo_table=archive',
+        'http://ucatholic.or.kr/bbs/board.php?bo_table=bishop_news',
+        'http://ucatholic.or.kr/bbs/board.php?bo_table=jubo',
+      ],
+    }).catch((e) => { this.logger.error(`[Uijeongbu] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    const cheongju = await this.runCheongjuJubo().catch((e) => {
+      this.logger.error(`[Cheongju Jubo] 실패: ${e.message}`);
+      return 0;
+    });
+    await this.delay(2000);
+
+    const masan = await this.runMasanJubo().catch((e) => {
+      this.logger.error(`[Masan Jubo] 실패: ${e.message}`);
+      return 0;
+    });
+    await this.delay(2000);
+
+    const andong = await this.runAndongJubo().catch((e) => {
+      this.logger.error(`[Andong Jubo] 실패: ${e.message}`);
+      return 0;
+    });
+    await this.delay(2000);
+
+    const gunjong = await this.runGenericBoard({
+      name: '군종교구',
+      defaultLocation: '군종교구',
+      diocese: '군종교구',
+      urls: [
+        'https://www.gunjong.or.kr/parish/notice.asp',
+      ],
+    }).catch((e) => { this.logger.error(`[Gunjong] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
+    // ── CBCK (한국천주교주교회의) 공지사항 ──────────────────────────────────
+    const cbck = await this.runGenericBoard({
+      name: 'CBCK',
+      defaultLocation: '한국천주교주교회의',
+      diocese: 'CBCK',
+      urls: [
+        'https://www.cbck.or.kr/Notice?gb=K1200',
+        'https://www.cbck.or.kr/Notice?gb=K1300',
+        'https://www.cbck.or.kr/News',
+      ],
+    }).catch((e) => { this.logger.error(`[CBCK] 실패: ${e.message}`); return 0; });
 
     const result: DioceseSyncResult = {
       busan,
@@ -109,7 +263,18 @@ export class DioceseSyncService {
       seoul,
       suwon,
       incheon,
-      total: busan + daegu + daejeon + seoul + suwon + incheon,
+      gwangju,
+      chuncheon,
+      jeju,
+      wonju,
+      uijeongbu,
+      cheongju,
+      masan,
+      andong,
+      gunjong,
+      cbck,
+      total: busan + daegu + daejeon + seoul + suwon + incheon +
+             gwangju + chuncheon + jeju + wonju + uijeongbu + cheongju + masan + andong + gunjong + cbck,
     };
 
     this.logger.log(`[DioceseSync] 완료 → ${JSON.stringify(result)}`);
@@ -272,6 +437,7 @@ export class DioceseSyncService {
         themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
         originUrl,
         category,
+        diocese: '부산교구',
         status: 'APPROVED', // 교구 스크래핑 행사는 즉시 공개
       } as any,
     });
@@ -384,6 +550,7 @@ export class DioceseSyncService {
         originUrl,
         category,
         themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
+        diocese: '대구대교구',
       });
     }
 
@@ -411,11 +578,12 @@ export class DioceseSyncService {
         const category = this.detectCategory(line, '');
         events.push({
           title: line,
-          date: null, // 날짜 불명확한 텍스트 폴백 행사는 null로
+          date: null,
           location: '대구대교구',
           originUrl: `https://daegu-archdiocese.or.kr/page/news.html?srl=schedule&nYear=${year}&nMonth=${month}`,
           category,
           themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
+          diocese: '대구대교구',
         });
       }
     }
@@ -533,6 +701,7 @@ export class DioceseSyncService {
         originUrl,
         category,
         themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
+        diocese: '대전교구',
       });
     }
 
@@ -587,6 +756,7 @@ export class DioceseSyncService {
         themeColor: evt.themeColor,
         originUrl: evt.originUrl,
         category: evt.category,
+        diocese: evt.diocese ?? null,
         status: 'APPROVED', // 교구 스크래핑 행사는 즉시 공개
       } as any,
     });
@@ -694,6 +864,7 @@ export class DioceseSyncService {
     urls: string[];
     defaultLocation: string;
     linkRe?: RegExp;
+    diocese?: string;
   }): Promise<number> {
     this.logger.log(`[${config.name}] 게시판 수집 시작`);
 
@@ -714,7 +885,7 @@ export class DioceseSyncService {
 
         if (this.detectBotBlock(html, config.name)) continue;
 
-        const events = this.parseGenericBoard(html, url, config.defaultLocation, config.linkRe);
+        const events = this.parseGenericBoard(html, url, config.defaultLocation, config.linkRe, config.diocese ?? config.name);
 
         if (events.length === 0) {
           this.logger.warn(`[${config.name}] ${url} — 이벤트 0건 파싱됨. 다음 URL 시도.`);
@@ -746,6 +917,7 @@ export class DioceseSyncService {
     baseUrl: string,
     defaultLocation: string,
     linkRe?: RegExp,
+    diocese?: string,
   ): DioceseEvent[] {
     const events: DioceseEvent[] = [];
     const seen = new Set<string>();
@@ -757,11 +929,13 @@ export class DioceseSyncService {
       baseHost = '';
     }
 
-    // 한국 가톨릭 CMS(그누보드·XE·자체) 공통 상세 페이지 URL 패턴
+    // 한국 가톨릭 CMS(그누보드·XE·자체·ASP) 공통 상세 페이지 URL 패턴
+    // ★ XE: /board_diocese/12345, viewMode=view, document_srl= 패턴 추가
+    // ★ ASP: exe=view, single-quote href 대응
     // ★ 내부 태그 허용: <a href="..."><span>제목</span></a> 도 매칭
     const re =
       linkRe ??
-      /href="([^"]*(?:view|read|detail|notice_view|board_view|schedule_view|plan_view|idx=|no=|seq=|wr_id=)\d*[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+      /href=["']([^"']*(?:view|read|detail|notice_view|board_view|schedule_view|plan_view|viewMode=view|exe=view|document_srl=|idx=|no=|seq=|wr_id=|\/board_\w+\/\d|\/news\/\w+\/\d)\d*[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
 
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) !== null) {
@@ -818,10 +992,473 @@ export class DioceseSyncService {
         originUrl,
         category,
         themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
+        diocese: diocese ?? defaultLocation,
       });
     }
 
     return events.slice(0, 50); // 교구당 최대 50건
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 인천교구 주보 PDF 자동 수집
+  // URL 패턴: http://www.caincheon.or.kr/upload/magazine/YYYYMM/YYYYMMDD_XXXX.pdf
+  // 매주 일요일 발행, 호수 자동 추정
+  // ══════════════════════════════════════════════════════════════════════════
+  private async runIncheonJubo(): Promise<number> {
+    this.logger.log('[Incheon Jubo] 주보 PDF 수집 시작');
+
+    // 최근 4주분 주보 PDF URL 후보 생성
+    const urls = this.generateIncheonJuboUrls(4);
+    let totalSaved = 0;
+
+    for (const url of urls) {
+      try {
+        const saved = await this.fetchAndParseJuboPdf(url, '인천교구');
+        totalSaved += saved;
+      } catch (err) {
+        this.logger.debug(`[Incheon Jubo] ${url} 건너뜀: ${(err as Error).message}`);
+      }
+      await this.delay(1000);
+    }
+
+    this.logger.log(`[Incheon Jubo] 완료. 저장: ${totalSaved}`);
+    return totalSaved;
+  }
+
+  /** 인천교구 주보 PDF URL 후보 목록 생성 (최근 N주) */
+  private generateIncheonJuboUrls(weeks: number): string[] {
+    const urls: string[] = [];
+    const now = new Date();
+
+    // 기준 호수: 2026-03-15 = 제2924호
+    const baseDate = new Date(2026, 2, 15); // 2026-03-15
+    const baseIssue = 2924;
+
+    for (let w = 0; w < weeks; w++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (w * 7));
+
+      // 가장 가까운 일요일(과거) 찾기
+      const day = d.getDay();
+      const sunday = new Date(d);
+      sunday.setDate(d.getDate() - day);
+
+      const yyyy = sunday.getFullYear();
+      const mm = String(sunday.getMonth() + 1).padStart(2, '0');
+      const dd = String(sunday.getDate()).padStart(2, '0');
+
+      // 호수 추정: 기준일과의 주 차이
+      const diffWeeks = Math.round((sunday.getTime() - baseDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const issue = baseIssue + diffWeeks;
+
+      // URL: /upload/magazine/YYYYMM/YYYYMMDD_XXXX.pdf
+      const url = `http://www.caincheon.or.kr/upload/magazine/${yyyy}${mm}/${yyyy}${mm}${dd}_${issue}.pdf`;
+      urls.push(url);
+    }
+
+    return urls;
+  }
+
+  /** PDF 다운로드 → 텍스트 추출 → 행사 파싱 → DB 저장 */
+  private async fetchAndParseJuboPdf(pdfUrl: string, location: string, diocese?: string): Promise<number> {
+    this.logger.log(`[Jubo PDF] 다운로드: ${pdfUrl}`);
+
+    // URL에서 host 추출하여 Referer로 사용
+    let referer = '';
+    try { referer = new URL(pdfUrl).origin + '/'; } catch { /* ignore */ }
+
+    const res = await axios.get(pdfUrl, {
+      timeout: 60000,
+      responseType: 'arraybuffer',
+      maxRedirects: 5,
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/pdf,*/*',
+        ...(referer ? { 'Referer': referer } : {}),
+      },
+      validateStatus: (s) => s === 200,
+    });
+
+    const buffer = Buffer.from(res.data);
+
+    // PDF 유효성 검증 — %PDF 매직 바이트 확인
+    if (buffer.length < 100 || buffer.slice(0, 5).toString('ascii') !== '%PDF-') {
+      this.logger.warn(`[Jubo PDF] PDF 아님 (HTML 반환 가능성): ${pdfUrl} (${buffer.length}바이트)`);
+      return 0;
+    }
+
+    this.logger.log(`[Jubo PDF] 다운로드 완료: ${buffer.length}바이트`);
+    const pdfData = await pdfParse(buffer);
+    const text = pdfData.text;
+
+    if (!text || text.length < 100) {
+      this.logger.warn(`[Jubo PDF] 텍스트 추출 실패 (${text?.length ?? 0}자): ${pdfUrl}`);
+      return 0;
+    }
+
+    this.logger.log(`[Jubo PDF] 텍스트 추출: ${text.length}자, ${pdfData.numpages}페이지`);
+
+    // 행사 정보 추출 (정규식 기반)
+    const events = this.parseJuboText(text, pdfUrl, location, diocese);
+    this.logger.log(`[Jubo PDF] ${events.length}개 행사 파싱`);
+
+    let saved = 0;
+    for (const evt of events) {
+      if (await this.saveGenericEvent(evt, '[Jubo PDF]')) saved++;
+    }
+    return saved;
+  }
+
+  /** 주보 텍스트에서 행사 정보 추출 */
+  private parseJuboText(text: string, pdfUrl: string, defaultLocation: string, diocese?: string): DioceseEvent[] {
+    const events: DioceseEvent[] = [];
+    const seen = new Set<string>();
+    const currentYear = new Date().getFullYear();
+
+    // 패턴: "일시: M/DD(요일) HH:MM" 앞의 행사 제목 + 일시/장소/문의 블록
+    // 주보의 일반적 구조:
+    //   행사 제목
+    //   일시: 3/24(화) 10:30
+    //   장소: 어디어디
+    //   문의: 032-XXX-XXXX
+
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // "일시:", "때:", "기간:", "날짜:" 패턴 탐색 (구분자: 콜론, 밑줄, 하이픈)
+      const timeMatch = line.match(/(?:일시|때|기간|날짜)\s*[:：_\-]\s*(.+)/);
+      if (!timeMatch) continue;
+
+      const timeStr = timeMatch[1].trim();
+
+      // 날짜 추출: YYYY.M.DD, YYYY년 M월 DD일, M/DD, M월 DD일, M.DD
+      let date: Date | null = null;
+      const fullDateMatch = timeStr.match(/(\d{4})[.\-\/년]\s*(\d{1,2})[.\-\/월]\s*(\d{1,2})/);
+      if (fullDateMatch) {
+        date = new Date(parseInt(fullDateMatch[1]), parseInt(fullDateMatch[2]) - 1, parseInt(fullDateMatch[3]));
+      } else {
+        const shortDateMatch = timeStr.match(/(\d{1,2})[\/월.\-](\d{1,2})/);
+        if (shortDateMatch) {
+          const month = parseInt(shortDateMatch[1]) - 1;
+          const day = parseInt(shortDateMatch[2]);
+          date = new Date(currentYear, month, day);
+          // 과거 6개월 이상이면 내년으로
+          const now = new Date();
+          if (date.getTime() < now.getTime() - 180 * 24 * 60 * 60 * 1000) {
+            date.setFullYear(currentYear + 1);
+          }
+        }
+      }
+
+      // 제목: 일시 행 위의 1~3줄 탐색 (비어있지 않고 "장소:", "문의:" 등이 아닌 행)
+      let title = '';
+      for (let j = i - 1; j >= Math.max(0, i - 4); j--) {
+        const prev = lines[j];
+        if (/^(일시|때|장소|문의|대상|비용|기간|강사|접수|신청|수강|모집|날짜|시간|연락처)\s*[:：]/.test(prev)) continue;
+        if (prev.length < 3 || prev.length > 60) continue;
+        if (/^\d+$/.test(prev)) continue;
+        // 한글 포함 확인
+        if (/[가-힣]/.test(prev)) {
+          title = prev;
+          break;
+        }
+      }
+
+      if (!title || seen.has(title)) continue;
+      // 비 행사 제목 필터
+      if (/^(교구청|교육|모집|순례|기타|알림|교구소식)$/.test(title)) continue;
+      seen.add(title);
+
+      // 장소 추출
+      let eventLocation = defaultLocation;
+      for (let j = i + 1; j < Math.min(lines.length, i + 5); j++) {
+        const locMatch = lines[j].match(/장소\s*[:：]\s*(.+)/);
+        if (locMatch) {
+          eventLocation = locMatch[1].trim().slice(0, 100) || defaultLocation;
+          break;
+        }
+      }
+
+      // 2주 이전 과거 행사 제외
+      if (date) {
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        if (date < twoWeeksAgo) continue;
+      }
+
+      const category = this.detectCategory(title, '');
+      events.push({
+        title,
+        date,
+        location: eventLocation,
+        originUrl: `${pdfUrl}#${encodeURIComponent(title)}`,
+        category,
+        themeColor: CATEGORY_COLOR[category] ?? '#C9A96E',
+        diocese: diocese ?? defaultLocation,
+      });
+    }
+
+    return events.slice(0, 50);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 춘천교구 주보 PDF 자동 수집
+  // 목록 페이지에서 PDF URL을 추출 → pdf-parse로 텍스트 추출 → 행사 파싱
+  // ══════════════════════════════════════════════════════════════════════════
+  private async runChuncheonJubo(): Promise<number> {
+    this.logger.log('[Chuncheon Jubo] 주보 PDF 수집 시작');
+
+    try {
+      // 주보 목록 페이지에서 최신 PDF 타임스탬프 추출
+      const listRes = await axios.get('https://www.cccatholic.or.kr/publication/jubo', {
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+
+      const html = typeof listRes.data === 'string' ? listRes.data : '';
+      // 패턴: /uploads/ccd01/ext_jubo/TIMESTAMP/TIMESTAMP.pdf
+      const pdfRe = /\/uploads\/ccd01\/ext_jubo\/(\d+)\/\1\.pdf/g;
+      const timestamps = new Set<string>();
+      let pm: RegExpExecArray | null;
+      while ((pm = pdfRe.exec(html)) !== null) {
+        timestamps.add(pm[1]);
+      }
+
+      // 썸네일에서도 추출: /uploads/ccd01/ext_jubo/TIMESTAMP/TIMESTAMP.pdf_thumb.png
+      const thumbRe = /\/uploads\/ccd01\/ext_jubo\/(\d+)\/\1\.pdf_thumb/g;
+      while ((pm = thumbRe.exec(html)) !== null) {
+        timestamps.add(pm[1]);
+      }
+
+      const sorted = [...timestamps].sort((a, b) => Number(b) - Number(a));
+      this.logger.log(`[Chuncheon Jubo] ${sorted.length}개 주보 발견`);
+
+      // 최근 2개만 처리
+      let totalSaved = 0;
+      for (const ts of sorted.slice(0, 2)) {
+        const pdfUrl = `https://www.cccatholic.or.kr/uploads/ccd01/ext_jubo/${ts}/${ts}.pdf`;
+        try {
+          const saved = await this.fetchAndParseJuboPdf(pdfUrl, '춘천교구');
+          totalSaved += saved;
+        } catch (err) {
+          this.logger.debug(`[Chuncheon Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
+        }
+        await this.delay(1000);
+      }
+
+      this.logger.log(`[Chuncheon Jubo] 완료. 저장: ${totalSaved}`);
+      return totalSaved;
+    } catch (err) {
+      this.logger.error(`[Chuncheon Jubo] 목록 페이지 실패: ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 안동교구 주보 PDF 자동 수집
+  // 목록(sub6/sub1.asp)에서 직접 PDF 링크 추출 → 다운로드 → 파싱
+  // ══════════════════════════════════════════════════════════════════════════
+  private async runAndongJubo(): Promise<number> {
+    this.logger.log('[Andong Jubo] 주보 PDF 수집 시작');
+
+    try {
+      const listRes = await axios.get('https://www.acatholic.or.kr/sub6/sub1.asp', {
+        timeout: 15000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://www.acatholic.or.kr/',
+        },
+      });
+
+      const html = typeof listRes.data === 'string' ? listRes.data : '';
+      // href="/gears_pds/program/newsletter/2026.3.15.376호.pdf" 패턴
+      const pdfRe = /href="(\/gears_pds\/program\/newsletter\/[^"]+\.pdf)"/g;
+      const pdfPaths: string[] = [];
+      let pm: RegExpExecArray | null;
+      while ((pm = pdfRe.exec(html)) !== null) {
+        if (!pdfPaths.includes(pm[1])) pdfPaths.push(pm[1]);
+      }
+
+      this.logger.log(`[Andong Jubo] ${pdfPaths.length}개 주보 PDF 발견`);
+
+      // 최근 2개만 처리
+      let totalSaved = 0;
+      for (const path of pdfPaths.slice(0, 2)) {
+        // 한글 파일명 URL 인코딩
+        const pdfUrl = encodeURI(`https://www.acatholic.or.kr${path}`);
+        try {
+          const saved = await this.fetchAndParseJuboPdf(pdfUrl, '안동교구', '안동교구');
+          totalSaved += saved;
+        } catch (err) {
+          this.logger.debug(`[Andong Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
+        }
+        await this.delay(1000);
+      }
+
+      this.logger.log(`[Andong Jubo] 완료. 저장: ${totalSaved}`);
+      return totalSaved;
+    } catch (err) {
+      this.logger.error(`[Andong Jubo] 목록 페이지 실패: ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 마산교구 교구보 PDF 자동 수집
+  // 목록(/C_8)에서 docId → 상세에서 file_srl+sid → PDF 다운로드 → 파싱
+  // ══════════════════════════════════════════════════════════════════════════
+  private async runMasanJubo(): Promise<number> {
+    this.logger.log('[Masan Jubo] 교구보 PDF 수집 시작');
+
+    try {
+      // ★ cathms.kr SSL 인증서 체인 불완전 → rejectUnauthorized: false 필요
+      const agent = new https.Agent({ rejectUnauthorized: false });
+      const listRes = await axios.get('https://cathms.kr/C_8', {
+        timeout: 15000,
+        httpsAgent: agent,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+
+      const html = typeof listRes.data === 'string' ? listRes.data : '';
+      // href="/C_8/26512" 패턴에서 docId 추출
+      const docRe = /href="\/C_8\/(\d+)"/g;
+      const docIds = new Set<string>();
+      let dm: RegExpExecArray | null;
+      while ((dm = docRe.exec(html)) !== null) {
+        docIds.add(dm[1]);
+      }
+      const sorted = [...docIds].sort((a, b) => Number(b) - Number(a));
+
+      this.logger.log(`[Masan Jubo] ${sorted.length}개 교구보 발견: ${sorted.slice(0, 3).join(', ')}`);
+
+      // 최근 2개만 처리
+      let totalSaved = 0;
+      for (const docId of sorted.slice(0, 2)) {
+        try {
+          // 상세 페이지에서 file_srl + sid 추출
+          const detailRes = await axios.get(`https://cathms.kr/C_8/${docId}`, {
+            timeout: 15000,
+            httpsAgent: agent,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          });
+          const detailHtml = typeof detailRes.data === 'string' ? detailRes.data : '';
+
+          // data-file-srl="26513" href="/index.php?module=file&act=procFileDownload&file_srl=26513&sid=..."
+          const fileMatch = detailHtml.match(/file_srl=(\d+)&(?:amp;)?sid=([a-f0-9]+)/);
+          if (!fileMatch) {
+            this.logger.debug(`[Masan Jubo] docId ${docId}: file_srl 미발견`);
+            continue;
+          }
+
+          const pdfUrl = `https://cathms.kr/index.php?module=file&act=procFileDownload&file_srl=${fileMatch[1]}&sid=${fileMatch[2]}`;
+          const saved = await this.fetchAndParseJuboPdf(pdfUrl, '마산교구', '마산교구');
+          totalSaved += saved;
+        } catch (err) {
+          this.logger.debug(`[Masan Jubo] docId ${docId} 실패: ${(err as Error).message}`);
+        }
+        await this.delay(1000);
+      }
+
+      this.logger.log(`[Masan Jubo] 완료. 저장: ${totalSaved}`);
+      return totalSaved;
+    } catch (err) {
+      this.logger.error(`[Masan Jubo] 목록 페이지 실패: ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 청주교구 주보 PDF 자동 수집
+  // 목록 페이지(/media/journal)에서 idx 추출 → /media/journal/download?idx= 로 PDF 다운로드
+  // ══════════════════════════════════════════════════════════════════════════
+  private async runCheongjuJubo(): Promise<number> {
+    this.logger.log('[Cheongju Jubo] 주보 PDF 수집 시작');
+
+    try {
+      const listRes = await axios.get('https://www.cdcj.or.kr/media/journal', {
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+
+      const html = typeof listRes.data === 'string' ? listRes.data : '';
+      // href="/media/journal/1060" 패턴에서 idx 추출
+      const idxRe = /href="\/media\/journal\/(\d+)"/g;
+      const idxSet = new Set<string>();
+      let im: RegExpExecArray | null;
+      while ((im = idxRe.exec(html)) !== null) {
+        idxSet.add(im[1]);
+      }
+      const idxList = [...idxSet].sort((a, b) => Number(b) - Number(a));
+
+      this.logger.log(`[Cheongju Jubo] ${idxList.length}개 주보 발견: ${idxList.slice(0, 3).join(', ')}`);
+
+      // 최근 2개만 처리
+      let totalSaved = 0;
+      for (const idx of idxList.slice(0, 2)) {
+        const pdfUrl = `https://www.cdcj.or.kr/media/journal/download?idx=${idx}`;
+        try {
+          const saved = await this.fetchAndParseJuboPdf(pdfUrl, '청주교구', '청주교구');
+          totalSaved += saved;
+        } catch (err) {
+          this.logger.debug(`[Cheongju Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
+        }
+        await this.delay(1000);
+      }
+
+      this.logger.log(`[Cheongju Jubo] 완료. 저장: ${totalSaved}`);
+      return totalSaved;
+    } catch (err) {
+      this.logger.error(`[Cheongju Jubo] 목록 페이지 실패: ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 대전교구 주보 PDF 자동 수집
+  // 목록 페이지(last.asp)에서 호수 추출 → download.asp?f={호수}.pdf 다운로드 → 파싱
+  // ══════════════════════════════════════════════════════════════════════════
+  private async runDaejeonJubo(): Promise<number> {
+    this.logger.log('[Daejeon Jubo] 주보 PDF 수집 시작');
+
+    try {
+      const listRes = await axios.get('https://jubo.djcatholic.or.kr/home/last.asp', {
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+
+      const html = typeof listRes.data === 'string' ? listRes.data : '';
+      // btn_download data="2887.pdf" 패턴에서 호수 추출
+      const issueRe = /btn_download[^>]*data="(\d+)\.pdf"/g;
+      const issues: string[] = [];
+      let im: RegExpExecArray | null;
+      while ((im = issueRe.exec(html)) !== null) {
+        if (!issues.includes(im[1])) issues.push(im[1]);
+      }
+
+      this.logger.log(`[Daejeon Jubo] ${issues.length}개 주보 발견: ${issues.slice(0, 3).join(', ')}`);
+
+      // 최근 2개만 처리
+      let totalSaved = 0;
+      for (const issue of issues.slice(0, 2)) {
+        const pdfUrl = `https://jubo.djcatholic.or.kr/download.asp?f=${issue}.pdf`;
+        try {
+          const saved = await this.fetchAndParseJuboPdf(pdfUrl, '대전교구', '대전교구');
+          totalSaved += saved;
+        } catch (err) {
+          this.logger.debug(`[Daejeon Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
+        }
+        await this.delay(1000);
+      }
+
+      this.logger.log(`[Daejeon Jubo] 완료. 저장: ${totalSaved}`);
+      return totalSaved;
+    } catch (err) {
+      this.logger.error(`[Daejeon Jubo] 목록 페이지 실패: ${(err as Error).message}`);
+      return 0;
+    }
   }
 
   private coerceStr(v: unknown): string {

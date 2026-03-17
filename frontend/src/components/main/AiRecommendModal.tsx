@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Sparkles, ArrowUpRight, Heart, Music, RotateCcw, Phone, Gift, Download, Share2, BookOpen } from "lucide-react";
+import { X, Send, ArrowUpRight, Heart, Music, RotateCcw, Phone, Gift, Download, Share2, BookOpen } from "lucide-react";
 import { EventData, CATEGORY_COLORS } from "../../types/event";
 import { apiFetch } from "../../utils/api";
 import {
@@ -56,10 +56,12 @@ function detectCrisis(text: string): boolean {
     return CRISIS_KEYWORDS.some((kw) => text.includes(kw));
 }
 
-// ── 감정 카테고리 칩 ──
+// ── 감정 카테고리 ──
 const EMOTION_CATEGORIES = [
     {
         label: "마음이 힘들 때",
+        icon: "💧",
+        color: "#5B8DEF",
         prompts: [
             "마음이 지치고 쉬고 싶어요",
             "외로움을 느끼고 있어요",
@@ -68,6 +70,8 @@ const EMOTION_CATEGORIES = [
     },
     {
         label: "신앙을 키우고 싶을 때",
+        icon: "✝️",
+        color: "#C9A96E",
         prompts: [
             "신앙을 더 깊이 알고 싶어요",
             "기도하는 법을 배우고 싶어요",
@@ -76,6 +80,8 @@ const EMOTION_CATEGORIES = [
     },
     {
         label: "함께하고 싶을 때",
+        icon: "🤝",
+        color: "#4ECDC4",
         prompts: [
             "같은 또래 친구들을 만나고 싶어요",
             "봉사활동에 참여하고 싶어요",
@@ -84,6 +90,8 @@ const EMOTION_CATEGORIES = [
     },
     {
         label: "감사하거나 기쁠 때",
+        icon: "🕊️",
+        color: "#F2994A",
         prompts: [
             "감사한 마음을 나누고 싶어요",
             "좋은 일이 생겨서 기도하고 싶어요",
@@ -91,6 +99,8 @@ const EMOTION_CATEGORIES = [
     },
     {
         label: "고민이 있을 때",
+        icon: "🌙",
+        color: "#9B8EC4",
         prompts: [
             "진로에 대해 고민이 많아요",
             "가족 관계가 어려워요",
@@ -127,6 +137,54 @@ function useTypingEffect(text: string, speed = 20): { displayed: string; isDone:
     return { displayed, isDone };
 }
 
+// ── AI Orb 컴포넌트 (밝은 버전) ──
+function AiOrb({ size = 40, animate = true }: { size?: number; animate?: boolean }) {
+    return (
+        <div style={{ position: "relative", width: size, height: size }}>
+            {animate && (
+                <motion.div
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.12, 0.4] }}
+                    transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                    style={{
+                        position: "absolute", inset: -3,
+                        borderRadius: "50%",
+                        background: "radial-gradient(circle, rgba(201,169,110,0.35) 0%, transparent 70%)",
+                    }}
+                />
+            )}
+            <motion.div
+                animate={animate ? { scale: [1, 1.04, 1] } : {}}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                    width: size, height: size,
+                    borderRadius: "50%",
+                    background: "conic-gradient(from 180deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 2px 12px rgba(201,169,110,0.25)",
+                    padding: "2px",
+                }}
+            >
+                <div style={{
+                    width: size - 4, height: size - 4,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #FEFEFE 0%, #F8F7F4 100%)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                    <motion.div
+                        animate={animate ? { rotate: 360 } : {}}
+                        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                        style={{
+                            width: size * 0.35, height: size * 0.35,
+                            borderRadius: "50%",
+                            background: "conic-gradient(from 0deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)",
+                        }}
+                    />
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
 // ── 위기 감지 배너 ──
 function CrisisBanner() {
     return (
@@ -135,19 +193,19 @@ function CrisisBanner() {
             animate={{ opacity: 1, y: 0 }}
             style={{
                 padding: "14px 18px",
-                borderRadius: "12px",
-                backgroundColor: "rgba(220, 53, 69, 0.08)",
-                border: "1px solid rgba(220, 53, 69, 0.25)",
-                marginBottom: "16px",
+                borderRadius: "14px",
+                backgroundColor: "#FEF2F2",
+                border: "1px solid #FECACA",
+                marginBottom: "8px",
             }}
         >
             <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                <Phone size={16} color="#DC3545" style={{ flexShrink: 0, marginTop: "2px" }} />
+                <Phone size={16} color="#DC2626" style={{ flexShrink: 0, marginTop: "2px" }} />
                 <div>
                     <p style={{
                         fontFamily: "'Noto Sans KR', sans-serif",
                         fontSize: "13px", fontWeight: 600,
-                        color: "#DC3545", margin: "0 0 8px",
+                        color: "#DC2626", margin: "0 0 8px",
                     }}>
                         당신의 생명은 소중합니다
                     </p>
@@ -169,7 +227,7 @@ function CrisisBanner() {
                                 href={`tel:${line.number}`}
                                 style={{
                                     fontFamily: "'DM Mono', monospace",
-                                    fontSize: "12px", color: "#DC3545",
+                                    fontSize: "12px", color: "#DC2626",
                                     textDecoration: "none",
                                     fontWeight: 500,
                                 }}
@@ -184,7 +242,7 @@ function CrisisBanner() {
     );
 }
 
-// ── 어시스턴트 메시지 버블 (타이핑 이펙트) ──
+// ── 어시스턴트 메시지 버블 ──
 function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolean }) {
     const { displayed, isDone } = useTypingEffect(
         isLatest ? msg.content : "",
@@ -198,39 +256,39 @@ function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolea
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+            style={{ display: "flex", flexDirection: "column", gap: "10px" }}
         >
             {/* AI 메시지 */}
-            <div style={{
-                padding: "16px 18px",
-                borderRadius: "16px 16px 16px 4px",
-                backgroundColor: "rgba(201,169,110,0.06)",
-                border: "1px solid rgba(201,169,110,0.15)",
-                maxWidth: "92%",
-            }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                    <div style={{
-                        width: "24px", height: "24px", borderRadius: "8px",
-                        background: "linear-gradient(135deg, #C9A96E 0%, #A8853C 100%)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        flexShrink: 0,
-                    }}>
-                        <Heart size={12} color="#FFFFFF" strokeWidth={2.5} />
-                    </div>
+            <div style={{ display: "flex", gap: "10px", maxWidth: "92%" }}>
+                <div style={{ flexShrink: 0, marginTop: "2px" }}>
+                    <AiOrb size={28} animate={isLatest && !isDone} />
+                </div>
+                <div style={{
+                    padding: "14px 18px",
+                    borderRadius: "4px 18px 18px 18px",
+                    backgroundColor: "#FFFFFF",
+                    border: "1px solid rgba(0,0,0,0.05)",
+                    boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
+                    flex: 1,
+                }}>
                     <p style={{
                         fontFamily: "'Noto Sans KR', sans-serif",
-                        fontSize: "14px", lineHeight: 1.8,
-                        color: "#100F0F", margin: 0,
+                        fontSize: "14px", lineHeight: 1.85,
+                        color: "#1A1A1A", margin: 0,
                         wordBreak: "keep-all",
+                        letterSpacing: "-0.01em",
                     }}>
                         {text}
                         {isLatest && !isDone && (
-                            <span style={{
-                                display: "inline-block", width: "2px", height: "16px",
-                                backgroundColor: "#C9A96E", marginLeft: "2px",
-                                verticalAlign: "text-bottom",
-                                animation: "blink 1s step-end infinite",
-                            }} />
+                            <motion.span
+                                animate={{ opacity: [1, 0, 1] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                style={{
+                                    display: "inline-block", width: "2px", height: "16px",
+                                    backgroundColor: "#C9A96E", marginLeft: "2px",
+                                    verticalAlign: "text-bottom",
+                                }}
+                            />
                         )}
                     </p>
                 </div>
@@ -244,30 +302,70 @@ function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolea
                     transition={{ delay: 0.15 }}
                     style={{
                         padding: "14px 18px",
-                        borderRadius: "12px",
-                        backgroundColor: "rgba(11,32,64,0.03)",
-                        border: "1px solid rgba(11,32,64,0.08)",
+                        borderRadius: "14px",
+                        background: "linear-gradient(135deg, #F0F9F6 0%, #F5F3EE 100%)",
+                        border: "1px solid rgba(99,220,190,0.15)",
                         maxWidth: "92%",
+                        marginLeft: "38px",
                     }}
                 >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                        <Music size={15} color="#0B2040" style={{ flexShrink: 0, marginTop: "2px" }} />
+                        <Music size={15} color="#4ECDC4" style={{ flexShrink: 0, marginTop: "2px" }} />
+                        <div>
+                            <p style={{
+                                fontFamily: "'DM Mono', monospace",
+                                fontSize: "10px", fontWeight: 500,
+                                color: "#4ECDC4", margin: "0 0 5px",
+                                letterSpacing: "0.08em", textTransform: "uppercase",
+                            }}>
+                                추천 성가
+                            </p>
+                            <p style={{
+                                fontFamily: "'Noto Serif KR', serif",
+                                fontSize: "13px", lineHeight: 1.7,
+                                color: "#2A2A2A", margin: 0,
+                                fontStyle: "italic",
+                            }}>
+                                {msg.hymn}
+                            </p>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* 성경 구절 */}
+            {showExtras && msg.bibleVerse && (
+                <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    style={{
+                        padding: "14px 18px",
+                        borderRadius: "14px",
+                        background: "linear-gradient(135deg, #FBF8F1 0%, #F5F3EE 100%)",
+                        border: "1px solid rgba(201,169,110,0.15)",
+                        maxWidth: "92%",
+                        marginLeft: "38px",
+                    }}
+                >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                        <BookOpen size={15} color="#C9A96E" style={{ flexShrink: 0, marginTop: "2px" }} />
                         <div>
                             <p style={{
                                 fontFamily: "'DM Mono', monospace",
                                 fontSize: "10px", fontWeight: 500,
                                 color: "#C9A96E", margin: "0 0 5px",
-                                letterSpacing: "0.06em", textTransform: "uppercase",
+                                letterSpacing: "0.08em", textTransform: "uppercase",
                             }}>
-                                세실리아가 추천하는 성가
+                                성경 말씀
                             </p>
                             <p style={{
                                 fontFamily: "'Noto Serif KR', serif",
                                 fontSize: "13px", lineHeight: 1.7,
-                                color: "#0B2040", margin: 0,
+                                color: "#2A2A2A", margin: 0,
                                 fontStyle: "italic",
                             }}>
-                                {msg.hymn}
+                                {msg.bibleVerse}
                             </p>
                         </div>
                     </div>
@@ -280,12 +378,14 @@ function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolea
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.25 }}
+                    style={{ marginLeft: "38px" }}
                 >
                     <p style={{
-                        fontFamily: "'Noto Sans KR', sans-serif",
-                        fontSize: "12px", fontWeight: 600,
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: "10px", fontWeight: 500,
                         color: "#9C9891", marginBottom: "8px",
                         paddingLeft: "4px",
+                        letterSpacing: "0.08em", textTransform: "uppercase",
                     }}>
                         추천 행사
                     </p>
@@ -302,19 +402,22 @@ function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolea
                                     style={{
                                         display: "block",
                                         padding: "14px 16px",
-                                        borderRadius: "12px",
-                                        border: "1px solid #E8E5DF",
+                                        borderRadius: "14px",
+                                        border: "1px solid rgba(0,0,0,0.06)",
                                         backgroundColor: "#FFFFFF",
                                         textDecoration: "none",
-                                        transition: "all 0.15s ease",
+                                        transition: "all 0.2s ease",
+                                        boxShadow: "0 1px 4px rgba(0,0,0,0.03)",
                                     }}
                                     onMouseEnter={e => {
                                         (e.currentTarget as HTMLElement).style.borderColor = "#C9A96E";
-                                        (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 12px rgba(201,169,110,0.12)";
+                                        (e.currentTarget as HTMLElement).style.boxShadow = "0 3px 16px rgba(201,169,110,0.1)";
+                                        (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
                                     }}
                                     onMouseLeave={e => {
-                                        (e.currentTarget as HTMLElement).style.borderColor = "#E8E5DF";
-                                        (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                                        (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.06)";
+                                        (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.03)";
+                                        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
                                     }}
                                 >
                                     {rec.event ? (
@@ -345,7 +448,7 @@ function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolea
                                                 <ArrowUpRight size={14} color="#9C9891" />
                                             </div>
                                             <h4 style={{
-                                                fontFamily: "'Noto Serif KR', serif",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
                                                 fontSize: "14px", fontWeight: 600,
                                                 color: "#0B2040", margin: "0 0 3px",
                                                 lineHeight: 1.4,
@@ -362,7 +465,7 @@ function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolea
                                         </>
                                     ) : (
                                         <h4 style={{
-                                            fontFamily: "'Noto Serif KR', serif",
+                                            fontFamily: "'Noto Sans KR', sans-serif",
                                             fontSize: "14px", fontWeight: 600,
                                             color: "#0B2040", margin: "0 0 6px",
                                         }}>
@@ -389,6 +492,37 @@ function AssistantBubble({ msg, isLatest }: { msg: ChatMessage; isLatest: boolea
     );
 }
 
+// ── Pulse Loading ──
+function PulseLoader() {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px" }}>
+            <AiOrb size={28} animate />
+            <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+                {[0, 1, 2].map(i => (
+                    <motion.div
+                        key={i}
+                        animate={{ scale: [0.7, 1.1, 0.7], opacity: [0.3, 0.7, 0.3] }}
+                        transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.18, ease: "easeInOut" }}
+                        style={{
+                            width: 5, height: 5,
+                            borderRadius: "50%",
+                            backgroundColor: "#C9A96E",
+                        }}
+                    />
+                ))}
+            </div>
+            <p style={{
+                fontFamily: "'Noto Sans KR', sans-serif",
+                fontSize: "12px", color: "#9C9891",
+                margin: 0,
+            }}>
+                세실리아가 마음을 읽고 있습니다
+            </p>
+        </div>
+    );
+}
+
+
 // ══════════════════════════════════════════════════════════════════════
 // 메인 모달
 // ══════════════════════════════════════════════════════════════════════
@@ -405,10 +539,10 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
     const [therapyLoading, setTherapyLoading] = useState(false);
     const [cardClaimed, setCardClaimed] = useState(false);
     const [therapyMessage, setTherapyMessage] = useState<string | null>(null);
+    const [inputFocused, setInputFocused] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    // 모달 열림/닫힘 시 상태 초기화
     useEffect(() => {
         if (isOpen) {
             setTimeout(() => inputRef.current?.focus(), 150);
@@ -424,10 +558,10 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
             setTherapyLoading(false);
             setCardClaimed(false);
             setTherapyMessage(null);
+            setInputFocused(false);
         }
     }, [isOpen]);
 
-    // ESC 닫기
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
@@ -436,7 +570,6 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
         return () => window.removeEventListener("keydown", handleKey);
     }, [onClose]);
 
-    // 자동 스크롤
     useEffect(() => {
         if (messages.length > 0) {
             setTimeout(() => {
@@ -449,12 +582,10 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
         const feeling = (text || input).trim();
         if (feeling.length < 2 || isLoading) return;
 
-        // 위기 감지
         if (detectCrisis(feeling)) {
             setShowCrisis(true);
         }
 
-        // 사용자 메시지 추가
         const userMsg: ChatMessage = { role: "user", content: feeling };
         setMessages((prev) => [...prev, userMsg]);
         setInput("");
@@ -465,10 +596,11 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
             const timeoutId = setTimeout(() => controller.abort(), 30000);
             const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://amenguide-backend-775250805671.us-west1.run.app";
 
-            // 이전 대화 이력 구성 (AI 메시지는 content만 전달)
             const history = messages.map((m) => ({
                 role: m.role,
-                content: m.content,
+                content: m.role === "assistant" && (m.hymn || m.bibleVerse)
+                    ? `${m.content}${m.hymn ? `\n[추천 성가: ${m.hymn}]` : ""}${m.bibleVerse ? `\n[인용 성경: ${m.bibleVerse}]` : ""}`
+                    : m.content,
             }));
 
             let data: AiResponse;
@@ -487,7 +619,6 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                 clearTimeout(timeoutId);
             }
 
-            // 추천 행사 상세 정보 병렬 조회
             const recsWithEvents = await Promise.all(
                 data.recommendations.map(async (rec) => {
                     try {
@@ -509,7 +640,6 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                 })
             );
 
-            // AI 응답에 위기 키워드가 있으면 배너 표시
             if (detectCrisis(data.message)) {
                 setShowCrisis(true);
             }
@@ -557,7 +687,6 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
         setTimeout(() => inputRef.current?.focus(), 100);
     };
 
-    // ── 마음치료 핸들러 ──
     const lastAiMsg = [...messages].reverse().find((m) => m.role === "assistant" && m.emotionGrade);
 
     const handleTherapy = useCallback(async (mode: "card" | "letter") => {
@@ -568,7 +697,6 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
         try {
             const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://amenguide-backend-775250805671.us-west1.run.app";
 
-            // 카운터 차감 (이미 차감했으면 건너뜀)
             if (!cardClaimed) {
                 const res = await fetch(`${API_BASE}/events/ai-heart-card`, {
                     method: "POST",
@@ -596,7 +724,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                     emotionGrade: grade,
                     prayer: lastAiMsg.prayer,
                     bibleVerse: lastAiMsg.bibleVerse,
-                    cardNumber: 0, // 서버에서 정확한 번호를 받으면 교체
+                    cardNumber: 0,
                 };
                 const url = await generateHeartCard(cardData);
                 setCardImageUrl(url);
@@ -632,8 +760,8 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                     <motion.div
                         style={{
                             position: "fixed", inset: 0, zIndex: 200,
-                            backgroundColor: "rgba(11, 32, 64, 0.6)",
-                            backdropFilter: "blur(8px)",
+                            backgroundColor: "rgba(11, 32, 64, 0.25)",
+                            backdropFilter: "blur(12px) saturate(1.2)",
                         }}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -656,97 +784,139 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                         <motion.div
                             className="cecilia-modal-inner"
                             style={{
-                                width: "100%", maxWidth: "640px",
-                                maxHeight: "85vh",
-                                backgroundColor: "#FFFFFF",
-                                borderRadius: "20px",
-                                boxShadow: "0 24px 80px rgba(0,0,0,0.18)",
+                                width: "100%", maxWidth: "660px",
+                                maxHeight: "88vh",
+                                background: "linear-gradient(180deg, #FDFCFA 0%, #F5F3EE 100%)",
+                                borderRadius: "24px",
+                                border: "1px solid rgba(0,0,0,0.06)",
+                                boxShadow: "0 32px 80px rgba(11,32,64,0.12), 0 0 0 1px rgba(255,255,255,0.8) inset",
                                 overflow: "hidden",
                                 display: "flex", flexDirection: "column",
                                 pointerEvents: "auto",
+                                position: "relative",
                             }}
                             initial={{ opacity: 0, y: 30, scale: 0.97 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 20, scale: 0.97 }}
-                            transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         >
+                            {/* Ambient warm glow — top */}
+                            <div style={{
+                                position: "absolute", top: "-60px", left: "30%",
+                                width: "300px", height: "200px",
+                                borderRadius: "50%",
+                                background: "radial-gradient(circle, rgba(201,169,110,0.08) 0%, transparent 70%)",
+                                pointerEvents: "none",
+                            }} />
+                            {/* Ambient cool glow — bottom right */}
+                            <div style={{
+                                position: "absolute", bottom: "-40px", right: "10%",
+                                width: "200px", height: "200px",
+                                borderRadius: "50%",
+                                background: "radial-gradient(circle, rgba(91,141,239,0.05) 0%, transparent 70%)",
+                                pointerEvents: "none",
+                            }} />
+
                             {/* ── Header ── */}
                             <div style={{
-                                padding: "20px 24px 16px",
-                                borderBottom: "1px solid #E8E5DF",
+                                padding: "18px 24px 14px",
+                                borderBottom: "1px solid rgba(0,0,0,0.05)",
                                 display: "flex", alignItems: "center", justifyContent: "space-between",
+                                position: "relative",
+                                zIndex: 1,
+                                backgroundColor: "rgba(255,255,255,0.6)",
+                                backdropFilter: "blur(16px)",
                             }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                    <div style={{
-                                        width: "36px", height: "36px",
-                                        borderRadius: "10px",
-                                        background: "linear-gradient(135deg, #C9A96E 0%, #A8853C 100%)",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                    }}>
-                                        <Heart size={18} color="#FFFFFF" strokeWidth={2} />
-                                    </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                    <AiOrb size={36} />
                                     <div>
-                                        <h2 style={{
-                                            fontFamily: "'Noto Serif KR', serif",
-                                            fontSize: "17px", fontWeight: 700,
-                                            color: "#0B2040", margin: 0, lineHeight: 1.3,
-                                        }}>
-                                            세실리아
-                                        </h2>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                            <h2 style={{
+                                                fontFamily: "'Noto Serif KR', serif",
+                                                fontSize: "17px", fontWeight: 700,
+                                                color: "#0B2040", margin: 0, lineHeight: 1.3,
+                                            }}>
+                                                세실리아
+                                            </h2>
+                                            <span style={{
+                                                display: "inline-flex", alignItems: "center", gap: "3px",
+                                                padding: "2px 8px",
+                                                borderRadius: "6px",
+                                                background: "linear-gradient(135deg, rgba(201,169,110,0.1) 0%, rgba(91,141,239,0.08) 100%)",
+                                                border: "1px solid rgba(201,169,110,0.15)",
+                                            }}>
+                                                <span style={{
+                                                    width: "6px", height: "6px", borderRadius: "50%",
+                                                    background: "conic-gradient(from 0deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)",
+                                                }} />
+                                                <span style={{
+                                                    fontFamily: "'DM Mono', monospace",
+                                                    fontSize: "9px", fontWeight: 600,
+                                                    color: "#0B2040",
+                                                    letterSpacing: "0.05em",
+                                                }}>
+                                                    AI
+                                                </span>
+                                            </span>
+                                        </div>
                                         <p style={{
                                             fontFamily: "'Noto Sans KR', sans-serif",
                                             fontSize: "11px", color: "#9C9891",
                                             margin: 0, marginTop: "2px",
                                         }}>
-                                            AI 영성 상담 · 마음에 맞는 행사와 성가를 찾아드립니다
+                                            영성 상담 · 행사 추천 · 마음 치유
                                         </p>
                                     </div>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                                     {hasConversation && (
                                         <button
                                             onClick={handleReset}
                                             title="새 대화"
                                             style={{
-                                                width: "32px", height: "32px",
-                                                borderRadius: "8px", border: "none",
-                                                backgroundColor: "transparent",
+                                                width: "34px", height: "34px",
+                                                borderRadius: "10px", border: "1px solid rgba(0,0,0,0.06)",
+                                                backgroundColor: "rgba(255,255,255,0.6)",
                                                 color: "#9C9891", cursor: "pointer",
                                                 display: "flex", alignItems: "center", justifyContent: "center",
-                                                transition: "all 0.15s ease",
+                                                transition: "all 0.2s ease",
                                             }}
                                             onMouseEnter={e => {
-                                                (e.currentTarget as HTMLElement).style.backgroundColor = "#F0EFE9";
-                                                (e.currentTarget as HTMLElement).style.color = "#100F0F";
+                                                (e.currentTarget as HTMLElement).style.backgroundColor = "#FFFFFF";
+                                                (e.currentTarget as HTMLElement).style.color = "#0B2040";
+                                                (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.12)";
                                             }}
                                             onMouseLeave={e => {
-                                                (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                                                (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.6)";
                                                 (e.currentTarget as HTMLElement).style.color = "#9C9891";
+                                                (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.06)";
                                             }}
                                         >
-                                            <RotateCcw size={15} strokeWidth={2} />
+                                            <RotateCcw size={14} strokeWidth={2} />
                                         </button>
                                     )}
                                     <button
                                         onClick={onClose}
                                         style={{
-                                            width: "32px", height: "32px",
-                                            borderRadius: "8px", border: "none",
-                                            backgroundColor: "transparent",
+                                            width: "34px", height: "34px",
+                                            borderRadius: "10px", border: "1px solid rgba(0,0,0,0.06)",
+                                            backgroundColor: "rgba(255,255,255,0.6)",
                                             color: "#9C9891", cursor: "pointer",
                                             display: "flex", alignItems: "center", justifyContent: "center",
-                                            transition: "all 0.15s ease",
+                                            transition: "all 0.2s ease",
                                         }}
                                         onMouseEnter={e => {
-                                            (e.currentTarget as HTMLElement).style.backgroundColor = "#F0EFE9";
-                                            (e.currentTarget as HTMLElement).style.color = "#100F0F";
+                                            (e.currentTarget as HTMLElement).style.backgroundColor = "#FFFFFF";
+                                            (e.currentTarget as HTMLElement).style.color = "#0B2040";
+                                            (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.12)";
                                         }}
                                         onMouseLeave={e => {
-                                            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                                            (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.6)";
                                             (e.currentTarget as HTMLElement).style.color = "#9C9891";
+                                            (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.06)";
                                         }}
                                     >
-                                        <X size={18} strokeWidth={2} />
+                                        <X size={16} strokeWidth={2} />
                                     </button>
                                 </div>
                             </div>
@@ -756,56 +926,90 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                 flex: 1, overflowY: "auto",
                                 padding: "20px 24px",
                                 display: "flex", flexDirection: "column", gap: "16px",
+                                position: "relative",
+                                zIndex: 1,
                             }}>
-                                {/* 위기 감지 배너 */}
                                 {showCrisis && <CrisisBanner />}
 
-                                {/* 대화 없을 때: 안내 + 감정 카테고리 */}
+                                {/* 대화 없을 때 */}
                                 {!hasConversation && !isLoading && (
                                     <>
-                                        {/* 환영 메시지 */}
                                         <div style={{
                                             textAlign: "center",
-                                            padding: "16px 0 8px",
+                                            padding: "28px 0 20px",
                                         }}>
-                                            <Sparkles size={28} color="#C9A96E" style={{ marginBottom: "12px" }} />
-                                            <p style={{
-                                                fontFamily: "'Noto Serif KR', serif",
-                                                fontSize: "16px", fontWeight: 600,
-                                                color: "#0B2040", margin: "0 0 6px",
-                                            }}>
+                                            <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+                                                <AiOrb size={56} />
+                                            </div>
+                                            <motion.p
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.2 }}
+                                                style={{
+                                                    fontFamily: "'Noto Serif KR', serif",
+                                                    fontSize: "18px", fontWeight: 600,
+                                                    color: "#0B2040", margin: "0 0 10px",
+                                                }}
+                                            >
                                                 안녕하세요, 세실리아입니다
-                                            </p>
-                                            <p style={{
-                                                fontFamily: "'Noto Sans KR', sans-serif",
-                                                fontSize: "13px", color: "#9C9891",
-                                                lineHeight: 1.6, margin: 0,
-                                            }}>
-                                                <>지금 어떤 마음이신지 편하게 나눠주세요.<br />마음에 맞는 행사와 성가를 찾아드릴게요.</>
-                                            </p>
+                                            </motion.p>
+                                            <motion.p
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.3 }}
+                                                style={{
+                                                    fontFamily: "'Noto Sans KR', sans-serif",
+                                                    fontSize: "13px", color: "#9C9891",
+                                                    lineHeight: 1.7, margin: 0,
+                                                }}
+                                            >
+                                                지금 어떤 마음이신지 편하게 말씀해 주세요.<br />마음에 맞는 행사와 성가를 찾아드릴게요.
+                                            </motion.p>
                                         </div>
 
                                         {/* 감정 카테고리 */}
-                                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                                             {EMOTION_CATEGORIES.map((cat, ci) => (
-                                                <div key={cat.label}>
+                                                <motion.div
+                                                    key={cat.label}
+                                                    initial={{ opacity: 0, y: 8 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{ delay: 0.3 + ci * 0.05 }}
+                                                >
                                                     <button
                                                         onClick={() => setActiveCategory(activeCategory === ci ? null : ci)}
                                                         style={{
-                                                            display: "block", width: "100%",
-                                                            padding: "10px 14px",
-                                                            borderRadius: "10px",
+                                                            display: "flex", alignItems: "center", gap: "10px",
+                                                            width: "100%",
+                                                            padding: "13px 16px",
+                                                            borderRadius: "14px",
                                                             border: "1px solid",
-                                                            borderColor: activeCategory === ci ? "#C9A96E" : "#E8E5DF",
-                                                            backgroundColor: activeCategory === ci ? "rgba(201,169,110,0.05)" : "#FFFFFF",
+                                                            borderColor: activeCategory === ci ? `${cat.color}40` : "rgba(0,0,0,0.05)",
+                                                            backgroundColor: activeCategory === ci ? `${cat.color}08` : "#FFFFFF",
                                                             fontFamily: "'Noto Sans KR', sans-serif",
-                                                            fontSize: "13px", fontWeight: 500,
-                                                            color: activeCategory === ci ? "#C9A96E" : "#52504B",
+                                                            fontSize: "13.5px", fontWeight: 500,
+                                                            color: activeCategory === ci ? cat.color : "#3A3A3A",
                                                             cursor: "pointer",
                                                             textAlign: "left",
-                                                            transition: "all 0.15s ease",
+                                                            transition: "all 0.2s ease",
+                                                            boxShadow: activeCategory === ci
+                                                                ? `0 2px 8px ${cat.color}12`
+                                                                : "0 1px 3px rgba(0,0,0,0.02)",
+                                                        }}
+                                                        onMouseEnter={e => {
+                                                            if (activeCategory !== ci) {
+                                                                (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.1)";
+                                                                (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)";
+                                                            }
+                                                        }}
+                                                        onMouseLeave={e => {
+                                                            if (activeCategory !== ci) {
+                                                                (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.05)";
+                                                                (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.02)";
+                                                            }
                                                         }}
                                                     >
+                                                        <span style={{ fontSize: "16px" }}>{cat.icon}</span>
                                                         {cat.label}
                                                     </button>
                                                     <AnimatePresence>
@@ -829,25 +1033,26 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                                                 handleSubmit(prompt);
                                                                             }}
                                                                             style={{
-                                                                                padding: "7px 13px",
-                                                                                borderRadius: "18px",
-                                                                                border: "1px solid #E8E5DF",
+                                                                                padding: "8px 14px",
+                                                                                borderRadius: "20px",
+                                                                                border: "1px solid rgba(0,0,0,0.06)",
                                                                                 backgroundColor: "#FFFFFF",
                                                                                 fontFamily: "'Noto Sans KR', sans-serif",
                                                                                 fontSize: "12px", color: "#52504B",
                                                                                 cursor: "pointer",
-                                                                                transition: "all 0.15s ease",
+                                                                                transition: "all 0.2s ease",
                                                                                 whiteSpace: "nowrap",
+                                                                                boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
                                                                             }}
                                                                             onMouseEnter={e => {
                                                                                 (e.currentTarget as HTMLElement).style.borderColor = "#C9A96E";
                                                                                 (e.currentTarget as HTMLElement).style.color = "#C9A96E";
-                                                                                (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(201,169,110,0.05)";
+                                                                                (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(201,169,110,0.1)";
                                                                             }}
                                                                             onMouseLeave={e => {
-                                                                                (e.currentTarget as HTMLElement).style.borderColor = "#E8E5DF";
+                                                                                (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.06)";
                                                                                 (e.currentTarget as HTMLElement).style.color = "#52504B";
-                                                                                (e.currentTarget as HTMLElement).style.backgroundColor = "#FFFFFF";
+                                                                                (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 2px rgba(0,0,0,0.02)";
                                                                             }}
                                                                         >
                                                                             {prompt}
@@ -857,7 +1062,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                             </motion.div>
                                                         )}
                                                     </AnimatePresence>
-                                                </div>
+                                                </motion.div>
                                             ))}
                                         </div>
                                     </>
@@ -867,29 +1072,26 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                 {messages.map((msg, i) => (
                                     <div key={i}>
                                         {msg.role === "user" ? (
-                                            /* 사용자 버블 */
                                             <motion.div
                                                 initial={{ opacity: 0, y: 6 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                style={{
-                                                    display: "flex", justifyContent: "flex-end",
-                                                }}
+                                                style={{ display: "flex", justifyContent: "flex-end" }}
                                             >
                                                 <div style={{
-                                                    padding: "12px 16px",
-                                                    borderRadius: "16px 16px 4px 16px",
-                                                    backgroundColor: "#0B2040",
+                                                    padding: "12px 18px",
+                                                    borderRadius: "18px 18px 4px 18px",
+                                                    background: "linear-gradient(135deg, #0B2040 0%, #1E3A5F 100%)",
                                                     color: "#FFFFFF",
                                                     maxWidth: "80%",
                                                     fontFamily: "'Noto Sans KR', sans-serif",
                                                     fontSize: "14px", lineHeight: 1.7,
                                                     wordBreak: "keep-all",
+                                                    boxShadow: "0 2px 8px rgba(11,32,64,0.15)",
                                                 }}>
                                                     {msg.content}
                                                 </div>
                                             </motion.div>
                                         ) : (
-                                            /* AI 버블 */
                                             <AssistantBubble
                                                 msg={msg}
                                                 isLatest={i === messages.length - 1}
@@ -898,37 +1100,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                     </div>
                                 ))}
 
-                                {/* 로딩 */}
-                                {isLoading && (
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        style={{
-                                            display: "flex", alignItems: "center", gap: "10px",
-                                            padding: "12px 16px",
-                                        }}
-                                    >
-                                        <div style={{
-                                            width: "24px", height: "24px", borderRadius: "8px",
-                                            background: "linear-gradient(135deg, #C9A96E 0%, #A8853C 100%)",
-                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                        }}>
-                                            <motion.div
-                                                animate={{ rotate: 360 }}
-                                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                            >
-                                                <Sparkles size={12} color="#FFFFFF" />
-                                            </motion.div>
-                                        </div>
-                                        <p style={{
-                                            fontFamily: "'Noto Sans KR', sans-serif",
-                                            fontSize: "13px", color: "#9C9891",
-                                            margin: 0,
-                                        }}>
-                                            세실리아가 마음을 읽고 있습니다...
-                                        </p>
-                                    </motion.div>
-                                )}
+                                {isLoading && <PulseLoader />}
 
                                 {/* ── 마음치료 배너 ── */}
                                 {lastAiMsg && !isLoading && !therapyMode && (
@@ -937,10 +1109,12 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.5 }}
                                         style={{
-                                            padding: "16px 18px",
-                                            borderRadius: "14px",
-                                            background: "linear-gradient(135deg, rgba(201,169,110,0.08) 0%, rgba(11,32,64,0.04) 100%)",
-                                            border: "1px solid rgba(201,169,110,0.2)",
+                                            padding: "18px 20px",
+                                            borderRadius: "16px",
+                                            background: "linear-gradient(135deg, #FBF8F1 0%, #F0F9F6 100%)",
+                                            border: "1px solid rgba(201,169,110,0.15)",
+                                            marginLeft: "38px",
+                                            boxShadow: "0 2px 10px rgba(201,169,110,0.06)",
                                         }}
                                     >
                                         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
@@ -952,7 +1126,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             }}>
                                                 {cardClaimed
                                                     ? "마음 선물을 이미 받으셨어요"
-                                                    : "오늘의 마음 선물이 남아있어요 \u2728"}
+                                                    : "오늘의 마음 선물"}
                                             </p>
                                         </div>
                                         {therapyMessage && (
@@ -968,7 +1142,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             <p style={{
                                                 fontFamily: "'Noto Sans KR', sans-serif",
                                                 fontSize: "11px", color: "#9C9891",
-                                                margin: "0 0 10px", lineHeight: 1.5,
+                                                margin: "0 0 12px", lineHeight: 1.5,
                                             }}>
                                                 하루 3명에게만 드리는 특별한 선물입니다
                                             </p>
@@ -978,17 +1152,17 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                 onClick={() => handleTherapy("card")}
                                                 disabled={therapyLoading || (!!therapyMessage && !cardClaimed)}
                                                 style={{
-                                                    padding: "8px 16px",
+                                                    padding: "9px 18px",
                                                     borderRadius: "10px",
                                                     border: "1px solid #C9A96E",
-                                                    backgroundColor: cardClaimed ? "rgba(201,169,110,0.05)" : "#C9A96E",
+                                                    backgroundColor: cardClaimed ? "transparent" : "#C9A96E",
                                                     fontFamily: "'Noto Sans KR', sans-serif",
                                                     fontSize: "12px", fontWeight: 600,
                                                     color: cardClaimed ? "#C9A96E" : "#FFFFFF",
                                                     cursor: therapyLoading || (!!therapyMessage && !cardClaimed) ? "default" : "pointer",
-                                                    opacity: therapyLoading || (!!therapyMessage && !cardClaimed) ? 0.5 : 1,
+                                                    opacity: therapyLoading || (!!therapyMessage && !cardClaimed) ? 0.4 : 1,
                                                     display: "flex", alignItems: "center", gap: "6px",
-                                                    transition: "all 0.15s ease",
+                                                    transition: "all 0.2s ease",
                                                 }}
                                             >
                                                 <Heart size={13} />
@@ -998,17 +1172,17 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                 onClick={() => handleTherapy("letter")}
                                                 disabled={therapyLoading || (!!therapyMessage && !cardClaimed)}
                                                 style={{
-                                                    padding: "8px 16px",
+                                                    padding: "9px 18px",
                                                     borderRadius: "10px",
                                                     border: "1px solid #0B2040",
-                                                    backgroundColor: cardClaimed ? "rgba(11,32,64,0.05)" : "#0B2040",
+                                                    backgroundColor: cardClaimed ? "transparent" : "#0B2040",
                                                     fontFamily: "'Noto Sans KR', sans-serif",
                                                     fontSize: "12px", fontWeight: 600,
                                                     color: cardClaimed ? "#0B2040" : "#FFFFFF",
                                                     cursor: therapyLoading || (!!therapyMessage && !cardClaimed) ? "default" : "pointer",
-                                                    opacity: therapyLoading || (!!therapyMessage && !cardClaimed) ? 0.5 : 1,
+                                                    opacity: therapyLoading || (!!therapyMessage && !cardClaimed) ? 0.4 : 1,
                                                     display: "flex", alignItems: "center", gap: "6px",
-                                                    transition: "all 0.15s ease",
+                                                    transition: "all 0.2s ease",
                                                 }}
                                             >
                                                 <BookOpen size={13} />
@@ -1018,7 +1192,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                     </motion.div>
                                 )}
 
-                                {/* ── 마음 카드 / 세실리아의 편지 미리보기 ── */}
+                                {/* 카드/편지 미리보기 */}
                                 {therapyMode && (cardImageUrl || letterImageUrl) && (
                                     <motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -1026,16 +1200,16 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                         style={{
                                             display: "flex", flexDirection: "column",
                                             alignItems: "center", gap: "12px",
+                                            marginLeft: "38px",
                                         }}
                                     >
-                                        {/* 등급 배지 */}
                                         {lastAiMsg?.emotionGrade && (
                                             <div style={{
                                                 display: "flex", alignItems: "center", gap: "6px",
                                                 padding: "4px 14px",
                                                 borderRadius: "16px",
-                                                backgroundColor: (GRADE_THEMES[lastAiMsg.emotionGrade]?.cardBg1 || "#C9A96E") + "15",
-                                                border: `1px solid ${(GRADE_THEMES[lastAiMsg.emotionGrade]?.cardBg1 || "#C9A96E")}30`,
+                                                backgroundColor: (GRADE_THEMES[lastAiMsg.emotionGrade]?.cardBg1 || "#C9A96E") + "12",
+                                                border: `1px solid ${(GRADE_THEMES[lastAiMsg.emotionGrade]?.cardBg1 || "#C9A96E")}25`,
                                             }}>
                                                 <span style={{ fontSize: "14px" }}>
                                                     {GRADE_THEMES[lastAiMsg.emotionGrade]?.emoji}
@@ -1050,11 +1224,10 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             </div>
                                         )}
 
-                                        {/* 카드 이미지 */}
                                         <div style={{
                                             width: "100%", maxWidth: "400px",
-                                            borderRadius: "12px", overflow: "hidden",
-                                            boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+                                            borderRadius: "14px", overflow: "hidden",
+                                            boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
                                         }}>
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
@@ -1064,7 +1237,6 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             />
                                         </div>
 
-                                        {/* 저장/공유 버튼 */}
                                         <div style={{ display: "flex", gap: "8px" }}>
                                             <button
                                                 onClick={() => {
@@ -1073,16 +1245,24 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                     downloadCard(url, name);
                                                 }}
                                                 style={{
-                                                    padding: "8px 18px",
+                                                    padding: "9px 20px",
                                                     borderRadius: "10px",
-                                                    border: "1px solid #E8E5DF",
+                                                    border: "1px solid rgba(0,0,0,0.08)",
                                                     backgroundColor: "#FFFFFF",
                                                     fontFamily: "'Noto Sans KR', sans-serif",
                                                     fontSize: "12px", fontWeight: 500,
                                                     color: "#52504B",
                                                     cursor: "pointer",
                                                     display: "flex", alignItems: "center", gap: "6px",
-                                                    transition: "all 0.15s ease",
+                                                    transition: "all 0.2s ease",
+                                                }}
+                                                onMouseEnter={e => {
+                                                    (e.currentTarget as HTMLElement).style.borderColor = "#0B2040";
+                                                    (e.currentTarget as HTMLElement).style.color = "#0B2040";
+                                                }}
+                                                onMouseLeave={e => {
+                                                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.08)";
+                                                    (e.currentTarget as HTMLElement).style.color = "#52504B";
                                                 }}
                                             >
                                                 <Download size={13} />
@@ -1098,16 +1278,24 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                     }
                                                 }}
                                                 style={{
-                                                    padding: "8px 18px",
+                                                    padding: "9px 20px",
                                                     borderRadius: "10px",
-                                                    border: "1px solid #C9A96E",
-                                                    backgroundColor: "rgba(201,169,110,0.05)",
+                                                    border: "1px solid rgba(201,169,110,0.3)",
+                                                    backgroundColor: "rgba(201,169,110,0.06)",
                                                     fontFamily: "'Noto Sans KR', sans-serif",
                                                     fontSize: "12px", fontWeight: 500,
                                                     color: "#C9A96E",
                                                     cursor: "pointer",
                                                     display: "flex", alignItems: "center", gap: "6px",
-                                                    transition: "all 0.15s ease",
+                                                    transition: "all 0.2s ease",
+                                                }}
+                                                onMouseEnter={e => {
+                                                    (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(201,169,110,0.12)";
+                                                    (e.currentTarget as HTMLElement).style.borderColor = "#C9A96E";
+                                                }}
+                                                onMouseLeave={e => {
+                                                    (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(201,169,110,0.06)";
+                                                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,169,110,0.3)";
                                                 }}
                                             >
                                                 <Share2 size={13} />
@@ -1115,21 +1303,18 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             </button>
                                         </div>
 
-                                        {/* 다른 카드 보기 (이미 카드를 받은 경우) */}
                                         {cardClaimed && (
                                             <div style={{ display: "flex", gap: "8px" }}>
                                                 {therapyMode === "card" && (
                                                     <button
                                                         onClick={() => handleTherapy("letter")}
                                                         style={{
-                                                            padding: "6px 14px",
-                                                            borderRadius: "8px",
-                                                            border: "none",
-                                                            backgroundColor: "transparent",
+                                                            padding: "6px 14px", borderRadius: "8px",
+                                                            border: "none", backgroundColor: "transparent",
                                                             fontFamily: "'Noto Sans KR', sans-serif",
                                                             fontSize: "11px", color: "#9C9891",
-                                                            cursor: "pointer",
-                                                            textDecoration: "underline",
+                                                            cursor: "pointer", textDecoration: "underline",
+                                                            textUnderlineOffset: "3px",
                                                         }}
                                                     >
                                                         세실리아의 편지도 보기
@@ -1139,14 +1324,12 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                     <button
                                                         onClick={() => handleTherapy("card")}
                                                         style={{
-                                                            padding: "6px 14px",
-                                                            borderRadius: "8px",
-                                                            border: "none",
-                                                            backgroundColor: "transparent",
+                                                            padding: "6px 14px", borderRadius: "8px",
+                                                            border: "none", backgroundColor: "transparent",
                                                             fontFamily: "'Noto Sans KR', sans-serif",
                                                             fontSize: "11px", color: "#9C9891",
-                                                            cursor: "pointer",
-                                                            textDecoration: "underline",
+                                                            cursor: "pointer", textDecoration: "underline",
+                                                            textUnderlineOffset: "3px",
                                                         }}
                                                     >
                                                         마음 카드도 보기
@@ -1157,16 +1340,17 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                     </motion.div>
                                 )}
 
-                                {/* 기도문 표시 (심화 치료 후) */}
+                                {/* 기도문 */}
                                 {cardClaimed && lastAiMsg?.prayer && !therapyMode && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 6 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         style={{
                                             padding: "16px 18px",
-                                            borderRadius: "12px",
-                                            backgroundColor: "rgba(11,32,64,0.02)",
-                                            border: "1px solid rgba(11,32,64,0.06)",
+                                            borderRadius: "14px",
+                                            background: "linear-gradient(135deg, #FBF8F1 0%, #F5F3EE 100%)",
+                                            border: "1px solid rgba(201,169,110,0.12)",
+                                            marginLeft: "38px",
                                         }}
                                     >
                                         <p style={{
@@ -1180,7 +1364,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                         <p style={{
                                             fontFamily: "'Noto Serif KR', serif",
                                             fontSize: "13px", lineHeight: 1.8,
-                                            color: "#0B2040", margin: 0,
+                                            color: "#2A2A2A", margin: 0,
                                             fontStyle: "italic",
                                             whiteSpace: "pre-line",
                                         }}>
@@ -1195,58 +1379,95 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                             {/* ── Input Bar ── */}
                             <div style={{
                                 padding: "12px 16px 16px",
-                                borderTop: "1px solid #E8E5DF",
-                                backgroundColor: "#FAFAF8",
+                                borderTop: "1px solid rgba(0,0,0,0.05)",
+                                backgroundColor: "rgba(255,255,255,0.7)",
+                                backdropFilter: "blur(16px)",
+                                position: "relative",
+                                zIndex: 1,
                             }}>
-                                <div style={{ position: "relative" }}>
-                                    <textarea
-                                        ref={inputRef}
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        placeholder={hasConversation ? "더 나누고 싶은 이야기가 있으신가요..." : "자유롭게 마음을 표현해 주세요..."}
-                                        rows={2}
-                                        maxLength={500}
-                                        style={{
-                                            width: "100%",
-                                            padding: "12px 48px 12px 16px",
-                                            borderRadius: "14px",
-                                            border: "1.5px solid #E8E5DF",
-                                            backgroundColor: "#FFFFFF",
-                                            fontFamily: "'Noto Sans KR', sans-serif",
-                                            fontSize: "14px", lineHeight: 1.6,
-                                            color: "#100F0F",
-                                            resize: "none", outline: "none",
-                                            transition: "border-color 0.2s ease",
-                                            boxSizing: "border-box",
-                                        }}
-                                        onFocus={e => (e.currentTarget as HTMLElement).style.borderColor = "#C9A96E"}
-                                        onBlur={e => (e.currentTarget as HTMLElement).style.borderColor = "#E8E5DF"}
-                                    />
-                                    <button
-                                        onClick={() => handleSubmit()}
-                                        disabled={input.trim().length < 2 || isLoading}
-                                        style={{
-                                            position: "absolute", right: "8px", bottom: "8px",
-                                            width: "34px", height: "34px",
-                                            borderRadius: "10px", border: "none",
-                                            backgroundColor: input.trim().length >= 2 && !isLoading ? "#0B2040" : "#E8E5DF",
-                                            color: input.trim().length >= 2 && !isLoading ? "#FFFFFF" : "#9C9891",
-                                            cursor: input.trim().length >= 2 && !isLoading ? "pointer" : "default",
-                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                            transition: "all 0.2s ease",
-                                        }}
-                                    >
-                                        <Send size={15} strokeWidth={2} />
-                                    </button>
+                                <div style={{
+                                    position: "relative",
+                                    borderRadius: "16px",
+                                    padding: inputFocused ? "1.5px" : "1px",
+                                    background: inputFocused
+                                        ? "conic-gradient(from 180deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)"
+                                        : "rgba(0,0,0,0.08)",
+                                    transition: "all 0.3s ease",
+                                    boxShadow: inputFocused ? "0 2px 16px rgba(201,169,110,0.12)" : "none",
+                                }}>
+                                    <div style={{
+                                        borderRadius: "15px",
+                                        backgroundColor: "#FFFFFF",
+                                        position: "relative",
+                                    }}>
+                                        <textarea
+                                            ref={inputRef}
+                                            value={input}
+                                            onChange={(e) => setInput(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            onFocus={() => setInputFocused(true)}
+                                            onBlur={() => setInputFocused(false)}
+                                            placeholder={hasConversation ? "더 나누고 싶은 이야기가 있으신가요..." : "자유롭게 마음을 표현해 주세요..."}
+                                            rows={2}
+                                            maxLength={500}
+                                            style={{
+                                                width: "100%",
+                                                padding: "14px 52px 14px 18px",
+                                                borderRadius: "15px",
+                                                border: "none",
+                                                backgroundColor: "transparent",
+                                                fontFamily: "'Noto Sans KR', sans-serif",
+                                                fontSize: "14px", lineHeight: 1.6,
+                                                color: "#1A1A1A",
+                                                resize: "none", outline: "none",
+                                                boxSizing: "border-box",
+                                            }}
+                                        />
+                                        <button
+                                            onClick={() => handleSubmit()}
+                                            disabled={input.trim().length < 2 || isLoading}
+                                            style={{
+                                                position: "absolute", right: "10px", bottom: "10px",
+                                                width: "36px", height: "36px",
+                                                borderRadius: "10px", border: "none",
+                                                background: input.trim().length >= 2 && !isLoading
+                                                    ? "linear-gradient(135deg, #0B2040, #1E3A5F)"
+                                                    : "#E8E5DF",
+                                                color: input.trim().length >= 2 && !isLoading ? "#FFFFFF" : "#9C9891",
+                                                cursor: input.trim().length >= 2 && !isLoading ? "pointer" : "default",
+                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                                transition: "all 0.2s ease",
+                                                boxShadow: input.trim().length >= 2 && !isLoading
+                                                    ? "0 2px 8px rgba(11,32,64,0.2)"
+                                                    : "none",
+                                            }}
+                                        >
+                                            <Send size={15} strokeWidth={2} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div style={{
-                                    display: "flex", justifyContent: "flex-end",
-                                    marginTop: "4px",
+                                    display: "flex", justifyContent: "space-between",
+                                    alignItems: "center",
+                                    marginTop: "6px",
+                                    padding: "0 4px",
                                 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <span style={{
+                                            width: "5px", height: "5px", borderRadius: "50%",
+                                            background: "conic-gradient(from 0deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)",
+                                        }} />
+                                        <span style={{
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: "9px", color: "#C0BDB8",
+                                            letterSpacing: "0.05em",
+                                        }}>
+                                            POWERED BY AI
+                                        </span>
+                                    </div>
                                     <span style={{
                                         fontFamily: "'DM Mono', monospace",
-                                        fontSize: "10px", color: "#9C9891",
+                                        fontSize: "10px", color: "#C0BDB8",
                                     }}>
                                         {input.length}/500
                                     </span>
@@ -1255,24 +1476,37 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                         </motion.div>
                     </motion.div>
 
-                    {/* 모바일 최적화 + 타이핑 커서 */}
+                    {/* 모바일 최적화 */}
                     <style>{`
-                        @keyframes blink {
-                            0%, 100% { opacity: 1; }
-                            50% { opacity: 0; }
-                        }
-                        @media (min-width: 641px) {
+                        @media (min-width: 661px) {
                             .cecilia-modal-wrap {
                                 padding: 20px;
                             }
                         }
-                        @media (max-width: 640px) {
+                        @media (max-width: 660px) {
                             .cecilia-modal-inner {
                                 max-height: 100vh !important;
                                 max-height: 100dvh !important;
                                 height: 100% !important;
                                 border-radius: 0 !important;
+                                border: none !important;
                             }
+                        }
+                        .cecilia-modal-inner ::-webkit-scrollbar {
+                            width: 4px;
+                        }
+                        .cecilia-modal-inner ::-webkit-scrollbar-track {
+                            background: transparent;
+                        }
+                        .cecilia-modal-inner ::-webkit-scrollbar-thumb {
+                            background: rgba(0,0,0,0.08);
+                            border-radius: 4px;
+                        }
+                        .cecilia-modal-inner ::-webkit-scrollbar-thumb:hover {
+                            background: rgba(0,0,0,0.15);
+                        }
+                        .cecilia-modal-inner textarea::placeholder {
+                            color: #C0BDB8;
                         }
                     `}</style>
                 </>

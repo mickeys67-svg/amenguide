@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Menu, X, LogIn, LogOut, Compass, Map, User, Heart, FileText } from "lucide-react";
+import { Search, Menu, X, LogIn, LogOut, Compass, Map, User, Heart, FileText, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/common/Logo";
 import dynamic from "next/dynamic";
@@ -27,6 +27,21 @@ const NAV_STYLE = `
         .nav-desktop-only  { display: none; }
         .nav-login-btn      { display: none; }
         .nav-hamburger      { display: flex; }
+    }
+
+    @keyframes cecilia-breathe {
+        0%, 100% {
+            box-shadow: 0 0 8px rgba(201,169,110,0.15), 0 0 20px rgba(99,220,190,0.08), 0 2px 8px rgba(11,32,64,0.2);
+        }
+        50% {
+            box-shadow: 0 0 16px rgba(201,169,110,0.3), 0 0 36px rgba(99,220,190,0.15), 0 2px 8px rgba(11,32,64,0.2);
+        }
+    }
+    .cecilia-nav-btn {
+        animation: cecilia-breathe 3s ease-in-out infinite;
+    }
+    .cecilia-nav-btn:hover {
+        animation: none;
     }
 `;
 
@@ -177,29 +192,55 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             aria-label="AI 마음 상담"
                             title="세실리아 AI 영성 상담 — 마음을 나누면 맞춤 행사와 성가를 추천해 드립니다"
                             onClick={handleAiOpen}
+                            className="cecilia-nav-btn"
                             style={{
-                                display: "flex", alignItems: "center", gap: "5px",
-                                padding: "6px 12px", borderRadius: "8px",
-                                border: "1.5px solid rgba(201,169,110,0.3)",
-                                backgroundColor: "rgba(201,169,110,0.06)",
-                                color: "#C9A96E", cursor: "pointer",
-                                transition: "all 0.15s ease",
+                                display: "flex", alignItems: "center", gap: "6px",
+                                padding: "7px 14px", borderRadius: "20px",
+                                border: "none",
+                                background: "linear-gradient(135deg, #0B2040 0%, #1E3A5F 100%)",
+                                color: "#FFFFFF", cursor: "pointer",
+                                transition: "all 0.25s ease",
                                 fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "12.5px", fontWeight: 500,
+                                fontSize: "12.5px", fontWeight: 600,
+                                position: "relative",
+                                overflow: "hidden",
+                                boxShadow: "0 2px 8px rgba(11,32,64,0.2)",
                             }}
                             onMouseEnter={e => {
                                 const el = e.currentTarget as HTMLElement;
-                                el.style.backgroundColor = "rgba(201,169,110,0.12)";
-                                el.style.borderColor = "#C9A96E";
+                                el.style.background = "linear-gradient(135deg, #1E3A5F 0%, #2A5080 100%)";
+                                el.style.boxShadow = "0 4px 16px rgba(11,32,64,0.3)";
+                                el.style.transform = "translateY(-1px)";
                             }}
                             onMouseLeave={e => {
                                 const el = e.currentTarget as HTMLElement;
-                                el.style.backgroundColor = "rgba(201,169,110,0.06)";
-                                el.style.borderColor = "rgba(201,169,110,0.3)";
+                                el.style.background = "linear-gradient(135deg, #0B2040 0%, #1E3A5F 100%)";
+                                el.style.boxShadow = "0 2px 8px rgba(11,32,64,0.2)";
+                                el.style.transform = "translateY(0)";
                             }}
                         >
-                            <Heart size={13} strokeWidth={2} />
+                            <span style={{
+                                width: "16px", height: "16px", borderRadius: "50%",
+                                background: "conic-gradient(from 180deg, #C9A96E, #63DCBE, #0EA5E9, #C9A96E)",
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                flexShrink: 0,
+                            }}>
+                                <span style={{
+                                    width: "10px", height: "10px", borderRadius: "50%",
+                                    backgroundColor: "#0B2040",
+                                }} />
+                            </span>
                             <span className="nav-desktop-only">세실리아</span>
+                            <span style={{
+                                fontSize: "9px", fontWeight: 700,
+                                padding: "1px 5px",
+                                borderRadius: "4px",
+                                backgroundColor: "rgba(255,255,255,0.15)",
+                                color: "rgba(255,255,255,0.9)",
+                                letterSpacing: "0.04em",
+                                fontFamily: "'DM Mono', monospace",
+                                lineHeight: "1.4",
+                            }}>AI</span>
                         </button>
 
                         {/* 검색 아이콘 */}
@@ -358,7 +399,6 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                         width: "100%", display: "flex", alignItems: "center",
                                         justifyContent: "space-between",
                                         padding: "14px 0",
-                                        borderBottom: "1px solid #F0EFE9",
                                         border: "none", borderBottomWidth: "1px",
                                         borderBottomStyle: "solid", borderBottomColor: "#F0EFE9",
                                         background: "none", cursor: "pointer",
@@ -367,14 +407,39 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                 >
                                     <span style={{
                                         fontFamily: "'Noto Sans KR', sans-serif", fontSize: "15px",
-                                        color: "#C9A96E", fontWeight: 500,
-                                        display: "flex", alignItems: "center", gap: "6px",
+                                        color: "#0B2040", fontWeight: 600,
+                                        display: "flex", alignItems: "center", gap: "8px",
                                     }}>
-                                        <Heart size={14} strokeWidth={2} />
-                                        세실리아 AI 상담
+                                        <span style={{
+                                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                            width: "24px", height: "24px", borderRadius: "50%",
+                                            background: "conic-gradient(from 180deg, #C9A96E, #63DCBE, #0EA5E9, #C9A96E)",
+                                            padding: "2px",
+                                        }}>
+                                            <span style={{
+                                                width: "100%", height: "100%", borderRadius: "50%",
+                                                backgroundColor: "#FFFFFF",
+                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                            }}>
+                                                <span style={{
+                                                    width: "8px", height: "8px", borderRadius: "50%",
+                                                    background: "conic-gradient(from 0deg, #C9A96E, #63DCBE, #0EA5E9, #C9A96E)",
+                                                }} />
+                                            </span>
+                                        </span>
+                                        세실리아
+                                        <span style={{
+                                            fontSize: "9px", fontWeight: 700,
+                                            padding: "2px 6px",
+                                            borderRadius: "4px",
+                                            backgroundColor: "rgba(11,32,64,0.06)",
+                                            color: "#0B2040",
+                                            letterSpacing: "0.04em",
+                                            fontFamily: "'DM Mono', monospace",
+                                        }}>AI</span>
                                     </span>
                                     <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891" }}>
-                                        마음에 맞는 행사 추천
+                                        영성 상담 · 행사 추천
                                     </span>
                                 </button>
 

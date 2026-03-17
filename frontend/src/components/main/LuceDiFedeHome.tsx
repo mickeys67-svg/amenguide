@@ -10,6 +10,7 @@ import { EventCard } from "./EventCard";
 import { Footer } from "./Footer";
 import { SearchModal } from "./SearchModal";
 import { AiRecommendModal } from "./AiRecommendModal";
+import { NoticeTicker } from "./NoticeTicker";
 import CustomMap from "../map/CustomMap";
 import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
@@ -227,15 +228,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
     }, [selectedDiocese]);
 
     const filteredEvents = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        let list = events.filter((e) => {
-            if (!e.rawDate) return true;
-            const d = new Date(e.rawDate);
-            d.setHours(0, 0, 0, 0);
-            return d >= today;
-        });
+        let list = [...events];
 
         if (activeFilter !== "전체") {
             list = list.filter((e) => e.category === activeFilter);
@@ -300,18 +293,9 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
     }, []);
 
     const countByCategory = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        // filteredEvents ? ?일???짜 기? ??과거 ?사 ?외
-        const upcoming = events.filter((e) => {
-            if (!e.rawDate) return true;
-            const d = new Date(e.rawDate);
-            d.setHours(0, 0, 0, 0);
-            return d >= today;
-        });
         const map: Record<string, number> = {};
         CATEGORY_QUICK.forEach((c) => {
-            map[c.label] = upcoming.filter((e) => e.category === c.label).length;
+            map[c.label] = events.filter((e) => e.category === c.label).length;
         });
         return map;
     }, [events]);
@@ -337,6 +321,9 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                 HERO ??밝고 ?원???플??이?웃
             ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═ */}
             <Hero eventCount={events.length} onScrollDown={scrollToEvents} />
+
+            {/* 공지사항 티커 — Hero와 카테고리 아이콘 사이 */}
+            <NoticeTicker />
 
             {/* ?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═?═
                 EVENTS SECTION
