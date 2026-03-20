@@ -18,6 +18,7 @@ export const DIOCESES = [
   '제주교구',
   '광주대교구',
   '전주교구',
+  '군종교구',
 ] as const;
 
 export type Diocese = (typeof DIOCESES)[number];

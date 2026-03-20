@@ -56,55 +56,138 @@ function detectCrisis(text: string): boolean {
     return CRISIS_KEYWORDS.some((kw) => text.includes(kw));
 }
 
-// ── 감정 카테고리 ──
+// ── 감정 카테고리 (천주교 영성심리학 기반 10분류) ──
 const EMOTION_CATEGORIES = [
     {
-        label: "마음이 힘들 때",
-        icon: "💧",
-        color: "#5B8DEF",
-        prompts: [
-            "마음이 지치고 쉬고 싶어요",
-            "외로움을 느끼고 있어요",
-            "마음이 답답하고 우울해요",
-        ],
-    },
-    {
-        label: "신앙을 키우고 싶을 때",
+        label: "신앙의 갈증",
         icon: "✝️",
         color: "#C9A96E",
+        desc: "영적 성장 · 기도 · 성사 · 전례",
         prompts: [
-            "신앙을 더 깊이 알고 싶어요",
-            "기도하는 법을 배우고 싶어요",
-            "고해성사를 보고 싶은데 용기가 안 나요",
+            "하느님을 더 깊이 만나고 싶어요",
+            "기도가 메마르고 영적으로 건조한 시기를 보내고 있어요",
+            "고해성사를 보고 싶은데 용기가 나지 않아요",
+            "성경을 읽고 싶지만 어디서부터 시작할지 모르겠어요",
+            "미사에 집중하기 어렵고 형식적으로 느껴져요",
+            "전례에 대해 자세하게 알고 싶어요",
+            "성가를 잘 부르고 싶어요",
         ],
     },
     {
-        label: "함께하고 싶을 때",
+        label: "슬픔과 상실",
+        icon: "💧",
+        color: "#5B8DEF",
+        desc: "애도 · 이별 · 공허",
+        prompts: [
+            "소중한 사람을 떠나보내고 마음이 텅 빈 것 같아요",
+            "이별 후 아무것도 할 수 없을 만큼 슬퍼요",
+            "과거의 상처가 자꾸 떠올라서 힘들어요",
+            "눈물이 멈추지 않고 마음이 무너지는 느낌이에요",
+            "삶의 의미를 잃어버린 것 같아 공허해요",
+        ],
+    },
+    {
+        label: "불안과 두려움",
+        icon: "🌊",
+        color: "#6C8EBF",
+        desc: "걱정 · 공포 · 초조",
+        prompts: [
+            "미래가 불확실해서 잠을 이룰 수 없어요",
+            "실패할까 봐 새로운 시도가 두려워요",
+            "알 수 없는 불안감이 계속 밀려와요",
+            "건강 문제로 두려움에 사로잡혀 있어요",
+            "무언가 나쁜 일이 일어날 것 같은 예감이 떠나지 않아요",
+        ],
+    },
+    {
+        label: "분노와 억울함",
+        icon: "🔥",
+        color: "#E07C5A",
+        desc: "화 · 부당함 · 배신",
+        prompts: [
+            "부당한 대우를 받아서 화가 가라앉지 않아요",
+            "믿었던 사람에게 배신당해 분노가 커요",
+            "억울한 상황에서 아무도 내 편이 아닌 것 같아요",
+            "참았던 감정이 폭발할 것 같아서 무서워요",
+            "세상이 불공평하다는 생각이 자꾸 들어요",
+        ],
+    },
+    {
+        label: "외로움과 고립",
+        icon: "🕯️",
+        color: "#8B7355",
+        desc: "소외 · 단절 · 고독",
+        prompts: [
+            "주변에 사람들은 많은데 마음을 나눌 사람이 없어요",
+            "혼자라는 느낌이 깊어져서 견디기 힘들어요",
+            "교우들 사이에서도 소속감을 느끼지 못해요",
+            "가족 안에서도 이해받지 못하는 외로움이 있어요",
+            "신앙 안에서도 하느님이 멀게 느껴질 때가 있어요",
+        ],
+    },
+    {
+        label: "지침과 번아웃",
+        icon: "🍂",
+        color: "#A0855B",
+        desc: "피로 · 탈진 · 무기력",
+        prompts: [
+            "몸도 마음도 지쳐서 아무것도 하기 싫어요",
+            "매일 반복되는 일상에 의미를 찾을 수 없어요",
+            "열심히 살았는데 보람이 느껴지지 않아요",
+            "쉬어도 피로가 풀리지 않아 무기력해요",
+            "모든 책임감이 어깨를 짓누르는 것 같아요",
+        ],
+    },
+    {
+        label: "관계의 어려움",
         icon: "🤝",
         color: "#4ECDC4",
+        desc: "갈등 · 용서 · 화해",
         prompts: [
-            "같은 또래 친구들을 만나고 싶어요",
-            "봉사활동에 참여하고 싶어요",
-            "성지를 방문하고 싶어요",
+            "가족과의 갈등이 깊어져서 마음이 아파요",
+            "용서해야 한다는 걸 알지만 마음이 따라가지 않아요",
+            "직장이나 공동체에서 인간관계가 힘들어요",
+            "사랑하는 사람과 소통이 되지 않아 답답해요",
+            "상처를 주고받은 관계를 회복하고 싶어요",
         ],
     },
     {
-        label: "감사하거나 기쁠 때",
+        label: "감사와 기쁨",
         icon: "🕊️",
         color: "#F2994A",
+        desc: "감사 · 행복 · 은총",
         prompts: [
-            "감사한 마음을 나누고 싶어요",
-            "좋은 일이 생겨서 기도하고 싶어요",
+            "감사한 마음을 하느님께 온전히 드리고 싶어요",
+            "좋은 일이 생겨서 기쁨을 나누고 싶어요",
+            "일상 속 작은 축복을 깨달아 감동받았어요",
+            "오랜 기도가 응답된 것 같아 벅차올라요",
+            "힘든 시간을 지나 평화를 되찾아 감사해요",
         ],
     },
     {
-        label: "고민이 있을 때",
-        icon: "🌙",
+        label: "진로와 소명",
+        icon: "🌟",
         color: "#9B8EC4",
+        desc: "결정 · 미래 · 부르심",
         prompts: [
-            "진로에 대해 고민이 많아요",
-            "가족 관계가 어려워요",
-            "용서가 잘 안 돼요",
+            "진로를 정하지 못해 마음이 조급해요",
+            "하느님이 원하시는 삶의 방향을 알고 싶어요",
+            "중요한 결정 앞에서 분별의 지혜가 필요해요",
+            "내 달란트가 무엇인지 아직 찾지 못했어요",
+            "성소에 대해 진지하게 고민하고 있어요",
+        ],
+    },
+    {
+        label: "성장과 회심",
+        icon: "🌱",
+        color: "#5BA08E",
+        desc: "변화 · 회개 · 새출발",
+        prompts: [
+            "나쁜 습관을 고치고 새사람이 되고 싶어요",
+            "같은 죄를 반복하는 자신이 부끄럽고 괴로워요",
+            "영적으로 한 단계 더 성숙해지고 싶어요",
+            "냉담했던 신앙생활을 다시 시작하고 싶어요",
+            "겸손하게 살고 싶은데 교만이 자꾸 올라와요",
         ],
     },
 ];
@@ -137,24 +220,62 @@ function useTypingEffect(text: string, speed = 20): { displayed: string; isDone:
     return { displayed, isDone };
 }
 
-// ── AI Orb 컴포넌트 (밝은 버전) ──
+// ── AI Orb 컴포넌트 (살아있는 생명체) ──
 function AiOrb({ size = 40, animate = true }: { size?: number; animate?: boolean }) {
     return (
-        <div style={{ position: "relative", width: size, height: size }}>
+        <motion.div
+            animate={animate ? {
+                x: [0, 3, -2, 4, -3, 1, -4, 2, 0],
+                y: [0, -2, 3, -4, 1, -3, 2, -1, 0],
+            } : {}}
+            transition={animate ? {
+                x: { duration: 7, repeat: Infinity, ease: "easeInOut" },
+                y: { duration: 9, repeat: Infinity, ease: "easeInOut" },
+            } : {}}
+            style={{ position: "relative", width: size * 1.5, height: size * 1.5, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+            {/* 외부 후광 — 느린 호흡 */}
             {animate && (
                 <motion.div
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.12, 0.4] }}
-                    transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                    animate={{
+                        scale: [1, 1.4, 1.1, 1.5, 1],
+                        opacity: [0.25, 0.08, 0.2, 0.05, 0.25],
+                    }}
+                    transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
                     style={{
-                        position: "absolute", inset: -3,
+                        position: "absolute",
+                        width: size * 1.4, height: size * 1.4,
                         borderRadius: "50%",
-                        background: "radial-gradient(circle, rgba(201,169,110,0.35) 0%, transparent 70%)",
+                        background: "radial-gradient(circle, rgba(201,169,110,0.3) 0%, rgba(99,220,190,0.12) 40%, transparent 70%)",
                     }}
                 />
             )}
+            {/* 두 번째 후광 — 어긋난 리듬 */}
+            {animate && (
+                <motion.div
+                    animate={{
+                        scale: [1.1, 1, 1.3, 1],
+                        opacity: [0.15, 0.3, 0.1, 0.15],
+                    }}
+                    transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+                    style={{
+                        position: "absolute",
+                        width: size * 1.2, height: size * 1.2,
+                        borderRadius: "50%",
+                        background: "radial-gradient(circle, rgba(14,165,233,0.15) 0%, rgba(99,220,190,0.1) 50%, transparent 70%)",
+                    }}
+                />
+            )}
+            {/* 메인 링 — 심장박동 리듬 */}
             <motion.div
-                animate={animate ? { scale: [1, 1.04, 1] } : {}}
-                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                animate={animate ? {
+                    scale: [1, 1.06, 1.02, 1.08, 1],
+                    rotate: [0, 360],
+                } : {}}
+                transition={animate ? {
+                    scale: { duration: 3.5, repeat: Infinity, ease: "easeInOut" },
+                    rotate: { duration: 12, repeat: Infinity, ease: "linear" },
+                } : {}}
                 style={{
                     width: size, height: size,
                     borderRadius: "50%",
@@ -170,18 +291,26 @@ function AiOrb({ size = 40, animate = true }: { size?: number; animate?: boolean
                     background: "linear-gradient(135deg, #FEFEFE 0%, #F8F7F4 100%)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
+                    {/* 내부 핵 — 반대 방향 회전 + 독립 호흡 */}
                     <motion.div
-                        animate={animate ? { rotate: 360 } : {}}
-                        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                        animate={animate ? {
+                            rotate: -360,
+                            scale: [1, 1.15, 0.95, 1.1, 1],
+                        } : {}}
+                        transition={animate ? {
+                            rotate: { duration: 8, repeat: Infinity, ease: "linear" },
+                            scale: { duration: 2.8, repeat: Infinity, ease: "easeInOut" },
+                        } : {}}
                         style={{
                             width: size * 0.35, height: size * 0.35,
                             borderRadius: "50%",
                             background: "conic-gradient(from 0deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)",
+                            boxShadow: "0 0 6px rgba(201,169,110,0.4), 0 0 12px rgba(99,220,190,0.2)",
                         }}
                     />
                 </div>
             </motion.div>
-        </div>
+        </motion.div>
     );
 }
 
@@ -542,11 +671,15 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
     const [inputFocused, setInputFocused] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const abortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             setTimeout(() => inputRef.current?.focus(), 150);
         } else {
+            // 모달이 닫히면 진행 중인 fetch 취소
+            abortRef.current?.abort();
+            abortRef.current = null;
             setInput("");
             setMessages([]);
             setIsLoading(false);
@@ -592,7 +725,9 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
         setIsLoading(true);
 
         try {
+            abortRef.current?.abort();
             const controller = new AbortController();
+            abortRef.current = controller;
             const timeoutId = setTimeout(() => controller.abort(), 30000);
             const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://amenguide-backend-775250805671.us-west1.run.app";
 
@@ -1009,8 +1144,11 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                                             }
                                                         }}
                                                     >
-                                                        <span style={{ fontSize: "16px" }}>{cat.icon}</span>
-                                                        {cat.label}
+                                                        <span style={{ fontSize: "16px", flexShrink: 0 }}>{cat.icon}</span>
+                                                        <span style={{ flex: 1 }}>{cat.label}</span>
+                                                        {(cat as any).desc && (
+                                                            <span style={{ fontSize: "11px", color: "#B0ADA8", fontWeight: 400 }}>{(cat as any).desc}</span>
+                                                        )}
                                                     </button>
                                                     <AnimatePresence>
                                                         {activeCategory === ci && (

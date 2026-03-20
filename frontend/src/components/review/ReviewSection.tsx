@@ -123,7 +123,7 @@ export function ReviewSection({ eventId }: ReviewSectionProps) {
                 setEditingId(null);
                 await fetchReviews();
             }
-        } catch {}
+        } catch (err) { console.error("Review update failed:", err); }
     };
 
     const handleDelete = async (reviewId: string) => {
@@ -134,7 +134,7 @@ export function ReviewSection({ eventId }: ReviewSectionProps) {
                 headers: { Authorization: `Bearer ${authToken}` },
             });
             await fetchReviews();
-        } catch {}
+        } catch (err) { console.error("Review delete failed:", err); }
     };
 
     const hasMyReview = data?.reviews.some((r) => r.userId === authUserId);

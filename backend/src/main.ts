@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { PrismaService } from './prisma/prisma.service';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -19,7 +18,7 @@ async function bootstrap() {
   ].filter(Boolean) as string[];
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.some((o) => origin.startsWith(o))) {
+      if (!origin || allowedOrigins.some((o) => origin === o)) {
         callback(null, true);
       } else {
         callback(new Error(`CORS blocked: ${origin}`));
@@ -35,14 +34,7 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Application is running on port ${port}`);
 
-  // DB initialization runs AFTER port is open (non-blocking for startup)
-  const prismaService = app.get(PrismaService);
-  try {
-    await prismaService.initDatabase();
-    console.log('Database schema initialized successfully.');
-  } catch (err) {
-    console.error('DB init failed (non-fatal):', err.message);
-  }
+  // DB initialization is handled by PrismaService.onModuleInit() — no duplicate call needed.
 }
 bootstrap();
 

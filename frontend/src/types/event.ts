@@ -1,5 +1,5 @@
 export interface EventData {
-    id: number | string;
+    id: string;
     title: string;
     subtitle: string;
     category: string;
@@ -27,6 +27,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
     강론: "#6E2882",     // royal purple
     특강: "#C83A1E",     // vermillion
     피정의집: "#0B6B70", // deep teal
+    뉴스: "#5C6B7A",     // muted slate blue (교구 소식)
 };
 
 /** 기본 폴백 이미지 (피정) */
@@ -44,4 +45,5 @@ export const CATEGORY_IMAGES: Record<string, string> = {
     강론: "/images/categories/retreat.svg",
     특강: "/images/categories/lecture.svg",
     피정의집: "/images/categories/retreat.svg",
+    뉴스: "/images/categories/mission.svg",
 };

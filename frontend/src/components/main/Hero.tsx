@@ -209,7 +209,7 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                         transition={{ duration: 0.6, delay: 1.1 }}
                         style={{
                             display: "flex",
-                            gap: "24px",
+                            gap: "0",
                             marginTop: "44px",
                             paddingTop: "32px",
                             borderTop: "1px solid #E8E5DF",
@@ -217,31 +217,45 @@ export function Hero({ eventCount, onScrollDown }: HeroProps) {
                     >
                         {[
                             { num: String(eventCount),  label: "예정 행사"  },
-                            { num: "7",                  label: "카테고리"   },
+                            { num: "8",                  label: "카테고리"   },
                             { num: "무료",               label: "행사 등록"  },
-                        ].map(({ num, label }) => (
-                            <div key={label}>
-                                <div
-                                    style={{
-                                        fontFamily: "'DM Mono', monospace",
-                                        fontSize: isMobile ? "22px" : "clamp(24px, 2.5vw, 36px)",
-                                        fontWeight: 500,
-                                        color: "#0B2040",
-                                        lineHeight: 1,
-                                    }}
-                                >
-                                    {num}
-                                </div>
-                                <div
-                                    style={{
-                                        fontFamily: "'Noto Sans KR', sans-serif",
-                                        fontSize: "11px",
-                                        color: "#9C9891",
-                                        marginTop: "5px",
-                                        letterSpacing: "0.04em",
-                                    }}
-                                >
-                                    {label}
+                        ].map(({ num, label }, idx) => (
+                            <div key={label} style={{ display: "flex", alignItems: "center" }}>
+                                {idx > 0 && (
+                                    <div style={{
+                                        width: "1px",
+                                        height: "32px",
+                                        background: "linear-gradient(to bottom, transparent, #D4D0C8, transparent)",
+                                        flexShrink: 0,
+                                    }} />
+                                )}
+                                <div style={{
+                                    textAlign: "center",
+                                    padding: isMobile ? "0 20px" : "0 clamp(20px, 2.5vw, 36px)",
+                                    ...(idx === 0 ? { paddingLeft: "0" } : {}),
+                                }}>
+                                    <div
+                                        style={{
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: isMobile ? "22px" : "clamp(24px, 2.5vw, 36px)",
+                                            fontWeight: 500,
+                                            color: "#0B2040",
+                                            lineHeight: 1,
+                                        }}
+                                    >
+                                        {num}
+                                    </div>
+                                    <div
+                                        style={{
+                                            fontFamily: "'Noto Sans KR', sans-serif",
+                                            fontSize: "11px",
+                                            color: "#9C9891",
+                                            marginTop: "6px",
+                                            letterSpacing: "0.04em",
+                                        }}
+                                    >
+                                        {label}
+                                    </div>
                                 </div>
                             </div>
                         ))}

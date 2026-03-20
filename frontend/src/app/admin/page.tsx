@@ -232,29 +232,9 @@ export default function AdminPage() {
     const [changePwStatus, setChangePwStatus] = useState<StatusMsg>(null);
     const [showChangePw, setShowChangePw] = useState(false);
 
-    // ── sessionStorage 복원 ────────────────────────────────────────
-    useEffect(() => {
-        const saved = sessionStorage.getItem("adminToken");
-        if (!saved) return;
-        setAuthLoading(true);
-        fetch(`${API_BASE}/admin/auth/me`, {
-            headers: { "Authorization": "Bearer " + saved },
-        }).then(async res => {
-            if (res.ok) {
-                const data = await res.json();
-                setAdminToken(saved);
-                setAdminId(data.id);
-                setAdminName(data.name);
-                setAdminEmail(data.email);
-                setAuthenticated(true);
-            } else {
-                sessionStorage.removeItem("adminToken");
-            }
-        }).catch(() => {
-            sessionStorage.removeItem("adminToken");
-        }).finally(() => setAuthLoading(false));
+    // ── 토큰은 React state에만 보관 (sessionStorage 사용 안 함) ────
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    useEffect(() => {}, []);
 
     // ── 로그인 ─────────────────────────────────────────────────────
     const handleAuth = async (e: React.FormEvent) => {
@@ -270,7 +250,6 @@ export default function AdminPage() {
             });
             const data = await res.json();
             if (res.ok) {
-                sessionStorage.setItem("adminToken", data.token);
                 setAdminToken(data.token);
                 setAdminId(data.admin.id);
                 setAdminName(data.admin.name);
@@ -290,7 +269,6 @@ export default function AdminPage() {
 
     // ── 로그아웃 ────────────────────────────────────────────────────
     const handleLogout = () => {
-        sessionStorage.removeItem("adminToken");
         setAdminToken(""); setAdminId(""); setAdminName(""); setAdminEmail("");
         setAuthenticated(false);
         setPendingEvents([]); setAllEvents([]);
@@ -807,7 +785,7 @@ export default function AdminPage() {
                 method: "PATCH", headers: authHeader(),
             });
             fetchNotices();
-        } catch {}
+        } catch (err) { console.error("Notice pin failed:", err); }
     };
 
     const handleNoticeDelete = async (id: string) => {
@@ -817,7 +795,7 @@ export default function AdminPage() {
                 method: "DELETE", headers: authHeader(),
             });
             fetchNotices();
-        } catch {}
+        } catch (err) { console.error("Notice delete failed:", err); }
     };
 
     // ── 탭 콘텐츠: 공지사항 관리 ────────────────────────────────────

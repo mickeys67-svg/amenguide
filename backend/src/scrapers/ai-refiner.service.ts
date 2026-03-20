@@ -45,7 +45,7 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
 - location (string): Venue name and city in Korean. Use "장소 미정" if unknown. IMPORTANT: Do NOT use website navigation menu text (like "성지순례ㅣ여행후기", "피정", "교구소식") as the location — those are section titles, not venues.
 - aiSummary (string): 2-3 Korean sentences, warm spiritual tone (은총이 가득한 따뜻한 어조).
 - themeColor (string): One of #E63946 #457B9D #FFB703 #06D6A0 #C9A96E
-- category (string): One of "피정" | "강론" | "강의" | "특강" | "피정의집" | "순례" | "청년" | "문화" | "선교" | "미사"
+- category (string): One of "피정" | "강론" | "강의" | "특강" | "피정의집" | "순례" | "청년" | "문화" | "선교" | "미사" | "뉴스"
   피정=피정·묵상·영성수련·성령쇄신·관상기도
   강론=강론·설교·사목서한·강론집
   강의=강좌·성경공부·교리·세미나·교육
@@ -55,10 +55,11 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
   청년=청년·청소년·Youth·성소·대학생
   문화=음악회·공연·전시·합창·연극·콘서트·뮤지컬·축제
   선교=선교·봉사·레지오·복음화·사회사목·자선
-  미사=미사·전례·기도회·연도·성체·위령`;
+  미사=미사·전례·기도회·연도·성체·위령
+  뉴스=교구소식·인사발령·담화·보도·성명·서한·공지·안내·채용·모집`;
   }
 
-  async refine(text: string): Promise<ScrapingResult> {
+  async refine(text: string): Promise<ScrapingResult | null> {
     if (!this.anthropic) {
       throw new Error('AI service is not configured (missing ANTHROPIC_API_KEY).');
     }
@@ -85,7 +86,7 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
       const parsed = JSON.parse(raw);
 
       // AI가 skip 판단한 경우 null 반환 (호출자가 null 체크)
-      if (parsed.skip) return null as unknown as ScrapingResult;
+      if (parsed.skip) return null;
 
       const result = parsed as ScrapingResult;
       this.validateResult(result);
@@ -103,7 +104,7 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
         throw new Error(`Missing or invalid field: ${field}`);
       }
     }
-    // category 기본값 보장 — 유효하지 않으면 선교로 폴백
+    // category 기본값 보장 — 유효하지 않으면 뉴스로 폴백
     data.category = normalizeCategory(data.category);
 
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data.date)) {

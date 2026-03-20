@@ -1,63 +1,22 @@
 import {
   Controller, Get, Post, Put, Patch, Delete,
   Body, Param, Query, Headers,
-  ForbiddenException, BadRequestException, NotFoundException, UnauthorizedException,
+  BadRequestException, ForbiddenException, NotFoundException,
   UseInterceptors, UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import * as crypto from 'crypto';
 import { NoticesService } from './notices.service';
 import { AuthService } from '../auth/auth.service';
-
-// ── 인증 헬퍼 ─────────────────────────────────────────────────────────
-
-/** Bearer 토큰 → userId (일반 사용자) */
-function extractUserId(authService: AuthService, auth: string | undefined): string | null {
-  if (!auth?.startsWith('Bearer ')) return null;
-  return authService.verifyToken(auth.slice(7));
-}
-
-/** Bearer 토큰 admin role 검증 */
-function verifyAdminBearer(auth: string | undefined): boolean {
-  if (!auth?.startsWith('Bearer ')) return false;
-  const token = auth.slice(7);
-  const parts = token.split('.');
-  if (parts.length !== 2) return false;
-  const [payload, sig] = parts;
-  try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) return false;
-    const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-    const sigBuf = Buffer.from(sig, 'base64url');
-    const expBuf = Buffer.from(expectedSig, 'base64url');
-    if (sigBuf.length !== expBuf.length) return false;
-    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return false;
-    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return parsed.role === 'admin';
-  } catch {
-    return false;
-  }
-}
-
-function requireAdmin(key: string | undefined, auth: string | undefined) {
-  const apiKey = process.env.ADMIN_API_KEY?.trim();
-  if (apiKey && key === apiKey) return;
-  if (verifyAdminBearer(auth)) return;
-  throw new ForbiddenException('관리자 권한이 필요합니다.');
-}
-
-function requireLogin(authService: AuthService, auth: string | undefined): string {
-  const userId = extractUserId(authService, auth);
-  if (!userId) throw new UnauthorizedException('로그인이 필요합니다.');
-  return userId;
-}
+import { AdminAuthService } from '../admin-auth/admin-auth.service';
+import { requireLogin } from '../common/auth.helpers';
 
 @Controller('notices')
 export class NoticesController {
   constructor(
     private readonly noticesService: NoticesService,
     private readonly authService: AuthService,
+    private readonly adminAuth: AdminAuthService,
   ) {}
 
   // ── 공개: 승인된 글 목록 ─────────────────────────────────────────────
@@ -79,14 +38,17 @@ export class NoticesController {
     @Headers('authorization') auth: string,
     @Query('status') status?: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.noticesService.findAllAdmin(status);
   }
 
   // ── 공개: 상세 조회 ──────────────────────────────────────────────────
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const notice = await this.noticesService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Query('countView') countView?: string,
+  ) {
+    const notice = await this.noticesService.findOne(id, countView === 'true');
     if (!notice) throw new NotFoundException('글을 찾을 수 없습니다.');
     return notice;
   }
@@ -115,8 +77,8 @@ export class NoticesController {
     @Headers('x-admin-key') key: string,
     @Body() body: { title?: string; content?: string; category?: string },
   ) {
-    const isAdmin = (process.env.ADMIN_API_KEY?.trim() && key === process.env.ADMIN_API_KEY?.trim())
-      || verifyAdminBearer(auth);
+    let isAdmin = false;
+    try { this.adminAuth.requireAdmin(key, auth); isAdmin = true; } catch { /* not admin */ }
 
     if (!isAdmin) {
       const userId = requireLogin(this.authService, auth);
@@ -135,7 +97,7 @@ export class NoticesController {
     @Headers('x-admin-key') key: string,
     @Headers('authorization') auth: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     await this.noticesService.removeComment(commentId);
     return { deleted: true };
   }
@@ -147,7 +109,7 @@ export class NoticesController {
     @Headers('x-admin-key') key: string,
     @Headers('authorization') auth: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     const notice = await this.noticesService.findOne(id);
     if (!notice) throw new NotFoundException('글을 찾을 수 없습니다.');
     await this.noticesService.remove(id);
@@ -162,7 +124,7 @@ export class NoticesController {
     @Headers('authorization') auth: string,
     @Body() body: { status: 'APPROVED' | 'REJECTED' },
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     if (!['APPROVED', 'REJECTED'].includes(body.status)) {
       throw new BadRequestException('유효하지 않은 상태입니다.');
     }
@@ -176,7 +138,7 @@ export class NoticesController {
     @Headers('x-admin-key') key: string,
     @Headers('authorization') auth: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     const result = await this.noticesService.togglePin(id);
     if (!result) throw new NotFoundException('글을 찾을 수 없습니다.');
     return result;

@@ -497,7 +497,8 @@ export async function generateHeartCard(data: HeartCardData): Promise<string> {
     const SIZE = 1080, SCALE = 2;
     const canvas = document.createElement("canvas");
     canvas.width = SIZE * SCALE; canvas.height = SIZE * SCALE;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D 컨텍스트를 생성할 수 없습니다.");
     ctx.scale(SCALE, SCALE);
 
     const grade = GRADE_THEMES[data.emotionGrade] || GRADE_THEMES.consolatio;
@@ -623,7 +624,8 @@ export async function generateCeciliaLetter(data: LetterData): Promise<string> {
     const SIZE = 1080, SCALE = 2;
     const canvas = document.createElement("canvas");
     canvas.width = SIZE * SCALE; canvas.height = SIZE * SCALE;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D 컨텍스트를 생성할 수 없습니다.");
     ctx.scale(SCALE, SCALE);
 
     const grade = GRADE_THEMES[data.emotionGrade] || GRADE_THEMES.consolatio;

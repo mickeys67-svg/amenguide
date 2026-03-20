@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, Req, ForbiddenException, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, Req, ForbiddenException, BadRequestException, HttpException, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import * as crypto from 'crypto';
 import { EventsService } from './events.service';
 import { SemanticSearchService } from './semantic-search.service';
+import { AdminAuthService } from '../admin-auth/admin-auth.service';
 
 // Domains allowed for on-demand scraping (prevents SSRF)
 const SCRAPE_ALLOWLIST = [
@@ -26,41 +26,12 @@ const SCRAPE_ALLOWLIST = [
   'gjcatholic.or.kr',
 ];
 
-/** Bearer 토큰에서 admin role 검증 (events controller 내부용) */
-function verifyAdminBearer(auth: string | undefined): boolean {
-  if (!auth?.startsWith('Bearer ')) return false;
-  const token = auth.slice(7);
-  const parts = token.split('.');
-  if (parts.length !== 2) return false;
-  const [payload, sig] = parts;
-  try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) return false; // JWT_SECRET 미설정 시 Bearer auth 거부 (기본값 하드코딩 금지)
-    const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-    const sigBuf = Buffer.from(sig, 'base64url');
-    const expBuf = Buffer.from(expectedSig, 'base64url');
-    if (sigBuf.length !== expBuf.length) return false;
-    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return false;
-    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return parsed.role === 'admin';
-  } catch {
-    return false;
-  }
-}
-
-/** x-admin-key(레거시) 또는 Bearer 관리자 토큰 중 하나 허용 */
-function requireAdmin(key: string | undefined, auth: string | undefined) {
-  const apiKey = process.env.ADMIN_API_KEY?.trim();
-  if (apiKey && key === apiKey) return;
-  if (verifyAdminBearer(auth)) return;
-  throw new ForbiddenException('Invalid admin credentials');
-}
-
 @Controller('events')
 export class EventsController {
   constructor(
     private readonly eventsService: EventsService,
     private readonly semanticSearch: SemanticSearchService,
+    private readonly adminAuth: AdminAuthService,
   ) { }
 
   // ── Static routes first (must be before :id to avoid param capture) ──────
@@ -72,7 +43,7 @@ export class EventsController {
 
   @Get('diag')
   async getDiagnostics(@Headers('x-admin-key') key: string, @Headers('authorization') auth: string) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.getDiagnostics();
   }
 
@@ -117,11 +88,11 @@ export class EventsController {
     return this.semanticSearch.recommend(body.feeling.slice(0, 500), history);
   }
 
-  @Get('nuclear-reset')
+  @Post('nuclear-reset')
   async nuclearReset(@Headers('x-admin-key') key: string, @Headers('authorization') auth: string) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     if (process.env.NODE_ENV === 'production') {
-      return { error: 'Forbidden: nuclear-reset is disabled in production.' };
+      throw new HttpException('Forbidden: nuclear-reset is disabled in production.', HttpStatus.FORBIDDEN);
     }
     return this.eventsService.nuclearReset();
   }
@@ -132,7 +103,7 @@ export class EventsController {
     @Headers('authorization') auth: string,
     @Query('url') url: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     if (!url) throw new BadRequestException('url query param is required');
     try {
       const { hostname } = new URL(url);
@@ -171,6 +142,9 @@ export class EventsController {
     },
   ) {
     if (!body.title?.trim()) throw new BadRequestException('title is required');
+    if (body.title.trim().length > 500) throw new BadRequestException('title must be 500 characters or less');
+    if (body.description && body.description.trim().length > 10000) throw new BadRequestException('description must be 10,000 characters or less');
+    if (body.location && body.location.trim().length > 500) throw new BadRequestException('location must be 500 characters or less');
     return this.eventsService.submitEvent(body);
   }
 
@@ -189,7 +163,12 @@ export class EventsController {
       cb(null, true);
     },
   }))
-  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+  async uploadImage(
+    @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.uploadImage(file);
   }
 
@@ -203,7 +182,7 @@ export class EventsController {
     @Headers('authorization') auth: string,
     @Query('status') status?: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.getAdminEvents(status);
   }
 
@@ -217,7 +196,7 @@ export class EventsController {
     @Headers('authorization') auth: string,
     @Param('id') id: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.approveEvent(id);
   }
 
@@ -232,7 +211,7 @@ export class EventsController {
     @Param('id') id: string,
     @Body() body: { reason?: string },
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.rejectEvent(id, body?.reason);
   }
 
@@ -245,9 +224,19 @@ export class EventsController {
     @Headers('x-admin-key') key: string,
     @Headers('authorization') auth: string,
     @Param('id') id: string,
-    @Body() body: any,
+    @Body() body: {
+      title?: string;
+      date?: string;
+      location?: string;
+      category?: string;
+      aiSummary?: string;
+      originUrl?: string;
+      imageUrl?: string;
+      themeColor?: string;
+      status?: string;
+    },
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.adminUpdateEvent(id, body);
   }
 
@@ -261,7 +250,7 @@ export class EventsController {
     @Headers('authorization') auth: string,
     @Param('id') id: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.adminDeleteEvent(id);
   }
 
@@ -271,8 +260,17 @@ export class EventsController {
     @Headers('x-admin-key') key: string,
     @Headers('authorization') auth: string,
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     return this.eventsService.backfillDiocese();
+  }
+
+  @Post('admin/reclassify')
+  async reclassifyMission(
+    @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
+  ) {
+    this.adminAuth.requireAdmin(key, auth);
+    return this.eventsService.reclassifyMissionEvents();
   }
 
   @Post('admin/diocese-sync')
@@ -281,14 +279,23 @@ export class EventsController {
     @Headers('authorization') auth: string,
     @Body() body: { monthsAhead?: number },
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     const monthsAhead = Math.min(Math.max(Number(body?.monthsAhead ?? 3), 1), 12);
     return this.eventsService.triggerDioceseSync(monthsAhead);
   }
 
   @Get()
-  async findAll(@Query('diocese') diocese?: string) {
-    return this.eventsService.findAll(diocese);
+  async findAll(
+    @Query('diocese') diocese?: string,
+    @Query('category') category?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+  ) {
+    const rawPs = parseInt(pageSize || '0', 10) || 0;
+    const ps = rawPs > 0 ? Math.min(100, rawPs) : 0;
+    const p = ps > 0 ? Math.max(1, parseInt(page || '1', 10) || 1) : 0;
+    return this.eventsService.findAll(diocese, category, ps > 0 ? p : undefined, ps > 0 ? ps : undefined, sort);
   }
 
   // ── Admin mutation ────────────────────────────────────────────────────────
@@ -307,7 +314,7 @@ export class EventsController {
       category?: string;
     },
   ) {
-    requireAdmin(key, auth);
+    this.adminAuth.requireAdmin(key, auth);
     if (!body.title?.trim()) {
       throw new BadRequestException('title is required');
     }

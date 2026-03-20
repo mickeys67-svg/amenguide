@@ -50,6 +50,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   청년: '#0B6B70',    // deep teal
   문화: '#6E2882',    // royal purple
   선교: '#C83A1E',    // vermillion
+  뉴스: '#5C6B7A',    // muted slate blue (교구 소식)
 };
 
 @Injectable()
@@ -62,16 +63,16 @@ export class DioceseSyncService {
   async runAll(monthsAhead = 3): Promise<DioceseSyncResult> {
     this.logger.log(`[DioceseSync] 시작 — 앞으로 ${monthsAhead}개월 수집`);
 
-    // ── 과거 행사 정리: 날짜가 지난 이벤트 삭제 ──────────────────────────
+    // ── 과거 행사 정리: 14일 이상 지난 이벤트 삭제 (events.service와 동일 기준) ──
     try {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(23, 59, 59, 999);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 14);
+      cutoff.setHours(23, 59, 59, 999);
       const deleted = await this.prisma.event.deleteMany({
-        where: { date: { lt: yesterday } },
+        where: { date: { lt: cutoff } },
       });
       if (deleted.count > 0) {
-        this.logger.log(`[DioceseSync] 과거 행사 ${deleted.count}건 삭제`);
+        this.logger.log(`[DioceseSync] 14일 이상 지난 행사 ${deleted.count}건 삭제`);
       }
     } catch (err) {
       this.logger.error(`[DioceseSync] 과거 행사 삭제 실패: ${(err as Error).message}`);
@@ -824,9 +825,20 @@ export class DioceseSyncService {
     return utf8;
   }
 
-  /** 카테고리 탐지 — UI 카테고리와 동일한 분류체계 (강론·특강·피정의집 추가) */
+  /** 카테고리 탐지 — 뉴스 우선 필터 + 행사 카테고리 매칭 */
   private detectCategory(title: string, type: string): string {
     const t = (title + ' ' + type).replace(/\s+/g, '');
+
+    // ── 1단계: 뉴스/비행사 콘텐츠 우선 필터 ──
+    if (/인사발령|인사이동|임명|착좌|서품식|축성식|선종|장례|부고|서거|추모미사/.test(t)) return '뉴스';
+    if (/담화문|사목교서|성명서|교서|회칙|권고문|주교회의|교구장/.test(t)) return '뉴스';
+    if (/교구소식|보도자료|기자회견|뉴스|취재|인터뷰|논평/.test(t)) return '뉴스';
+    if (/공지사항|안내문|총회|이사회|결산|예산|통계|현황|보고서/.test(t)) return '뉴스';
+    if (/사순담화|부활담화|성탄담화|평화메시지/.test(t)) return '뉴스';
+    if (/후기|탐방기|체험기|소감문|방문기/.test(t)) return '뉴스';
+    if (/모집공고|채용|구인|입찰|공모/.test(t)) return '뉴스';
+
+    // ── 2단계: 행사 카테고리 매칭 (기존 로직 유지) ──
     // 피정의집 (수도원 거주 프로그램) — 피정보다 먼저 검사
     if (/피정의집|수련원|영성원|봉쇄피정|묵주기도의집|성모피정원|이냐시오피정|수도원프로그램/.test(t)) return '피정의집';
     // 피정
@@ -847,7 +859,9 @@ export class DioceseSyncService {
     if (/음악회|공연|전시|합창|연극|음악제|뮤지컬|콘서트|축제/.test(t)) return '문화';
     // 선교·봉사
     if (/선교|봉사|레지오|복음화|사회사목|자선/.test(t)) return '선교';
-    return '선교'; // 분류 불가 → 선교/기타로 처리
+
+    // ── 3단계: 매칭 실패 → 뉴스로 분류 ──
+    return '뉴스';
   }
 
   // ══════════════════════════════════════════════════════════════════════════

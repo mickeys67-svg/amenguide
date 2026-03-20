@@ -12,6 +12,7 @@ import { inferDiocese } from '../scrapers/diocese-mapper';
 @Injectable()
 export class EventsService implements OnModuleInit {
   private readonly logger = new Logger(EventsService.name);
+  private readonly supabase: ReturnType<typeof createClient> | null;
 
   constructor(
     private prisma: PrismaService,
@@ -19,7 +20,13 @@ export class EventsService implements OnModuleInit {
     private aiRefiner: AiRefinerService,
     private sacredWhisper: SacredWhisperService,
     private dioceseSync: DioceseSyncService,
-  ) { }
+  ) {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    this.supabase = (supabaseUrl && supabaseKey)
+      ? createClient(supabaseUrl, supabaseKey)
+      : null;
+  }
 
   onModuleInit() {
     // 매일 자정 이후 행사 종료 2일 경과한 이벤트 자동 삭제
@@ -32,21 +39,18 @@ export class EventsService implements OnModuleInit {
     setInterval(run, ONE_DAY_MS);
   }
 
-  /** 행사 종료 14일 후 이벤트 레코드 삭제 + Supabase Storage 이미지 삭제
-   *  ★ 2일→14일: 다일간 행사(7일 피정 등) 진행 중 삭제 방지 */
+  /** 행사 종료 14일 후 이벤트 레코드 삭제 + Supabase Storage 이미지 삭제 */
   private async cleanupExpiredEvents() {
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 14);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 14);
 
     // 1. 만료된 이벤트의 Supabase 이미지 먼저 삭제
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-    if (supabaseUrl && supabaseKey) {
+    if (this.supabase) {
       const eventsWithImages = await this.prisma.event.findMany({
         where: {
           AND: [
             { imageUrl: { not: null } },
-            { date: { not: null, lt: twoDaysAgo } },
+            { date: { not: null, lt: cutoffDate } },
           ],
         },
         select: { id: true, imageUrl: true },
@@ -54,15 +58,13 @@ export class EventsService implements OnModuleInit {
 
       if (eventsWithImages.length > 0) {
         this.logger.log(`Cleaning images for ${eventsWithImages.length} expired event(s)`);
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const prefix = `${supabaseUrl}/storage/v1/object/public/event-images/`;
-        // 배치 삭제 — N번 개별 remove() → 1번 remove([...all]) 으로 API 호출 절감
+        const prefix = `${process.env.SUPABASE_URL}/storage/v1/object/public/event-images/`;
         const fileNames = eventsWithImages
           .filter((e) => e.imageUrl?.startsWith(prefix))
           .map((e) => e.imageUrl!.slice(prefix.length));
         if (fileNames.length > 0) {
           try {
-            await supabase.storage.from('event-images').remove(fileNames);
+            await this.supabase.storage.from('event-images').remove(fileNames);
           } catch (err) {
             this.logger.error(`Batch image delete failed: ${err.message}`);
           }
@@ -73,7 +75,7 @@ export class EventsService implements OnModuleInit {
     // 2. 만료된 이벤트 레코드 삭제 (date IS NOT NULL AND date < 2일 전)
     const deleted = await this.prisma.event.deleteMany({
       where: {
-        date: { not: null, lt: twoDaysAgo },
+        date: { not: null, lt: cutoffDate },
       },
     });
     if (deleted.count > 0) {
@@ -83,7 +85,9 @@ export class EventsService implements OnModuleInit {
 
   async triggerAsyncScrape(url: string) {
     this.logger.log(`Received async scrape request for URL: ${url}`);
-    this.sacredWhisper.process(url); // Don't await
+    this.sacredWhisper.process(url).catch((err) =>
+      this.logger.error(`Sacred Whisper process failed: ${err.message}`),
+    ); // Don't await — runs in background
     return { message: 'Sacred Whisper initiated in background.', url };
   }
 
@@ -130,40 +134,60 @@ export class EventsService implements OnModuleInit {
     }
   }
 
-  async findAll(diocese?: string) {
+  async findAll(diocese?: string, category?: string, page?: number, pageSize?: number, sort?: string) {
     try {
-      // 만료된 이벤트는 cleanupExpiredEvents()가 매일 삭제 — 별도 날짜 필터 불필요
-      // date = null 인 이벤트는 날짜 미정이므로 항상 포함
       const where: any = { status: 'APPROVED' };
-      if (diocese) {
-        where.diocese = diocese;
+      if (diocese) where.diocese = diocese;
+      if (category && category !== '전체') where.category = category;
+
+      const orderBy = sort === 'latest'
+        ? [{ createdAt: 'desc' as const }]
+        : [{ date: 'asc' as const }, { createdAt: 'desc' as const }];
+
+      // 페이지네이션 요청이면 total + categoryCounts 포함 응답
+      if (page && pageSize) {
+        // 카테고리별 카운트 (DB groupBy 사용)
+        const baseWhere: any = { status: 'APPROVED' };
+        if (diocese) baseWhere.diocese = diocese;
+        const categoryGroups = await this.prisma.event.groupBy({
+          by: ['category'],
+          where: baseWhere,
+          _count: true,
+        });
+        const categoryCounts: Record<string, number> = {};
+        for (const g of categoryGroups) {
+          categoryCounts[g.category || '뉴스'] = (categoryCounts[g.category || '뉴스'] || 0) + g._count;
+        }
+
+        // DB 페이지네이션
+        const [data, total] = await Promise.all([
+          this.prisma.event.findMany({
+            where,
+            orderBy,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
+          this.prisma.event.count({ where }),
+        ]);
+        return { data, total, page, pageSize, categoryCounts };
       }
-      const rows = await this.prisma.event.findMany({
-        where,
-        orderBy: [
-          { date: 'asc' },    // 다가오는 행사 먼저 (null은 마지막)
-          { createdAt: 'desc' },
-        ],
-      });
+
+      // 페이지네이션 없으면 기존 호환 (배열 반환)
+      const rows = await this.prisma.event.findMany({ where, orderBy });
       return this.deduplicateEvents(rows);
     } catch (error) {
-      // Only trigger nuclear reset when the Event TABLE itself is missing.
       const isTableMissing =
         /relation "Event" does not exist/i.test(error.message) ||
         /relation "event" does not exist/i.test(error.message);
       if (isTableMissing) {
-        this.logger.warn(
-          'Table "event" not found, attempting on-the-fly creation.',
-        );
-        await this.nuclearReset();
+        this.logger.warn('Table "event" not found — running initDatabase().');
+        await this.prisma.initDatabase();
         const where2: any = { status: 'APPROVED' };
         if (diocese) where2.diocese = diocese;
+        if (category && category !== '전체') where2.category = category;
         const retryRows = await this.prisma.event.findMany({
           where: where2,
-          orderBy: [
-            { date: 'asc' },
-            { createdAt: 'desc' },
-          ],
+          orderBy: [{ date: 'asc' }, { createdAt: 'desc' }],
         });
         return this.deduplicateEvents(retryRows);
       }
@@ -212,7 +236,7 @@ export class EventsService implements OnModuleInit {
         aiSummary: data.aiSummary ?? null,
         themeColor: data.themeColor ?? '#457B9D',
         originUrl: data.originUrl ?? null,
-        category: data.category ?? '선교',
+        category: data.category ?? '뉴스',
         imageUrl: data.imageUrl ?? null,
         status: 'APPROVED',  // 관리자 직접 등록은 즉시 공개
       } as any,
@@ -269,17 +293,24 @@ export class EventsService implements OnModuleInit {
     });
   }
 
+  private static ALLOWED_STATUSES = ['APPROVED', 'PENDING', 'REJECTED'];
+
   async adminUpdateEvent(id: string, data: any) {
     const updateData: any = {};
-    if (data.title !== undefined) updateData.title = data.title;
+    if (data.title !== undefined) updateData.title = String(data.title).slice(0, 500);
     if (data.date !== undefined) updateData.date = data.date ? new Date(data.date) : null;
-    if (data.location !== undefined) updateData.location = data.location;
-    if (data.category !== undefined) updateData.category = data.category;
-    if (data.aiSummary !== undefined) updateData.aiSummary = data.aiSummary;
-    if (data.originUrl !== undefined) updateData.originUrl = data.originUrl;
-    if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
-    if (data.themeColor !== undefined) updateData.themeColor = data.themeColor;
-    if (data.status !== undefined) updateData.status = data.status;
+    if (data.location !== undefined) updateData.location = String(data.location).slice(0, 500);
+    if (data.category !== undefined) updateData.category = String(data.category).slice(0, 100);
+    if (data.aiSummary !== undefined) updateData.aiSummary = data.aiSummary ? String(data.aiSummary).slice(0, 5000) : null;
+    if (data.originUrl !== undefined) updateData.originUrl = data.originUrl ? String(data.originUrl).slice(0, 2000) : null;
+    if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl ? String(data.imageUrl).slice(0, 2000) : null;
+    if (data.themeColor !== undefined) updateData.themeColor = data.themeColor ? String(data.themeColor).slice(0, 50) : null;
+    if (data.status !== undefined) {
+      if (!EventsService.ALLOWED_STATUSES.includes(data.status)) {
+        throw new Error(`유효하지 않은 상태값: ${data.status}`);
+      }
+      updateData.status = data.status;
+    }
     return this.prisma.event.update({ where: { id }, data: updateData });
   }
 
@@ -289,21 +320,18 @@ export class EventsService implements OnModuleInit {
   }
 
   async uploadImage(file: Express.Multer.File): Promise<{ url: string | null }> {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseKey || !file) return { url: null };
+    if (!this.supabase || !file) return { url: null };
     try {
-      const supabase = createClient(supabaseUrl, supabaseKey);
       const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
       const fileName = `${Date.now()}-${safeName}`;
-      const { error } = await supabase.storage
+      const { error } = await this.supabase.storage
         .from('event-images')
         .upload(fileName, file.buffer, {
           contentType: file.mimetype,
           upsert: false,
         });
       if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = this.supabase.storage
         .from('event-images')
         .getPublicUrl(fileName);
       return { url: publicUrl };
@@ -415,5 +443,56 @@ export class EventsService implements OnModuleInit {
         timestamp: new Date().toISOString()
       };
     }
+  }
+
+  /** 기존 '선교' 카테고리 데이터 재분류 (1회성 마이그레이션) */
+  async reclassifyMissionEvents(): Promise<{ total: number; reclassified: number; details: Array<{ title: string; from: string; to: string }> }> {
+    const missionEvents = await this.prisma.event.findMany({
+      where: { category: '선교' },
+      select: { id: true, title: true },
+    });
+
+    const details: Array<{ title: string; from: string; to: string }> = [];
+
+    for (const evt of missionEvents) {
+      const newCategory = this.detectCategoryForMigration(evt.title);
+      if (newCategory !== '선교') {
+        await this.prisma.event.update({
+          where: { id: evt.id },
+          data: { category: newCategory },
+        });
+        details.push({ title: evt.title, from: '선교', to: newCategory });
+      }
+    }
+
+    return { total: missionEvents.length, reclassified: details.length, details };
+  }
+
+  /** detectCategory 로직 복제 (diocese-sync의 private 메서드 접근 불가) */
+  private detectCategoryForMigration(title: string): string {
+    const t = title.replace(/\s+/g, '');
+
+    // 뉴스/비행사 콘텐츠
+    if (/인사발령|인사이동|임명|착좌|서품식|축성식|선종|장례|부고|서거|추모미사/.test(t)) return '뉴스';
+    if (/담화문|사목교서|성명서|교서|회칙|권고문|주교회의|교구장/.test(t)) return '뉴스';
+    if (/교구소식|보도자료|기자회견|뉴스|취재|인터뷰|논평/.test(t)) return '뉴스';
+    if (/공지사항|안내문|총회|이사회|결산|예산|통계|현황|보고서/.test(t)) return '뉴스';
+    if (/사순담화|부활담화|성탄담화|평화메시지/.test(t)) return '뉴스';
+    if (/후기|탐방기|체험기|소감문|방문기/.test(t)) return '뉴스';
+    if (/모집공고|채용|구인|입찰|공모/.test(t)) return '뉴스';
+
+    // 행사 카테고리
+    if (/피정의집|수련원|영성원|봉쇄피정|묵주기도의집|성모피정원|이냐시오피정|수도원프로그램/.test(t)) return '피정의집';
+    if (/피정|영성수련|묵상|성령쇄신|마리아의밤|관상기도|침묵피정/.test(t)) return '피정';
+    if (/강론|설교|사목서한|강론집/.test(t)) return '강론';
+    if (/특강|초청강연|공개강좌|심포지엄|포럼/.test(t)) return '특강';
+    if (/강의|강좌|교육|세미나|렉시오|성경|교리|신학/.test(t)) return '강의';
+    if (/미사|전례|기도회|성시간|연도|위령|성체거양|복사단/.test(t)) return '미사';
+    if (/순례|성지|도보순례|성당탐방|순례길/.test(t)) return '순례';
+    if (/청년|Youth|youth|대학|청소년|성소/.test(t)) return '청년';
+    if (/음악회|공연|전시|합창|연극|음악제|뮤지컬|콘서트|축제/.test(t)) return '문화';
+    if (/선교|봉사|레지오|복음화|사회사목|자선/.test(t)) return '선교';
+
+    return '뉴스';
   }
 }

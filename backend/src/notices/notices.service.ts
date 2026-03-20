@@ -1,12 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
+import { sanitizeHtml } from '../common/sanitize.util';
 
 @Injectable()
 export class NoticesService {
   private readonly logger = new Logger(NoticesService.name);
+  private readonly supabase: ReturnType<typeof createClient> | null;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    this.supabase = (supabaseUrl && supabaseKey)
+      ? createClient(supabaseUrl, supabaseKey)
+      : null;
+  }
 
   // ── 목록 조회 (승인된 글만, 고정글 상단) ─────────────────────────────
   async findAll(page: number, limit: number, category?: string) {
@@ -42,7 +50,7 @@ export class NoticesService {
   }
 
   // ── 상세 조회 + 조회수 증가 ──────────────────────────────────────────
-  async findOne(id: string) {
+  async findOne(id: string, countView = false) {
     const notice = await this.prisma.notice.findUnique({
       where: { id },
       include: {
@@ -57,10 +65,12 @@ export class NoticesService {
 
     if (!notice) return null;
 
-    // 조회수 비동기 증가 (응답 지연 방지)
-    this.prisma.notice
-      .update({ where: { id }, data: { viewCount: { increment: 1 } } })
-      .catch(() => {});
+    // 조회수 비동기 증가 (countView가 true일 때만)
+    if (countView) {
+      this.prisma.notice
+        .update({ where: { id }, data: { viewCount: { increment: 1 } } })
+        .catch(() => {});
+    }
 
     return notice;
   }
@@ -69,8 +79,8 @@ export class NoticesService {
   async create(authorId: string, data: { title: string; content: string; category?: string }) {
     return this.prisma.notice.create({
       data: {
-        title: data.title,
-        content: data.content,
+        title: sanitizeHtml(data.title),
+        content: sanitizeHtml(data.content),
         category: data.category || '일반',
         authorId,
         status: 'PENDING',
@@ -86,8 +96,8 @@ export class NoticesService {
     return this.prisma.notice.update({
       where: { id },
       data: {
-        ...(data.title !== undefined && { title: data.title }),
-        ...(data.content !== undefined && { content: data.content }),
+        ...(data.title !== undefined && { title: sanitizeHtml(data.title) }),
+        ...(data.content !== undefined && { content: sanitizeHtml(data.content) }),
         ...(data.category !== undefined && { category: data.category }),
       },
       include: {
@@ -148,16 +158,13 @@ export class NoticesService {
     noticeId: string,
     file: Express.Multer.File,
   ): Promise<{ id: string; fileName: string; fileUrl: string; fileSize: number } | null> {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseKey || !file) return null;
+    if (!this.supabase || !file) return null;
 
     try {
-      const supabase = createClient(supabaseUrl, supabaseKey);
       const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_가-힣]/g, '_');
       const storagePath = `notices/${noticeId}/${Date.now()}-${safeName}`;
 
-      const { error } = await supabase.storage
+      const { error } = await this.supabase.storage
         .from('event-images')
         .upload(storagePath, file.buffer, {
           contentType: file.mimetype,
@@ -167,7 +174,7 @@ export class NoticesService {
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from('event-images').getPublicUrl(storagePath);
+      } = this.supabase.storage.from('event-images').getPublicUrl(storagePath);
 
       const attachment = await this.prisma.noticeAttachment.create({
         data: {
@@ -202,19 +209,16 @@ export class NoticesService {
 
   // ── 내부: Supabase 파일 삭제 ─────────────────────────────────────────
   private async deleteStorageFiles(fileUrls: string[]) {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-    if (!supabaseUrl || !supabaseKey) return;
+    if (!this.supabase) return;
 
     try {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      const prefix = `${supabaseUrl}/storage/v1/object/public/event-images/`;
+      const prefix = `${process.env.SUPABASE_URL}/storage/v1/object/public/event-images/`;
       const paths = fileUrls
         .filter((url) => url.startsWith(prefix))
         .map((url) => url.slice(prefix.length));
 
       if (paths.length > 0) {
-        await supabase.storage.from('event-images').remove(paths);
+        await this.supabase.storage.from('event-images').remove(paths);
       }
     } catch (err) {
       this.logger.error(`Storage file cleanup failed: ${err.message}`);

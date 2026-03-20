@@ -79,7 +79,7 @@ const KEYWORD_MAP: [string[], Diocese][] = [
   [
     [
       '부산', '해운대', '사하', '사상', '동래', '연제', '수영',
-      '남구', '북구', '기장', '금정', '울산', '양산', '김해',
+      '남구', '북구', '기장', '금정', '울산', '양산',
     ],
     '부산교구',
   ],
@@ -95,7 +95,7 @@ const KEYWORD_MAP: [string[], Diocese][] = [
   [
     [
       '마산', '창원', '진주', '통영', '사천', '김해', '밀양',
-      '거제', '양산', '의령', '함안', '창녕', '고성', '남해',
+      '거제', '의령', '함안', '창녕', '고성', '남해',
       '하동', '산청', '함양', '거창', '합천',
     ],
     '마산교구',
@@ -152,8 +152,16 @@ export function inferDiocese(location: string | null | undefined): Diocese | nul
 
   // 이미 교구 이름이 포함된 경우 바로 반환
   for (const diocese of DIOCESES) {
-    if (location.includes(diocese.replace('교구', '').replace('대', ''))) {
-      // "서울대교구" → "서울" 포함 여부 체크
+    if (location.includes(diocese)) {
+      return diocese;
+    }
+  }
+
+  // 키워드 축약 매칭 (예: "서울대교구" → "서울" 포함 여부)
+  for (const diocese of DIOCESES) {
+    const short = diocese.replace('대교구', '').replace('교구', '');
+    if (short && location.includes(short)) {
+      return diocese;
     }
   }
 

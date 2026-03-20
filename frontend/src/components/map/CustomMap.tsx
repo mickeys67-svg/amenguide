@@ -28,12 +28,13 @@ function formatDist(km: number): string {
 
 /* ─── 이벤트 핀 ─── */
 function makePinEl(color: string): HTMLElement {
+    const safeColor = /^#[0-9A-Fa-f]{3,8}$/.test(color) ? color : '#1B4080';
     const div = document.createElement('div');
     div.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36"
              style="display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))">
             <path d="M14 0C6.268 0 0 6.268 0 14c0 8.837 14 22 14 22S28 22.837 28 14C28 6.268 21.732 0 14 0z"
-                  fill="${color}" stroke="white" stroke-width="1.5"/>
+                  fill="${safeColor}" stroke="white" stroke-width="1.5"/>
             <circle cx="14" cy="14" r="5" fill="white" opacity="0.95"/>
         </svg>`;
     return div;
@@ -60,7 +61,8 @@ function makeUserPinEl(): HTMLElement {
 }
 
 /* ─── InfoWindow ─── */
-function makeInfoHtml(ev: any, color: string, distKm?: number): string {
+function makeInfoHtml(ev: any, rawColor: string, distKm?: number): string {
+    const color = /^#[0-9A-Fa-f]{3,8}$/.test(rawColor) ? rawColor : '#1B4080';
     const dateStr = ev.date
         ? new Date(ev.date).toLocaleDateString('ko-KR', {
               year: 'numeric', month: 'long', day: 'numeric' })

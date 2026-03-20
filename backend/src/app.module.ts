@@ -8,9 +8,10 @@ import { AdminAuthModule } from './admin-auth/admin-auth.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationModule } from './notifications/notification.module';
 import { NoticesModule } from './notices/notices.module';
+import { CommunityModule } from './community/community.module';
 
 @Module({
-  imports: [PrismaModule, EventsModule, DevModule, AuthModule, AdminAuthModule, ReviewsModule, NotificationModule, NoticesModule],
+  imports: [PrismaModule, EventsModule, DevModule, AuthModule, AdminAuthModule, ReviewsModule, NotificationModule, NoticesModule, CommunityModule],
   controllers: [AppController],
   providers: [],
 })

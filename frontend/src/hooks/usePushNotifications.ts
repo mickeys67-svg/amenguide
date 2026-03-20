@@ -36,7 +36,7 @@ export function usePushNotifications() {
                 const data = await res.json();
                 setIsSubscribed(data.subscribed);
             }
-        } catch {}
+        } catch (err) { console.error("Push notification status check failed:", err); }
     }, []);
 
     useEffect(() => {

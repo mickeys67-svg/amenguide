@@ -2,22 +2,22 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  ForbiddenException,
   ConflictException,
   OnModuleInit,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { hashPassword, verifyPassword } from '../common/password.util';
 
 @Injectable()
 export class AdminAuthService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
-    // initDatabase()가 Admin 테이블을 생성할 때까지 기다린 후 시드
-    // (PrismaService.onModuleInit()은 initDatabase를 fire-and-forget으로 호출하므로
-    //  AdminAuthService가 먼저 실행될 수 있는 경쟁 조건을 방지)
+    // PrismaService.onModuleInit() already calls initDatabase().
+    // Seed admin after schema is ready.
     try {
-      await this.prisma.initDatabase();
       await this.seedInitialAdmin();
     } catch (err: any) {
       console.error('AdminAuthService: onModuleInit failed:', err.message);
@@ -56,48 +56,35 @@ export class AdminAuthService implements OnModuleInit {
     console.log(`AdminAuthService: ${adminEmail} seeded`);
   }
 
-  // ── 비밀번호 해싱 ─────────────────────────────────────────────────────────
+  // ── 비밀번호 해싱 (shared utility) ────────────────────────────────────────
   private hashPassword(password: string): Promise<string> {
-    const salt = crypto.randomBytes(16).toString('hex');
-    return new Promise((resolve, reject) => {
-      crypto.scrypt(password, salt, 64, (err, derived) => {
-        if (err) reject(err);
-        else resolve(`${salt}:${derived.toString('hex')}`);
-      });
-    });
+    return hashPassword(password);
   }
 
   private verifyPassword(password: string, stored: string): Promise<boolean> {
-    const [salt, hash] = stored.split(':');
-    if (!salt || !hash) return Promise.resolve(false);
-    return new Promise((resolve, reject) => {
-      crypto.scrypt(password, salt, 64, (err, derived) => {
-        if (err) reject(err);
-        else {
-          try {
-            resolve(crypto.timingSafeEqual(derived, Buffer.from(hash, 'hex')));
-          } catch {
-            resolve(false);
-          }
-        }
-      });
-    });
+    return verifyPassword(password, stored);
   }
 
   // ── Admin 토큰 (payload에 role:'admin' 포함) ──────────────────────────────
   private _fallbackSecret?: string;
   private get secret() {
     if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: JWT_SECRET environment variable is not set in production!');
+    }
     if (!this._fallbackSecret) {
       this._fallbackSecret = crypto.randomBytes(32).toString('hex');
-      console.error('[SECURITY] JWT_SECRET 환경변수가 설정되지 않았습니다! 임시 랜덤 시크릿을 사용합니다.');
+      console.error('[SECURITY] JWT_SECRET 환경변수가 설정되지 않았습니다! 개발용 임시 랜덤 시크릿을 사용합니다.');
     }
     return this._fallbackSecret;
   }
 
+  private static ADMIN_TOKEN_EXPIRY_SECONDS = 24 * 60 * 60; // 24시간
+
   createAdminToken(adminId: string): string {
+    const now = Math.floor(Date.now() / 1000);
     const payload = Buffer.from(
-      JSON.stringify({ sub: adminId, role: 'admin', iat: Math.floor(Date.now() / 1000) }),
+      JSON.stringify({ sub: adminId, role: 'admin', iat: now, exp: now + AdminAuthService.ADMIN_TOKEN_EXPIRY_SECONDS }),
     ).toString('base64url');
     const sig = crypto.createHmac('sha256', this.secret).update(payload).digest('base64url');
     return `${payload}.${sig}`;
@@ -119,10 +106,25 @@ export class AdminAuthService implements OnModuleInit {
       if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
       const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString());
       if (parsed.role !== 'admin') return null;
+      if (parsed.exp && parsed.exp < Math.floor(Date.now() / 1000)) return null;
       return parsed.sub as string;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * x-admin-key(레거시) 또는 Bearer 관리자 토큰 중 하나 허용.
+   * 컨트롤러에서 공통으로 사용하는 단일 인증 진입점.
+   */
+  requireAdmin(key: string | undefined, auth: string | undefined): void {
+    const apiKey = process.env.ADMIN_API_KEY?.trim();
+    if (apiKey && key === apiKey) return;
+    if (auth?.startsWith('Bearer ')) {
+      const adminId = this.verifyAdminToken(auth.slice(7));
+      if (adminId) return;
+    }
+    throw new ForbiddenException('관리자 권한이 필요합니다.');
   }
 
   // ── 로그인 ────────────────────────────────────────────────────────────────

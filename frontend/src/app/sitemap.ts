@@ -23,7 +23,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     try {
         const res = await fetch(`${API_BASE}/events`, { next: { revalidate: 3600 } });
         if (res.ok) {
-            const events: { id: string; updatedAt?: string }[] = await res.json();
+            const body = await res.json();
+            const events: { id: string; updatedAt?: string }[] = Array.isArray(body) ? body : (body.data ?? []);
             eventPages = events.map((ev) => ({
                 url: `${SITE_URL}/events/${ev.id}`,
                 lastModified: ev.updatedAt ? new Date(ev.updatedAt) : new Date(),

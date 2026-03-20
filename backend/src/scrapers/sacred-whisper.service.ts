@@ -18,7 +18,9 @@ export class SacredWhisperService {
     this.logger.log(`Starting background async crawl for: ${url}`);
 
     // Execute in background without awaiting the full process in the trigger
-    this.runBackgroundTask(url);
+    this.runBackgroundTask(url).catch((err) =>
+      this.logger.error(`Background task failed for ${url}: ${err.message}`),
+    );
   }
 
   private async runBackgroundTask(url: string) {

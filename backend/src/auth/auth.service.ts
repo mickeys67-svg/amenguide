@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { hashPassword, verifyPassword } from '../common/password.util';
 
 @Injectable()
 export class AuthService {
@@ -37,49 +38,36 @@ export class AuthService {
     }
   }
 
-  // ── 비밀번호 해싱 (crypto.scrypt) ─────────────────────────────────
+  // ── 비밀번호 해싱 (shared utility) ────────────────────────────────
   private hashPassword(password: string): Promise<string> {
-    const salt = crypto.randomBytes(16).toString('hex');
-    return new Promise((resolve, reject) => {
-      crypto.scrypt(password, salt, 64, (err, derived) => {
-        if (err) reject(err);
-        else resolve(`${salt}:${derived.toString('hex')}`);
-      });
-    });
+    return hashPassword(password);
   }
 
   private verifyPassword(password: string, stored: string): Promise<boolean> {
-    const [salt, hash] = stored.split(':');
-    if (!salt || !hash) return Promise.resolve(false);
-    return new Promise((resolve, reject) => {
-      crypto.scrypt(password, salt, 64, (err, derived) => {
-        if (err) reject(err);
-        else {
-          try {
-            resolve(crypto.timingSafeEqual(derived, Buffer.from(hash, 'hex')));
-          } catch {
-            resolve(false);
-          }
-        }
-      });
-    });
+    return verifyPassword(password, stored);
   }
 
   // ── 토큰 생성/검증 (HMAC-SHA256) ──────────────────────────────────
   private _fallbackSecret?: string;
   private get secret() {
     if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-    // JWT_SECRET 미설정 → 랜덤 시크릿 자동 생성 (재시작 시 무효화됨)
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: JWT_SECRET environment variable is not set in production!');
+    }
+    // JWT_SECRET 미설정 (개발 환경) → 랜덤 시크릿 자동 생성 (재시작 시 무효화됨)
     if (!this._fallbackSecret) {
       this._fallbackSecret = crypto.randomBytes(32).toString('hex');
-      console.error('[SECURITY] JWT_SECRET 환경변수가 설정되지 않았습니다! 임시 랜덤 시크릿을 사용합니다. 프로덕션에서는 반드시 JWT_SECRET을 설정하세요.');
+      console.error('[SECURITY] JWT_SECRET 환경변수가 설정되지 않았습니다! 개발용 임시 랜덤 시크릿을 사용합니다.');
     }
     return this._fallbackSecret;
   }
 
+  private static TOKEN_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7일
+
   createToken(userId: string): string {
+    const now = Math.floor(Date.now() / 1000);
     const payload = Buffer.from(
-      JSON.stringify({ sub: userId, iat: Math.floor(Date.now() / 1000) }),
+      JSON.stringify({ sub: userId, iat: now, exp: now + AuthService.TOKEN_EXPIRY_SECONDS }),
     ).toString('base64url');
     const sig = crypto.createHmac('sha256', this.secret).update(payload).digest('base64url');
     return `${payload}.${sig}`;
@@ -96,8 +84,9 @@ export class AuthService {
       const expBuf = Buffer.from(expectedSig, 'base64url');
       if (sigBuf.length !== expBuf.length) return null;
       if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
-      const { sub } = JSON.parse(Buffer.from(payload, 'base64url').toString());
-      return sub as string;
+      const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      if (parsed.exp && parsed.exp < Math.floor(Date.now() / 1000)) return null;
+      return parsed.sub as string;
     } catch {
       return null;
     }

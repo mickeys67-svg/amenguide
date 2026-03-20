@@ -25,9 +25,12 @@ export class PrismaService
     });
     // Ensure all schema columns exist on every deploy (idempotent ALTER TABLE IF NOT EXISTS).
     // This fixes missing columns (e.g. status, imageUrl) without requiring nuclearReset.
-    this.initDatabase().catch((err) => {
+    // Awaited so that dependent services (e.g. AdminAuthService) can rely on tables existing.
+    try {
+      await this.initDatabase();
+    } catch (err) {
       console.error('PrismaService: initDatabase on startup failed:', err.message);
-    });
+    }
     console.log('PrismaService initialized (lazy pool via PrismaPg).');
   }
 
@@ -166,6 +169,66 @@ export class PrismaService
       CREATE INDEX IF NOT EXISTS "AiUsageLog_usedDate_idx" ON "AiUsageLog"("usedDate");
     `;
     await this.$executeRawUnsafe(aiUsageSql);
+
+    // Community tables (Cenaculum — 친교의 다락방)
+    const communitySql = `
+      CREATE TABLE IF NOT EXISTS "CommunityPost" (
+        "id" TEXT PRIMARY KEY,
+        "title" TEXT NOT NULL,
+        "content" TEXT NOT NULL,
+        "category" TEXT DEFAULT '자유게시판',
+        "status" TEXT DEFAULT 'APPROVED',
+        "isPinned" BOOLEAN DEFAULT false,
+        "isClosed" BOOLEAN DEFAULT false,
+        "isAnonymous" BOOLEAN DEFAULT false,
+        "viewCount" INTEGER DEFAULT 0,
+        "diocese" TEXT,
+        "authorId" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS "CommunityComment" (
+        "id" TEXT PRIMARY KEY,
+        "content" TEXT NOT NULL,
+        "parentId" TEXT REFERENCES "CommunityComment"("id") ON DELETE CASCADE,
+        "authorId" TEXT NOT NULL REFERENCES "User"("id"),
+        "postId" TEXT NOT NULL REFERENCES "CommunityPost"("id") ON DELETE CASCADE,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS "CommunityReaction" (
+        "id" TEXT PRIMARY KEY,
+        "type" TEXT NOT NULL,
+        "userId" TEXT NOT NULL REFERENCES "User"("id"),
+        "postId" TEXT REFERENCES "CommunityPost"("id") ON DELETE CASCADE,
+        "commentId" TEXT REFERENCES "CommunityComment"("id") ON DELETE CASCADE,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS "CommunityPost_status_cat_idx" ON "CommunityPost"("status", "category", "createdAt");
+      CREATE INDEX IF NOT EXISTS "CommunityPost_authorId_idx" ON "CommunityPost"("authorId");
+      CREATE INDEX IF NOT EXISTS "CommunityPost_diocese_idx" ON "CommunityPost"("diocese");
+      CREATE INDEX IF NOT EXISTS "CommunityComment_postId_idx" ON "CommunityComment"("postId", "createdAt");
+      CREATE INDEX IF NOT EXISTS "CommunityComment_parentId_idx" ON "CommunityComment"("parentId");
+      CREATE INDEX IF NOT EXISTS "CommunityReaction_postId_idx" ON "CommunityReaction"("postId");
+      CREATE INDEX IF NOT EXISTS "CommunityReaction_commentId_idx" ON "CommunityReaction"("commentId");
+    `;
+    await this.$executeRawUnsafe(communitySql);
+
+    // Unique constraints for CommunityReaction (idempotent)
+    const reactionConstraintsSql = `
+      DO $$ BEGIN
+        ALTER TABLE "CommunityReaction" ADD CONSTRAINT "CommunityReaction_userId_postId_type_key" UNIQUE ("userId", "postId", "type");
+      EXCEPTION WHEN duplicate_table THEN NULL;
+      END $$;
+      DO $$ BEGIN
+        ALTER TABLE "CommunityReaction" ADD CONSTRAINT "CommunityReaction_userId_commentId_type_key" UNIQUE ("userId", "commentId", "type");
+      EXCEPTION WHEN duplicate_table THEN NULL;
+      END $$;
+    `;
+    await this.$executeRawUnsafe(reactionConstraintsSql);
 
     // Add new columns for existing tables (idempotent ALTER TABLE)
     const alterSql = `
