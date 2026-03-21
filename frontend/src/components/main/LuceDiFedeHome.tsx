@@ -15,6 +15,7 @@ import CustomMap from "../map/CustomMap";
 import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
 import { useAuth } from "../../hooks/useAuth";
+import { DIOCESE_COORDS, type Diocese } from "../../constants/dioceses";
 import { ArrowRight, MapPin, PlusCircle, LogIn, User, LogOut, ChevronDown } from "lucide-react";
 
 /* ?? ?이?SVG (카테고리? ??????????????????????????????????????????????? */
@@ -121,6 +122,12 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
     const [searchOpen, setSearchOpen] = useState(false);
     const [aiRecommendOpen, setAiRecommendOpen] = useState(false);
     const [selectedDiocese, setSelectedDiocese] = useState("");
+
+    // 하이드레이션 후 localStorage에서 교구 복원
+    useEffect(() => {
+        const saved = localStorage.getItem("selectedDiocese");
+        if (saved) setSelectedDiocese(saved);
+    }, []);
     const [aboutOpen, setAboutOpen] = useState(false);
     const eventsRef = useRef<HTMLDivElement>(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -128,41 +135,35 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
     // ── 로그인 상태 (useAuth 공유 훅) ──────────────────────────────
     const { authUser, logout: authLogout } = useAuth();
 
-    // ?? GPS ?태 ????????????????????????????????????????????????????????????
-    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [geoLoading, setGeoLoading] = useState(false);
-    const [geoError, setGeoError] = useState<string | null>(null);
+    // ── 정렬 에러 (교구 미선택 시 거리순 안내) ──────────────────
+    const [sortError, setSortError] = useState<string | null>(null);
 
     const handleSortChange = (sort: string) => {
-        if (sort !== "distance") {
-            setSortBy(sort);
-            setGeoError(null);
+        if (sort === "distance" && !selectedDiocese) {
+            setSortError("교구를 먼저 선택해주세요");
             return;
         }
-        // ?? ?치 ?득 ?료 ??바로 ?용
-        if (userLocation) {
-            setSortBy("distance");
-            return;
-        }
-        if (!navigator.geolocation) {
-            setGeoError("브라우저가 위치 기능을 지원하지 않습니다");
-            return;
-        }
-        setGeoLoading(true);
-        setGeoError(null);
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setGeoLoading(false);
-                setSortBy("distance");
-            },
-            () => {
-                setGeoError("위치 권한이 거부되었습니다");
-                setGeoLoading(false);
-            },
-            { timeout: 10000, maximumAge: 300_000 },
-        );
+        setSortBy(sort);
+        if (sort !== "distance") setSortError(null);
     };
+
+    // 교구 변경 핸들러: localStorage 저장 + 자동 거리순 전환
+    const handleDioceseChange = useCallback((diocese: string) => {
+        setSelectedDiocese(diocese);
+        if (diocese) {
+            localStorage.setItem("selectedDiocese", diocese);
+            setSortBy("distance");   // ⭐ 교구 선택 → 자동 거리순
+            setSortError(null);
+        } else {
+            localStorage.removeItem("selectedDiocese");
+            if (sortBy === "distance") setSortBy("date"); // 전체 교구 → 날짜순 복귀
+        }
+    }, [sortBy]);
+
+    // 교구 선택 시 sortError 자동 클리어
+    useEffect(() => {
+        if (sortError && selectedDiocese) setSortError(null);
+    }, [selectedDiocese]);
 
     const [events, setEvents] = useState<EventData[]>(() => mapRawEvents(initialEvents));
     const [isLoading, setIsLoading] = useState(initialEvents.length === 0);
@@ -205,7 +206,7 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
             setError(null);
             try {
                 // 거리순은 전체 데이터 필요 (클라이언트 정렬)
-                const isDistanceSort = sortBy === "distance" && userLocation;
+                const isDistanceSort = sortBy === "distance" && selectedDiocese;
 
                 const params = new URLSearchParams();
                 if (selectedDiocese) params.set("diocese", selectedDiocese);
@@ -219,7 +220,9 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                 const raw = await apiFetch<any>(endpoint, { signal: abortController.signal });
 
                 if (isDistanceSort) {
-                    // 거리순: 전체 배열 반환 → 클라이언트 정렬+페이지네이션
+                    // 거리순: 교구청 좌표 기준 클라이언트 정렬+페이지네이션
+                    const dioceseCoord = DIOCESE_COORDS[selectedDiocese as Diocese];
+                    if (!dioceseCoord) { setSortBy("date"); setIsLoading(false); return; }
                     const allEvents = Array.isArray(raw) ? raw : (raw.data ?? []);
                     const mapped = mapRawEvents(allEvents);
                     mapped.sort((a, b) => {
@@ -228,8 +231,8 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                         if (!hasA && !hasB) return 0;
                         if (!hasA) return 1;
                         if (!hasB) return -1;
-                        const dA = haversineKm(userLocation!.lat, userLocation!.lng, a.latitude!, a.longitude!);
-                        const dB = haversineKm(userLocation!.lat, userLocation!.lng, b.latitude!, b.longitude!);
+                        const dA = haversineKm(dioceseCoord.lat, dioceseCoord.lng, a.latitude!, a.longitude!);
+                        const dB = haversineKm(dioceseCoord.lat, dioceseCoord.lng, b.latitude!, b.longitude!);
                         return dA - dB;
                     });
                     setTotalCount(mapped.length);
@@ -265,10 +268,24 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
         };
         fetchEvents();
         return () => abortController.abort();
-    }, [selectedDiocese, activeFilter, sortBy, currentPage, pageSize, userLocation]);
+    }, [selectedDiocese, activeFilter, sortBy, currentPage, pageSize]);
 
     // pagedEvents는 이제 events 자체가 서버에서 페이지네이션된 결과
     const pagedEvents = events;
+
+    // 거리순일 때 각 이벤트의 교구 기준 거리(km) 계산
+    const distanceMap = useMemo(() => {
+        if (sortBy !== "distance" || !selectedDiocese) return null;
+        const coord = DIOCESE_COORDS[selectedDiocese as Diocese];
+        if (!coord) return null;
+        const map = new Map<string, number>();
+        for (const ev of pagedEvents) {
+            if (ev.latitude != null && ev.longitude != null) {
+                map.set(ev.id, haversineKm(coord.lat, coord.lng, ev.latitude, ev.longitude));
+            }
+        }
+        return map;
+    }, [pagedEvents, sortBy, selectedDiocese]);
 
     // 필터/정렬/페이지크기 변경 시 첫 페이지로 리셋
     useEffect(() => {
@@ -498,11 +515,9 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                     totalCount={totalCount}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
-                    geoLoading={geoLoading}
-                    geoError={geoError}
-                    userLocation={userLocation}
+                    sortError={sortError}
                     selectedDiocese={selectedDiocese}
-                    onDioceseChange={setSelectedDiocese}
+                    onDioceseChange={handleDioceseChange}
                 />
 
                 <div className="sacred-rail" style={{ paddingTop: "44px" }}>
@@ -619,6 +634,7 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                                     variant="grid"
                                     isBookmarked={bookmarkedIds.has(String(event.id))}
                                     onBookmarkToggle={handleBookmarkToggle}
+                                    distanceKm={distanceMap?.get(event.id) ?? null}
                                 />
                             ))}
                         </motion.div>
@@ -658,6 +674,7 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                                     variant="list"
                                     isBookmarked={bookmarkedIds.has(String(event.id))}
                                     onBookmarkToggle={handleBookmarkToggle}
+                                    distanceKm={distanceMap?.get(event.id) ?? null}
                                 />
                             ))}
                         </motion.div>

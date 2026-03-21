@@ -16,6 +16,8 @@ interface EventCardProps {
     variant?: "grid" | "list" | "featured";
     isBookmarked?: boolean;
     onBookmarkToggle?: (eventId: string, current: boolean) => void;
+    /** 교구청 기준 거리 (km) — 거리순 정렬 시에만 전달 */
+    distanceKm?: number | null;
 }
 
 /** OG 이미지 lazy 스크래핑 훅
@@ -54,6 +56,7 @@ export function EventCard({
     event, index, variant = "grid",
     isBookmarked = false,
     onBookmarkToggle,
+    distanceKm,
 }: EventCardProps) {
     const [hovered, setHovered] = useState(false);
     const [bookmarked, setBookmarked] = useState(isBookmarked);
@@ -173,6 +176,19 @@ export function EventCard({
                                         <span style={{ fontFamily: "'Noto Sans KR', sans-serif", color: "#52504B", fontSize: "12px" }}>
                                             {event.location}
                                         </span>
+                                        {distanceKm != null && (
+                                            <span style={{
+                                                fontFamily: "'DM Mono', monospace",
+                                                fontSize: "10px",
+                                                color: "#0B6B70",
+                                                backgroundColor: "rgba(11,107,112,0.08)",
+                                                padding: "1px 6px",
+                                                borderRadius: "4px",
+                                                whiteSpace: "nowrap",
+                                            }}>
+                                                {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <motion.div
@@ -487,6 +503,20 @@ export function EventCard({
                             }}>
                                 {event.location}
                             </span>
+                            {distanceKm != null && (
+                                <span style={{
+                                    fontFamily: "'DM Mono', monospace",
+                                    fontSize: "10px",
+                                    color: "#0B6B70",
+                                    backgroundColor: "rgba(11,107,112,0.08)",
+                                    padding: "1px 6px",
+                                    borderRadius: "4px",
+                                    whiteSpace: "nowrap",
+                                    flexShrink: 0,
+                                }}>
+                                    {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`}
+                                </span>
+                            )}
                         </div>
                     </div>
 
