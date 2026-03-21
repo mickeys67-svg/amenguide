@@ -384,7 +384,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
 
                                 {[
                                     { label: "탐색", id: "events", desc: "카테고리별 행사 탐색", href: undefined as string | undefined },
-                                    { label: "지도", id: "map",    desc: "지도에서 주변 행사 찾기", href: undefined as string | undefined },
+                                    { label: "지도", id: "map",    desc: "지도에서 행사 위치 확인", href: undefined as string | undefined },
                                     { label: "공지사항", id: "notices", desc: "공지사항 게시판", href: "/notices" as string | undefined },
                                 ].map(({ label, id, desc, href }) => (
                                     <button

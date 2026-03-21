@@ -738,7 +738,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                                     letterSpacing: "-0.02em",
                                     lineHeight: 1.25,
                                 }}>
-                                    주변의 행사를<br />지도에서 찾아보세요
+                                    다양한 행사를<br />지도에서 찾아보세요
                                 </h2>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "6px", opacity: 0.45 }}>
