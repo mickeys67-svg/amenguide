@@ -22,11 +22,13 @@ const NAV_STYLE = `
     .nav-desktop-only  { display: inline; }
     .nav-login-btn      { display: flex; }
     .nav-hamburger      { display: none; }
+    .nav-ai-btn         { padding: 6px 12px; }
     @media (max-width: 767px) {
         .nav-desktop-links { display: none; }
         .nav-desktop-only  { display: none; }
         .nav-login-btn      { display: none; }
         .nav-hamburger      { display: flex; }
+        .nav-ai-btn         { padding: 6px 8px; }
     }
 `;
 
@@ -119,7 +121,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
             >
                 <div
                     className="sacred-rail"
-                    style={{ height: "100%", display: "flex", alignItems: "center", gap: "24px" }}
+                    style={{ height: "100%", display: "flex", alignItems: "center", gap: "24px", overflow: "hidden" }}
                 >
                     {/* ── Logo ── */}
                     <Logo
@@ -169,7 +171,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                     </nav>
 
                     {/* ── Actions ── */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
 
                         {/* 세실리아 AI 상담 */}
                         <button
@@ -177,6 +179,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             aria-label="AI 마음 상담"
                             title="세실리아 AI 영성 상담 — 마음을 나누면 맞춤 행사와 성가를 추천해 드립니다"
                             onClick={handleAiOpen}
+                            className="nav-ai-btn"
                             style={{
                                 display: "flex", alignItems: "center", gap: "5px",
                                 padding: "6px 12px", borderRadius: "8px",
@@ -186,6 +189,8 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                 transition: "all 0.15s ease",
                                 fontFamily: "'Noto Sans KR', sans-serif",
                                 fontSize: "12.5px", fontWeight: 500,
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                             }}
                             onMouseEnter={e => {
                                 const el = e.currentTarget as HTMLElement;
