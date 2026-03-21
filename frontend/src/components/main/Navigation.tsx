@@ -20,9 +20,13 @@ interface NavigationProps {
 const NAV_STYLE = `
     .nav-desktop-links { display: flex; align-items: center; gap: 4px; }
     .nav-desktop-only  { display: inline; }
+    .nav-cecilia-label { display: inline; }
     .nav-login-btn      { display: flex; }
     .nav-hamburger      { display: none; }
     .nav-ai-btn         { padding: 6px 12px; }
+    @media (max-width: 900px) {
+        .nav-cecilia-label { display: none; }
+    }
     @media (max-width: 767px) {
         .nav-desktop-links { display: none; }
         .nav-desktop-only  { display: none; }
@@ -204,7 +208,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             }}
                         >
                             <Heart size={13} strokeWidth={2} />
-                            <span className="nav-desktop-only">세실리아</span>
+                            <span className="nav-cecilia-label">세실리아</span>
                         </button>
 
                         {/* 검색 아이콘 */}
