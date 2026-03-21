@@ -13,7 +13,7 @@ import { AiRecommendModal } from "./AiRecommendModal";
 import CustomMap from "../map/CustomMap";
 import { EventData, RETREAT_IMG } from "../../types/event";
 import { apiFetch } from "../../utils/api";
-import { ArrowRight, MapPin, PlusCircle, LogIn, User, LogOut } from "lucide-react";
+import { ArrowRight, PlusCircle, LogIn, User, LogOut } from "lucide-react";
 
 /* ?? ?이?SVG (카테고리? ??????????????????????????????????????????????? */
 const CATEGORY_ICONS: Record<string, ReactNode> = {
@@ -53,19 +53,6 @@ const CATEGORY_ICONS: Record<string, ReactNode> = {
         </svg>
     ),
 };
-
-// ?? ??좌표 ?거리 계산 (km) ??Haversine formula ?????????????????????????
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLng = (lng2 - lng1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 const CATEGORY_QUICK = [
     { label: "피정", color: "#1B4080", desc: "피정 · 묵상 · 영성수련" },
@@ -135,40 +122,8 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
         return () => window.removeEventListener("storage", onStorage);
     }, []);
 
-    // ?? GPS ?태 ????????????????????????????????????????????????????????????
-    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [geoLoading, setGeoLoading] = useState(false);
-    const [geoError, setGeoError] = useState<string | null>(null);
-
     const handleSortChange = (sort: string) => {
-        if (sort !== "distance") {
-            setSortBy(sort);
-            setGeoError(null);
-            return;
-        }
-        // ?? ?치 ?득 ?료 ??바로 ?용
-        if (userLocation) {
-            setSortBy("distance");
-            return;
-        }
-        if (!navigator.geolocation) {
-            setGeoError("브라우저가 위치 기능을 지원하지 않습니다");
-            return;
-        }
-        setGeoLoading(true);
-        setGeoError(null);
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setGeoLoading(false);
-                setSortBy("distance");
-            },
-            () => {
-                setGeoError("위치 권한이 거부되었습니다");
-                setGeoLoading(false);
-            },
-            { timeout: 10000, maximumAge: 300_000 },
-        );
+        setSortBy(sort);
     };
 
     const [events, setEvents] = useState<EventData[]>(() => mapRawEvents(initialEvents));
@@ -247,17 +202,6 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                 const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                 return tB - tA;
             });
-        } else if (sortBy === "distance" && userLocation) {
-            list.sort((a, b) => {
-                const hasA = a.latitude != null && a.longitude != null;
-                const hasB = b.latitude != null && b.longitude != null;
-                if (!hasA && !hasB) return 0;
-                if (!hasA) return 1;   // 좌표 ?으??로
-                if (!hasB) return -1;
-                const dA = haversineKm(userLocation.lat, userLocation.lng, a.latitude!, a.longitude!);
-                const dB = haversineKm(userLocation.lat, userLocation.lng, b.latitude!, b.longitude!);
-                return dA - dB;
-            });
         } else {
             // 기본: 날짜 가까운 순
             list.sort((a, b) => {
@@ -268,7 +212,7 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
         }
 
         return list;
-    }, [activeFilter, sortBy, events, userLocation]);
+    }, [activeFilter, sortBy, events]);
 
     const PAGE_SIZE = 15;
     const totalPages = Math.ceil(filteredEvents.length / PAGE_SIZE);
@@ -494,9 +438,6 @@ export default function LuceDiFedeHome({ initialEvents = [] }: { initialEvents?:
                     totalCount={filteredEvents.length}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
-                    geoLoading={geoLoading}
-                    geoError={geoError}
-                    userLocation={userLocation}
                     selectedDiocese={selectedDiocese}
                     onDioceseChange={setSelectedDiocese}
                 />

@@ -6,25 +6,9 @@ import { CATEGORY_COLORS } from '@/types/event';
 
 const API_KEY      = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 const MAP_ID       = 'DEMO_MAP_ID';
-const NEARBY_COUNT = 7;  // fitBounds 에 포함할 가까운 행사 수
 const GEO_CHUNK    = 5;  // 병렬 지오코딩 동시 요청 수
 
 interface MapProps { events?: any[]; }
-
-/* ─── Haversine 거리 (km) ─── */
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R    = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a    =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-function formatDist(km: number): string {
-    return km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`;
-}
 
 /* ─── 이벤트 핀 ─── */
 function makePinEl(color: string): HTMLElement {
@@ -39,43 +23,18 @@ function makePinEl(color: string): HTMLElement {
     return div;
 }
 
-/* ─── 내 위치 파란 점 ─── */
-function makeUserPinEl(): HTMLElement {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = `
-        <div style="position:relative;width:24px;height:24px">
-            <div class="uPulse" style="position:absolute;inset:0;border-radius:50%;
-                background:rgba(66,133,244,0.3)"></div>
-            <div style="position:absolute;top:50%;left:50%;
-                transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;
-                background:#4285F4;border:2.5px solid white;
-                box-shadow:0 2px 8px rgba(66,133,244,0.7)"></div>
-        </div>`;
-    const s = document.createElement('style');
-    s.textContent =
-        `.uPulse{animation:uP 2s ease-out infinite}` +
-        `@keyframes uP{0%{transform:scale(1);opacity:.5}70%{transform:scale(2.4);opacity:0}100%{transform:scale(2.4);opacity:0}}`;
-    wrap.appendChild(s);
-    return wrap;
-}
-
 /* ─── InfoWindow ─── */
-function makeInfoHtml(ev: any, color: string, distKm?: number): string {
+function makeInfoHtml(ev: any, color: string): string {
     const dateStr = ev.date
         ? new Date(ev.date).toLocaleDateString('ko-KR', {
               year: 'numeric', month: 'long', day: 'numeric' })
         : '날짜 미정';
-    const distBadge = distKm !== undefined
-        ? `<span style="padding:2px 8px;border-radius:4px;background:#4285F415;
-                        color:#1a73e8;font-size:10px;font-weight:700;margin-left:5px">
-               🚗 ${formatDist(distKm)}</span>`
-        : '';
     return `
         <div style="font-family:'Noto Sans KR',sans-serif;width:230px;padding:4px 2px">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:7px">
                 <span style="padding:2px 8px;border-radius:4px;background:${color}22;
                              color:${color};font-size:10px;font-weight:700;letter-spacing:.05em">
-                    ${ev.category}</span>${distBadge}
+                    ${ev.category}</span>
             </div>
             <p style="font-size:13px;font-weight:600;color:#100F0F;line-height:1.4;margin:0 0 6px">
                 ${ev.title}</p>
@@ -89,18 +48,6 @@ function makeInfoHtml(ev: any, color: string, distKm?: number): string {
                       font-size:12px;font-weight:500;text-decoration:none">
                 자세히 보기 →</a>
         </div>`;
-}
-
-/* ─── GPS ─── */
-function getUserLocation(): Promise<{ lat: number; lng: number } | null> {
-    return new Promise(resolve => {
-        if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null);
-        navigator.geolocation.getCurrentPosition(
-            p  => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-            () => resolve(null),
-            { timeout: 7000, maximumAge: 300000 },
-        );
-    });
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -118,23 +65,20 @@ const CustomMap = ({ events = [] }: MapProps) => {
         (async () => {
             setOptions({ key: API_KEY, v: 'weekly', language: 'ko', region: 'KR' });
 
-            /* ① GPS + 라이브러리 동시 로드 */
-            const [userLoc, [{ Map, InfoWindow }, { AdvancedMarkerElement }, { Geocoder }]] =
+            /* ① 라이브러리 로드 */
+            const [{ Map, InfoWindow }, { AdvancedMarkerElement }, { Geocoder }] =
                 await Promise.all([
-                    getUserLocation(),
-                    Promise.all([
-                        importLibrary('maps')      as Promise<google.maps.MapsLibrary>,
-                        importLibrary('marker')    as Promise<google.maps.MarkerLibrary>,
-                        importLibrary('geocoding') as Promise<google.maps.GeocodingLibrary>,
-                    ]),
+                    importLibrary('maps')      as Promise<google.maps.MapsLibrary>,
+                    importLibrary('marker')    as Promise<google.maps.MarkerLibrary>,
+                    importLibrary('geocoding') as Promise<google.maps.GeocodingLibrary>,
                 ]);
 
             if (cancelRef.current || !containerRef.current) return;
 
-            /* ② 지도 초기화 */
+            /* ② 지도 초기화 (한국 중심) */
             const map = new Map(containerRef.current, {
-                center:            userLoc ?? { lat: 36.5, lng: 127.8 },
-                zoom:              userLoc ? 11 : 7,
+                center:            { lat: 36.5, lng: 127.8 },
+                zoom:              7,
                 mapId:             MAP_ID,
                 gestureHandling:   'cooperative',
                 zoomControl:       true,
@@ -145,17 +89,6 @@ const CustomMap = ({ events = [] }: MapProps) => {
 
             const geocoder   = new Geocoder();
             const infoWindow = new InfoWindow();
-
-            /* ③ 내 위치 마커 즉시 표시 (지오코딩 기다리지 않음) */
-            if (userLoc) {
-                new AdvancedMarkerElement({
-                    position: userLoc,
-                    map,
-                    title:   '현재 위치',
-                    content: makeUserPinEl(),
-                    zIndex:  9999,
-                });
-            }
 
             /* 주소 → 좌표 캐시 */
             const geocodeAddress = async (
@@ -176,7 +109,7 @@ const CustomMap = ({ events = [] }: MapProps) => {
             };
 
             /* ④ 전체 이벤트 좌표 확정 (5개씩 병렬 지오코딩) */
-            type EvEntry = { ev: any; lat: number; lng: number; dist: number };
+            type EvEntry = { ev: any; lat: number; lng: number };
             const allEntries: EvEntry[] = [];
 
             for (let i = 0; i < events.length; i += GEO_CHUNK) {
@@ -197,10 +130,7 @@ const CustomMap = ({ events = [] }: MapProps) => {
                         }
                         if (!lat || !lng) return null;
 
-                        const dist = userLoc
-                            ? haversineKm(userLoc.lat, userLoc.lng, lat, lng)
-                            : 0;
-                        return { ev, lat, lng, dist };
+                        return { ev, lat, lng };
                     }),
                 );
 
@@ -208,9 +138,6 @@ const CustomMap = ({ events = [] }: MapProps) => {
             }
 
             if (cancelRef.current) return;
-
-            /* ⑤ 거리순 정렬 */
-            if (userLoc) allEntries.sort((a, b) => a.dist - b.dist);
 
             /* ⑥ 마커 전체 추가 */
             const color = (ev: any) => CATEGORY_COLORS[ev.category] ?? '#0B2040';
@@ -223,22 +150,17 @@ const CustomMap = ({ events = [] }: MapProps) => {
                 });
                 marker.addListener('gmp-click', () => {
                     infoWindow.setContent(
-                        makeInfoHtml(entry.ev, color(entry.ev), userLoc ? entry.dist : undefined),
+                        makeInfoHtml(entry.ev, color(entry.ev)),
                     );
                     infoWindow.open({ anchor: marker, map });
                 });
             }
 
-            /* ⑦ fitBounds: 내 위치 + 가까운 NEARBY_COUNT 개 */
+            /* ⑦ fitBounds: 전체 이벤트 */
             const bounds = new google.maps.LatLngBounds();
-            if (userLoc) bounds.extend(userLoc);
+            for (const e of allEntries) bounds.extend({ lat: e.lat, lng: e.lng });
 
-            const forBounds = userLoc
-                ? allEntries.slice(0, NEARBY_COUNT)
-                : allEntries;
-            for (const e of forBounds) bounds.extend({ lat: e.lat, lng: e.lng });
-
-            if (forBounds.length > 0 || userLoc) map.fitBounds(bounds, 60);
+            if (allEntries.length > 0) map.fitBounds(bounds, 60);
         })();
 
         return () => { cancelRef.current = true; };

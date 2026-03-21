@@ -8,9 +8,6 @@ interface FilterBarProps {
     totalCount: number;
     viewMode: "grid" | "list";
     onViewModeChange: (mode: "grid" | "list") => void;
-    geoLoading?: boolean;
-    geoError?: string | null;
-    userLocation?: { lat: number; lng: number } | null;
     /** 교구 필터 */
     selectedDiocese: string;
     onDioceseChange: (diocese: string) => void;
@@ -41,9 +38,6 @@ export function FilterBar({
     totalCount,
     viewMode,
     onViewModeChange,
-    geoLoading,
-    geoError,
-    userLocation,
     selectedDiocese,
     onDioceseChange,
 }: FilterBarProps) {
@@ -74,7 +68,7 @@ export function FilterBar({
                         gap: "6px",
                     }}
                 >
-                    {/* 좌: 건수 + GPS 상태 */}
+                    {/* 좌: 건수 */}
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span style={{
                             fontFamily: "'DM Mono', monospace",
@@ -84,44 +78,6 @@ export function FilterBar({
                         }}>
                             {totalCount}건의 행사
                         </span>
-
-                        {sortBy === "distance" && userLocation && !geoLoading && (
-                            <span style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "3px",
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "11px",
-                                color: "#0B6B70",
-                                backgroundColor: "rgba(11,107,112,0.09)",
-                                padding: "2px 9px",
-                                borderRadius: "100px",
-                                whiteSpace: "nowrap",
-                            }}>
-                                📍 내 위치 기준
-                            </span>
-                        )}
-
-                        {geoLoading && (
-                            <span style={{
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "11px",
-                                color: "#9C9891",
-                            }}>
-                                위치 확인 중…
-                            </span>
-                        )}
-
-                        {geoError && (
-                            <span style={{
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                                fontSize: "11px",
-                                color: "#C83A1E",
-                                whiteSpace: "nowrap",
-                            }}>
-                                ⚠ {geoError}
-                            </span>
-                        )}
                     </div>
 
                     {/* 우: 교구 필터 + 정렬 + 뷰 토글 */}
@@ -148,11 +104,10 @@ export function FilterBar({
                         <select
                             value={sortBy}
                             onChange={(e) => onSortChange(e.target.value)}
-                            style={selectStyle(sortBy === "distance")}
+                            style={selectStyle(false)}
                         >
                             <option value="date">날짜 가까운순</option>
                             <option value="latest">최근 등록순</option>
-                            <option value="distance">📍 거리순</option>
                         </select>
 
                         {/* 구분선 */}
