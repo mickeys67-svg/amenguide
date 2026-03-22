@@ -1,13 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
+import { json, urlencoded } from 'express';
 
 dotenv.config();
 
 async function bootstrap() {
-  console.log('--- AMENGUIDE BACKEND VERSION: v3.0.0-FINAL ---');
+  console.log('--- AMENGUIDE BACKEND VERSION: v3.1.0-SECURITY ---');
 
   const app = await NestFactory.create(AppModule);
+
+  // Request body 크기 제한 (DoS 방지)
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:3000',

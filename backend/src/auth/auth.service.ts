@@ -13,6 +13,27 @@ export class AuthService {
   // ── 임시 인증 코드 저장소 (OAuth 콜백용) ───────────────────────────
   private authCodeStore = new Map<string, { token: string; user: any; expiresAt: number }>();
 
+  // ── OAuth CSRF state 저장소 ────────────────────────────────────────
+  private oauthStateStore = new Map<string, number>(); // state → expiresAt
+
+  createOAuthState(): string {
+    const state = crypto.randomBytes(32).toString('hex');
+    this.oauthStateStore.set(state, Date.now() + 5 * 60_000); // 5분 TTL
+    // 오래된 state 정리
+    const now = Date.now();
+    for (const [s, exp] of this.oauthStateStore) {
+      if (now > exp) this.oauthStateStore.delete(s);
+    }
+    return state;
+  }
+
+  verifyOAuthState(state: string): boolean {
+    const exp = this.oauthStateStore.get(state);
+    if (!exp) return false;
+    this.oauthStateStore.delete(state); // 일회용
+    return Date.now() <= exp;
+  }
+
   createAuthCode(token: string, user: any): string {
     const code = crypto.randomBytes(32).toString('hex');
     this.authCodeStore.set(code, {
@@ -96,8 +117,10 @@ export class AuthService {
   async register(name: string, email: string, password: string) {
     if (!name?.trim()) throw new BadRequestException('이름을 입력해주세요.');
     if (!email?.trim()) throw new BadRequestException('이메일을 입력해주세요.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new BadRequestException('올바른 이메일 형식이 아닙니다.');
     if (!password || password.length < 8) throw new BadRequestException('비밀번호는 8자 이상이어야 합니다.');
     if (!/\d/.test(password)) throw new BadRequestException('비밀번호에 숫자가 1개 이상 포함되어야 합니다.');
+    if (!/[a-zA-Z]/.test(password)) throw new BadRequestException('비밀번호에 영문자가 1개 이상 포함되어야 합니다.');
 
     const normalizedEmail = email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -253,12 +276,14 @@ export class AuthService {
 
   // ── Google OAuth ───────────────────────────────────────────────────
 
-  getGoogleAuthUrl(): string {
+  getGoogleAuthUrl(): { url: string; state: string } {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI ||
       'https://amenguide-backend-775250805671.us-west1.run.app/auth/callback/google';
 
     if (!clientId) throw new BadRequestException('Google OAuth가 설정되지 않았습니다.');
+
+    const state = this.createOAuthState();
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -267,9 +292,10 @@ export class AuthService {
       scope: 'openid email profile',
       access_type: 'offline',
       prompt: 'select_account',
+      state,
     });
 
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`, state };
   }
 
   async handleGoogleCallback(code: string): Promise<{ token: string; user: any }> {

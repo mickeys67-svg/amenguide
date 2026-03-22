@@ -8,8 +8,10 @@ import {
   Headers,
   Param,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { AdminAuthService } from './admin-auth.service';
+import { RateLimitGuard } from '../common/rate-limit.guard';
 
 function extractBearer(header: string | undefined): string {
   if (!header?.startsWith('Bearer ')) return '';
@@ -20,8 +22,9 @@ function extractBearer(header: string | undefined): string {
 export class AdminAuthController {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
-  // POST /admin/auth/login
+  // POST /admin/auth/login (Rate Limited: 10/분)
   @Post('login')
+  @UseGuards(RateLimitGuard)
   async login(@Body() body: { email: string; password: string }) {
     return this.adminAuthService.login(body.email, body.password);
   }

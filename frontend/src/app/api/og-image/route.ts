@@ -24,11 +24,40 @@ function setCache(key: string, image: string | null) {
     cache.set(key, { image, ts: Date.now() });
 }
 
+// SSRF 방지: 허용 도메인만 프록시
+function isAllowedUrl(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'https:') return false;
+        const host = parsed.hostname;
+        // 내부 IP 차단
+        if (/^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|localhost|::1)/.test(host)) return false;
+        // 허용 도메인 (교구 사이트 + 주요 가톨릭 사이트)
+        const allowed = [
+            'catholic.or.kr', 'cbck.or.kr', 'catholictimes.org', 'pbc.co.kr',
+            'catholicbusan.or.kr', 'daegu-archdiocese.or.kr', 'djcatholic.or.kr',
+            'gjcatholic.or.kr', 'cdij.or.kr', 'didio.or.kr', 'catholicdj.or.kr',
+            'jjcatholic.or.kr', 'icatholic.or.kr', 'uijeongbu.or.kr',
+            'suwon.catholic.or.kr', 'chuncheon.catholic.or.kr',
+            'andong.catholic.or.kr', 'masan.catholic.or.kr',
+            'catholicjeonju.or.kr', 'cccatholic.or.kr',
+        ];
+        return allowed.some(d => host === d || host.endsWith('.' + d));
+    } catch {
+        return false;
+    }
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const url = searchParams.get('url');
 
     if (!url) return NextResponse.json({ image: null });
+
+    // SSRF 방지
+    if (!isAllowedUrl(url)) {
+        return NextResponse.json({ image: null }, { status: 403 });
+    }
 
     // 캐시 확인
     const cached = getCached(url);

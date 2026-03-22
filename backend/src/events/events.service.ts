@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit, HttpException, HttpStatus } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { BaseScraperService } from '../scrapers/base-scraper.service';
@@ -386,19 +386,21 @@ export class EventsService implements OnModuleInit {
     }
   }
   async nuclearReset() {
+    // 프로덕션에서 절대 실행 불가
+    if (process.env.NODE_ENV === 'production' || process.env.K_SERVICE) {
+      throw new HttpException('프로덕션 환경에서는 사용할 수 없습니다.', HttpStatus.FORBIDDEN);
+    }
+    // 이중 확인: ALLOW_NUCLEAR_RESET 환경변수 필수
+    if (process.env.ALLOW_NUCLEAR_RESET !== 'true') {
+      throw new HttpException('ALLOW_NUCLEAR_RESET=true 환경변수가 필요합니다.', HttpStatus.FORBIDDEN);
+    }
     try {
-      // Clear all potential variants to ensure clean PascalCase state
       const tables = ['Bookmark', 'Event', 'User', 'bookmark', 'event', 'user'];
       for (const table of tables) {
         await this.prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "${table}" CASCADE;`);
       }
-
       await this.prisma.initDatabase();
-
-      return {
-        message:
-          "Database reset and re-initialized with Definitive PascalCase schema.",
-      };
+      return { message: "Database reset and re-initialized." };
     } catch (error) {
       return { error: error.message };
     }
@@ -445,13 +447,9 @@ export class EventsService implements OnModuleInit {
 
       return {
         status: 'ok',
-        database: maskedDbUrl,
         eventCount: count,
-        region: process.env.REGION || 'us-west1',
         timestamp: new Date().toISOString(),
         nodeEnv: process.env.NODE_ENV,
-        port: process.env.PORT,
-        openaiConfigured: !!process.env.OPENAI_API_KEY,
       };
     } catch (error) {
       return {

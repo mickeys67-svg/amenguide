@@ -40,7 +40,7 @@ export class AdminAuthService implements OnModuleInit {
       adminEmail.toLowerCase().trim(),
     ) as any[];
     if (existing.length > 0) {
-      console.log(`AdminAuthService: ${adminEmail} already exists — skipping seed`);
+      console.log('AdminAuthService: admin already exists — skipping seed');
       return;
     }
 
@@ -53,7 +53,7 @@ export class AdminAuthService implements OnModuleInit {
       adminEmail.toLowerCase().trim(),
       passwordHash,
     );
-    console.log(`AdminAuthService: ${adminEmail} seeded`);
+    console.log('AdminAuthService: initial admin seeded');
   }
 
   // ── 비밀번호 해싱 (shared utility) ────────────────────────────────────────
@@ -173,11 +173,15 @@ export class AdminAuthService implements OnModuleInit {
   async createAdmin(name: string, email: string, password: string) {
     if (!name?.trim()) throw new BadRequestException('이름을 입력해주세요.');
     if (!email?.trim()) throw new BadRequestException('이메일을 입력해주세요.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new BadRequestException('올바른 이메일 형식이 아닙니다.');
     if (!password || password.length < 8) {
       throw new BadRequestException('비밀번호는 8자 이상이어야 합니다.');
     }
     if (!/\d/.test(password)) {
       throw new BadRequestException('비밀번호에 숫자가 1개 이상 포함되어야 합니다.');
+    }
+    if (!/[a-zA-Z]/.test(password)) {
+      throw new BadRequestException('비밀번호에 영문자가 1개 이상 포함되어야 합니다.');
     }
     const normalizedEmail = email.toLowerCase().trim();
     const exists: any[] = await this.prisma.$queryRawUnsafe(
@@ -227,6 +231,9 @@ export class AdminAuthService implements OnModuleInit {
     }
     if (!/\d/.test(newPassword)) {
       throw new BadRequestException('비밀번호에 숫자가 1개 이상 포함되어야 합니다.');
+    }
+    if (!/[a-zA-Z]/.test(newPassword)) {
+      throw new BadRequestException('비밀번호에 영문자가 1개 이상 포함되어야 합니다.');
     }
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT "passwordHash" FROM "Admin" WHERE "id"=$1 LIMIT 1`,

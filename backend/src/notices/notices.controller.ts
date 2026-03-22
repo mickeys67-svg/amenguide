@@ -167,6 +167,20 @@ export class NoticesController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'text/plain',
   ]);
+  // 매직바이트 검증 (MIME 위조 방지)
+  private static readonly MAGIC_BYTES: Array<{ mime: string; bytes: number[] }> = [
+    { mime: 'image/jpeg', bytes: [0xFF, 0xD8, 0xFF] },
+    { mime: 'image/png', bytes: [0x89, 0x50, 0x4E, 0x47] },
+    { mime: 'image/gif', bytes: [0x47, 0x49, 0x46] },
+    { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46] }, // RIFF
+    { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46] }, // %PDF
+  ];
+  private static verifyMagicBytes(buffer: Buffer, mimetype: string): boolean {
+    const rule = NoticesController.MAGIC_BYTES.find(m => m.mime === mimetype);
+    if (!rule) return true; // 매직바이트 규칙 없으면 MIME만 신뢰
+    if (buffer.length < rule.bytes.length) return false;
+    return rule.bytes.every((b, i) => buffer[i] === b);
+  }
   private static readonly MAX_FILES_PER_NOTICE = 5;
   private static readonly MAX_FILE_SIZE = 100 * 1024; // 100KB
 
@@ -183,9 +197,12 @@ export class NoticesController {
     requireLogin(this.authService, auth);
     if (!file) throw new BadRequestException('파일을 선택해주세요.');
 
-    // 파일 타입 검증
+    // 파일 타입 검증 (MIME + 매직바이트 이중 검증)
     if (!NoticesController.ALLOWED_MIME.has(file.mimetype)) {
       throw new BadRequestException('허용되지 않는 파일 형식입니다. (이미지, PDF, 문서만 가능)');
+    }
+    if (!NoticesController.verifyMagicBytes(file.buffer, file.mimetype)) {
+      throw new BadRequestException('파일 내용이 확장자와 일치하지 않습니다.');
     }
 
     // 글당 최대 파일 수 검증

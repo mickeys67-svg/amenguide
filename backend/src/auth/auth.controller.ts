@@ -1,24 +1,27 @@
 import {
   Controller, Post, Get, Patch, Delete, Body, Headers, Query, Param,
-  BadRequestException, Res,
+  BadRequestException, Res, UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
+import { RateLimitGuard } from '../common/rate-limit.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /** 이메일 회원가입 */
+  /** 이메일 회원가입 (Rate Limited: 10/분) */
   @Post('register')
+  @UseGuards(RateLimitGuard)
   async register(
     @Body() body: { name: string; email: string; password: string },
   ) {
     return this.authService.register(body.name, body.email, body.password);
   }
 
-  /** 이메일 로그인 */
+  /** 이메일 로그인 (Rate Limited: 10/분) */
   @Post('login')
+  @UseGuards(RateLimitGuard)
   async login(@Body() body: { email: string; password: string }) {
     return this.authService.login(body.email, body.password);
   }
@@ -84,17 +87,18 @@ export class AuthController {
    */
   @Get('google')
   googleAuth(@Res() res: Response) {
-    const url = this.authService.getGoogleAuthUrl();
+    const { url } = this.authService.getGoogleAuthUrl();
     return res.redirect(url);
   }
 
   /**
-   * GET /auth/callback/google?code=...
-   * Google OAuth 콜백 — 토큰 교환 후 프론트엔드로 리디렉트
+   * GET /auth/callback/google?code=...&state=...
+   * Google OAuth 콜백 — CSRF state 검증 후 토큰 교환
    */
   @Get('callback/google')
   async googleCallback(
     @Query('code') code: string,
+    @Query('state') state: string,
     @Query('error') error: string,
     @Res() res: Response,
   ) {
@@ -107,13 +111,17 @@ export class AuthController {
       return res.redirect(`${frontendUrl}/auth/callback?error=cancelled`);
     }
 
+    // CSRF state 검증
+    if (!state || !this.authService.verifyOAuthState(state)) {
+      return res.redirect(`${frontendUrl}/auth/callback?error=invalid_state`);
+    }
+
     try {
       const { token, user } = await this.authService.handleGoogleCallback(code);
-      // 보안: 토큰/사용자 정보를 URL에 노출하지 않고 임시 코드로 교환
       const authCode = this.authService.createAuthCode(token, user);
       return res.redirect(`${frontendUrl}/auth/callback?code=${authCode}`);
     } catch (e: any) {
-      console.error('Google callback error:', e.message);
+      console.error('Google callback error');
       return res.redirect(`${frontendUrl}/auth/callback?error=failed`);
     }
   }
@@ -123,6 +131,7 @@ export class AuthController {
    * 임시 인증 코드 → JWT 토큰 + 사용자 정보 교환
    */
   @Post('exchange')
+  @UseGuards(RateLimitGuard)
   async exchangeAuthCode(@Body() body: { code: string }) {
     if (!body.code) {
       throw new BadRequestException('인증 코드가 필요합니다.');
