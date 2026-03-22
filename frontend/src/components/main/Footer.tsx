@@ -265,7 +265,7 @@ export function Footer() {
                     >
                         © {currentYear} 가톨릭 행사 허브. All rights reserved.
                     </p>
-                    <div className="flex items-center gap-5">
+                    <div className="flex items-center flex-wrap gap-x-5 gap-y-2">
                         {[
                             { label: "개인정보처리방침", href: "/privacy" },
                             { label: "이용약관", href: "/terms" },
