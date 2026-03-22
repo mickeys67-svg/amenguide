@@ -19,7 +19,7 @@ interface EventRaw {
 
 async function fetchEvent(id: string): Promise<EventRaw | null> {
   try {
-    const res = await fetch(`${API_BASE}/events/${id}`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_BASE}/events/${id}`, { next: { revalidate: 21600 } });
     if (!res.ok) return null;
     return res.json();
   } catch { return null; }

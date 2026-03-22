@@ -44,9 +44,58 @@ export class CommunityModerationService {
   }
 
   /**
-   * AI 모더레이션 실행
+   * 규칙 기반 사전 필터 — AI 호출 없이 90% 걸러냄
+   */
+  private preFilter(text: string): ModerationResult | null {
+    const lower = text.toLowerCase();
+
+    // 1. 비속어/초성 욕설
+    const profanity = /[ㅅㅆ][ㅂㅃ]|[ㄷㄸ][ㅊ]|[ㅈㅉ][ㄹ]|ㅂㅅ|ㅄ|시[바발빨]|씨[바발빨]|개[새세]끼|병[신싄]|미친[놈년]|꺼[져저]|닥[쳐쳐]|지[랄럴]|fuck|shit|damn|bitch/i;
+    if (profanity.test(text)) {
+      return { approved: false, status: 'REJECTED', reason: '비속어 감지', userMessage: '형제자매님, 부적절한 표현이 포함되어 게시가 어렵습니다. 내용을 수정해 주세요. 🙏', flags: ['profanity'] };
+    }
+
+    // 2. 개인정보 (전화번호, 계좌번호, 주민번호)
+    const pii = /\d{3}[-.\s]?\d{3,4}[-.\s]?\d{4}|\d{6}[-]?\d{7}|\d{3}[-]?\d{2}[-]?\d{5}/;
+    if (pii.test(text)) {
+      return { approved: false, status: 'REJECTED', reason: '개인정보 감지', userMessage: '형제자매님, 개인정보(전화번호, 주민번호 등)가 포함되어 있습니다. 보호를 위해 삭제 후 다시 작성해 주세요. 🙏', flags: ['pii'] };
+    }
+
+    // 3. 이단/사이비 키워드
+    const cult = /신천지|여호와의?\s*증인|통일교|하나님의?\s*교회|전능신|안상홍|이만희|문선명/;
+    if (cult.test(text)) {
+      return { approved: false, status: 'REJECTED', reason: '이단/사이비 관련 내용', userMessage: '형제자매님, 천주교 커뮤니티에 적합하지 않은 내용이 감지되었습니다. 🙏', flags: ['cult'] };
+    }
+
+    // 4. 외부 링크 (천주교 공식 사이트 제외)
+    const urlPattern = /https?:\/\/[^\s]+/gi;
+    const urls = text.match(urlPattern) || [];
+    const allowedDomains = ['cbck.or.kr', 'vatican.va', 'catholica.kr', 'catholic.or.kr'];
+    const hasBlockedUrl = urls.some(url => !allowedDomains.some(d => url.includes(d)));
+    if (hasBlockedUrl) {
+      return { approved: false, status: 'PENDING', reason: '외부 링크 포함 — 관리자 검토 필요', userMessage: '형제자매님, 외부 링크가 포함되어 관리자 검토 후 공개됩니다. 🙏', flags: ['external_link'] };
+    }
+
+    // 5. 너무 짧은 글 (스팸 가능성)
+    if (text.replace(/\s/g, '').length < 5) {
+      return { approved: false, status: 'REJECTED', reason: '내용 너무 짧음', userMessage: '형제자매님, 내용이 너무 짧습니다. 조금 더 작성해 주세요. 🙏', flags: ['too_short'] };
+    }
+
+    // 규칙에 안 걸리면 null → AI 호출
+    return null;
+  }
+
+  /**
+   * AI 모더레이션 실행 (규칙 필터 통과 후에만)
    */
   private async moderate(text: string, type: 'post' | 'comment'): Promise<ModerationResult> {
+    // 규칙 기반 사전 필터
+    const preResult = this.preFilter(text);
+    if (preResult) {
+      this.logger.log(`Pre-filter caught: ${preResult.flags.join(', ')}`);
+      return preResult;
+    }
+
     try {
       const response = await this.anthropic!.messages.create({
         model: 'claude-haiku-4-5-20251001',

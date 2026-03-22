@@ -4,7 +4,7 @@ const SITE_URL = 'https://catholica.kr';
 export async function GET() {
   let events: any[] = [];
   try {
-    const res = await fetch(`${API_BASE}/events?page=1&pageSize=30`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_BASE}/events?page=1&pageSize=30`, { next: { revalidate: 21600 } });
     if (res.ok) {
       const data = await res.json();
       events = data.data ?? [];

@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const API = process.env.NEXT_PUBLIC_API_URL || "https://amenguide-backend-775250805671.us-west1.run.app";
   try {
-    const res = await fetch(`${API}/community/${id}`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API}/community/${id}`, { next: { revalidate: 21600 } });
     if (!res.ok) throw new Error("not found");
     const post = await res.json();
     return {
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 async function CommunityJsonLd({ id }: { id: string }) {
   const API = process.env.NEXT_PUBLIC_API_URL || "https://amenguide-backend-775250805671.us-west1.run.app";
   try {
-    const res = await fetch(`${API}/community/${id}`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API}/community/${id}`, { next: { revalidate: 21600 } });
     if (!res.ok) return null;
     const post = await res.json();
     const jsonLd = {

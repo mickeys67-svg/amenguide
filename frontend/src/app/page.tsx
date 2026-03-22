@@ -46,7 +46,7 @@ async function getEvents(retry = true): Promise<{ data: any[]; total: number; ca
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s (콜드 스타트 대응)
     const res = await fetch(`${backendUrl}/events?page=1&pageSize=15`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 21600 },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);

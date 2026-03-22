@@ -16,7 +16,7 @@ interface NoticeRaw {
 
 async function fetchNotice(id: string): Promise<NoticeRaw | null> {
   try {
-    const res = await fetch(`${API_BASE}/notices/${id}`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_BASE}/notices/${id}`, { next: { revalidate: 21600 } });
     if (!res.ok) return null;
     return res.json();
   } catch { return null; }

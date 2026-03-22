@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, Req, ForbiddenException, BadRequestException, HttpException, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, Header, Req, ForbiddenException, BadRequestException, HttpException, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -330,6 +330,7 @@ export class EventsController {
   }
 
   @Get()
+  @Header('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=3600')
   async findAll(
     @Query('diocese') diocese?: string,
     @Query('category') category?: string,
@@ -369,6 +370,7 @@ export class EventsController {
   // ── Dynamic :id last (avoids swallowing static routes above) ─────────────
 
   @Get(':id')
+  @Header('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=3600')
   async findOne(@Param('id') id: string) {
     return this.eventsService.findOne(id);
   }

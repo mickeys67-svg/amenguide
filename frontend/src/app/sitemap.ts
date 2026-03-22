@@ -22,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let noticePages: MetadataRoute.Sitemap = [];
 
     try {
-        const res = await fetch(`${API_BASE}/events`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${API_BASE}/events`, { next: { revalidate: 21600 } });
         if (res.ok) {
             const body = await res.json();
             const events: { id: string; updatedAt?: string }[] = Array.isArray(body) ? body : (body.data ?? []);
@@ -36,7 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     } catch {}
 
     try {
-        const res = await fetch(`${API_BASE}/notices?page=1&limit=100`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${API_BASE}/notices?page=1&limit=100`, { next: { revalidate: 21600 } });
         if (res.ok) {
             const body = await res.json();
             const notices: { id: string; updatedAt?: string; createdAt?: string }[] = body.data || [];
@@ -51,7 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     let communityPages: MetadataRoute.Sitemap = [];
     try {
-        const res = await fetch(`${API_BASE}/community?page=1&limit=100`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${API_BASE}/community?page=1&limit=100`, { next: { revalidate: 21600 } });
         if (res.ok) {
             const body = await res.json();
             const posts: { id: string; updatedAt?: string; createdAt?: string }[] = body.data || [];

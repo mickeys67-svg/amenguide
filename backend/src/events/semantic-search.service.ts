@@ -106,7 +106,7 @@ export class SemanticSearchService {
   }> {
     const events = await this.prisma.event.findMany({
       where: { status: 'APPROVED' } as any,
-      take: 60,
+      take: 15,
       orderBy: { date: 'asc' },
     });
 
@@ -405,7 +405,7 @@ export class SemanticSearchService {
 
     try {
       const events = await this.prisma.event.findMany({
-        take: 50,
+        take: 15,
         orderBy: { createdAt: 'desc' },
       });
 
