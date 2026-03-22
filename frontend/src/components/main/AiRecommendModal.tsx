@@ -1610,9 +1610,9 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             background: "conic-gradient(from 0deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)",
                                         }} />
                                         <span style={{
-                                            fontFamily: "'DM Mono', monospace",
-                                            fontSize: "9px", color: "#C0BDB8",
-                                            letterSpacing: "0.05em",
+                                            fontFamily: "'Noto Sans KR', sans-serif",
+                                            fontSize: "11px", color: "#8A7E6B",
+                                            fontWeight: 500,
                                             transition: "color 0.2s",
                                         }}>
                                             마음치유 심화 상담 &rarr;
