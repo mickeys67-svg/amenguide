@@ -4,12 +4,12 @@ import Link from "next/link";
 const SITE_URL = "https://catholica.kr";
 
 export const metadata: Metadata = {
-  title: "Cooperatores Christi | Catholica",
-  description: "Catholica 서비스를 함께 세워가는 분들께 감사드립니다. 기부자 감사 페이지.",
+  title: "Cooperator | Catholica",
+  description: "Catholica를 함께 만들어가는 분들. 서버 운영비 후원자 감사 페이지.",
   alternates: { canonical: `${SITE_URL}/cooperator` },
   openGraph: {
-    title: "Cooperatores Christi — 그리스도의 협력자",
-    description: "Catholica 서비스를 함께 세워가는 분들께 감사드립니다.",
+    title: "Cooperator — 함께 만드는 사람들",
+    description: "Catholica를 함께 만들어가는 분들께 감사드립니다.",
     url: `${SITE_URL}/cooperator`,
     siteName: "Catholica",
     locale: "ko_KR",
@@ -20,236 +20,197 @@ export const metadata: Metadata = {
 /* ── 기부자 데이터 (추후 DB 연동 가능) ── */
 interface Donor {
   name: string;
-  since?: string; // 가입 시기
-  message?: string; // 한마디
+  since?: string;
+  message?: string;
 }
 
-const AURUM_DONORS: (Donor | null)[] = [
-  // 12칸 — 빈 슬롯은 null
-  null, null, null, null,
-  null, null, null, null,
-  null, null, null, null,
+const FOUNDING_DONORS: (Donor | null)[] = Array.from({ length: 12 }, () => null);
+const CORE_DONORS: (Donor | null)[] = Array.from({ length: 40 }, () => null);
+const FRIEND_DONORS: Donor[] = [];
+
+/* ── 티어 설정 ── */
+const TIERS = [
+  {
+    key: "founding",
+    label: "FOUNDING",
+    title: "창립 멤버",
+    desc: "1년 서버 운영비 후원",
+    limit: "12명 한정",
+    accent: "#C9A96E",
+    accentLight: "rgba(201,169,110,0.08)",
+    accentBorder: "rgba(201,169,110,0.25)",
+    accentDim: "rgba(201,169,110,0.12)",
+  },
+  {
+    key: "core",
+    label: "CORE",
+    title: "핵심 서포터",
+    desc: "6개월 서버 운영비 후원",
+    limit: "40명 한정",
+    accent: "#0B2040",
+    accentLight: "rgba(11,32,64,0.04)",
+    accentBorder: "rgba(11,32,64,0.15)",
+    accentDim: "rgba(11,32,64,0.08)",
+  },
+  {
+    key: "friend",
+    label: "FRIEND",
+    title: "함께하는 친구",
+    desc: "1개월 서버 운영비 후원",
+    limit: "인원 제한 없음",
+    accent: "#52504B",
+    accentLight: "rgba(82,80,75,0.04)",
+    accentBorder: "rgba(82,80,75,0.12)",
+    accentDim: "rgba(82,80,75,0.06)",
+  },
 ];
 
-const ARGENTUM_DONORS: (Donor | null)[] = Array.from({ length: 40 }, () => null);
-
-const AES_DONORS: Donor[] = [];
-
-/* ── 컴포넌트 ── */
 export default function CooperatorPage() {
   return (
     <>
       <style>{`
-        @keyframes shimmer {
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmerGold {
           0% { background-position: -200% center; }
           100% { background-position: 200% center; }
         }
-        @keyframes floatGlow {
-          0%, 100% { opacity: 0.3; transform: translateY(0px); }
-          50% { opacity: 0.6; transform: translateY(-8px); }
+        .coop-fade { animation: fadeUp 0.5s ease-out both; }
+        .coop-shimmer {
+          background: linear-gradient(90deg, #C9A96E 0%, #E8D5A8 40%, #C9A96E 80%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shimmerGold 4s ease-in-out infinite;
         }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(24px); }
-          to { opacity: 1; transform: translateY(0); }
+        .coop-card {
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .cooperator-shimmer {
-          background: linear-gradient(90deg, transparent 0%, rgba(201,169,110,0.15) 50%, transparent 100%);
-          background-size: 200% 100%;
-          animation: shimmer 3s ease-in-out infinite;
-        }
-        .cooperator-card-aurum {
-          animation: fadeInUp 0.6s ease-out both;
-        }
-        .cooperator-card-argentum {
-          animation: fadeInUp 0.6s ease-out both;
-        }
-        .cooperator-card-aes {
-          animation: fadeInUp 0.6s ease-out both;
+        .coop-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.06);
         }
       `}</style>
 
-      <main style={{ backgroundColor: "#0B2040", minHeight: "100vh" }}>
+      <main style={{ backgroundColor: "#F8F7F4", minHeight: "100vh" }}>
 
-        {/* ── Hero Section ── */}
+        {/* ── Hero ── */}
         <section style={{
-          position: "relative",
-          overflow: "hidden",
-          paddingTop: "clamp(100px, 15vw, 160px)",
-          paddingBottom: "clamp(60px, 10vw, 100px)",
+          paddingTop: "clamp(100px, 14vw, 160px)",
+          paddingBottom: "clamp(48px, 8vw, 80px)",
           textAlign: "center",
         }}>
-          {/* 배경 아치 패턴 */}
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            opacity: 0.06,
-            backgroundImage: `repeating-conic-gradient(from 0deg at 50% 0%, transparent 0deg, transparent 170deg, #C9A96E 170deg, #C9A96E 190deg, transparent 190deg)`,
-            backgroundSize: "120px 200px",
-            backgroundPosition: "center top",
-          }} />
-
-          {/* 십자가 SVG */}
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "32px",
-            animation: "floatGlow 4s ease-in-out infinite",
-          }}>
-            <svg width="48" height="64" viewBox="0 0 48 64" fill="none">
-              <rect x="20" y="0" width="8" height="64" rx="4" fill="#C9A96E" />
-              <rect x="4" y="14" width="40" height="8" rx="4" fill="#C9A96E" />
-              <circle cx="24" cy="18" r="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5" />
-            </svg>
-          </div>
-
-          {/* 타이틀 */}
-          <p style={{
-            fontFamily: "'DM Mono', monospace",
-            fontSize: "11px",
-            color: "#C9A96E",
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-            marginBottom: "16px",
-          }}>
-            Cooperatores Christi
-          </p>
-
-          <h1 style={{
-            fontFamily: "'Noto Serif KR', serif",
-            fontSize: "clamp(28px, 4.5vw, 48px)",
-            fontWeight: 900,
-            color: "#FFFFFF",
-            letterSpacing: "-0.02em",
-            lineHeight: 1.3,
-            marginBottom: "20px",
-          }}>
-            그리스도의<br />
-            <span style={{
-              background: "linear-gradient(135deg, #C9A96E 0%, #E8D5A8 50%, #C9A96E 100%)",
-              backgroundSize: "200% auto",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              animation: "shimmer 3s ease-in-out infinite",
+          <div className="sacred-rail">
+            {/* 라벨 */}
+            <p style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: "11px",
+              color: "#C9A96E",
+              letterSpacing: "0.2em",
+              marginBottom: "20px",
             }}>
-              협력자
-            </span>
-          </h1>
+              COOPERATOR
+            </p>
 
-          <p style={{
-            fontFamily: "'Noto Sans KR', sans-serif",
-            fontSize: "clamp(14px, 1.8vw, 16px)",
-            color: "rgba(255,255,255,0.55)",
-            lineHeight: 1.8,
-            maxWidth: "480px",
-            margin: "0 auto",
-            fontWeight: 300,
-            padding: "0 20px",
-          }}>
-            이 서비스는 여러분의 정성으로 운영됩니다.<br />
-            전국의 가톨릭 행사를 한곳에 모으는 이 여정에<br />
-            함께해 주신 분들께 깊은 감사를 드립니다.
-          </p>
-        </section>
-
-        {/* ── AURUM (금잔) — 12명 ── */}
-        <section className="sacred-rail" style={{ paddingBottom: "clamp(48px, 8vw, 80px)" }}>
-          <div style={{ textAlign: "center", marginBottom: "48px" }}>
-            <div style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "16px",
-            }}>
-              <div style={{ width: "40px", height: "1px", background: "linear-gradient(90deg, transparent, #C9A96E)" }} />
-              <p style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "12px",
-                letterSpacing: "0.2em",
-                background: "linear-gradient(135deg, #C9A96E, #E8D5A8)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}>
-                AURUM
-              </p>
-              <div style={{ width: "40px", height: "1px", background: "linear-gradient(90deg, #C9A96E, transparent)" }} />
-            </div>
-
-            <h2 style={{
+            {/* 타이틀 */}
+            <h1 style={{
               fontFamily: "'Noto Serif KR', serif",
-              fontSize: "clamp(22px, 3vw, 30px)",
-              fontWeight: 700,
-              color: "#FFFFFF",
-              marginBottom: "8px",
+              fontSize: "clamp(26px, 4vw, 44px)",
+              fontWeight: 900,
+              color: "#0B2040",
+              letterSpacing: "-0.02em",
+              lineHeight: 1.3,
+              marginBottom: "20px",
             }}>
-              금잔
-            </h2>
+              함께 만드는<br />
+              <span className="coop-shimmer">사람들.</span>
+            </h1>
+
+            {/* 설명 */}
             <p style={{
               fontFamily: "'Noto Sans KR', sans-serif",
-              fontSize: "13px",
-              color: "rgba(255,255,255,0.4)",
+              fontSize: "clamp(14px, 1.6vw, 16px)",
+              color: "#52504B",
+              lineHeight: 1.9,
+              maxWidth: "420px",
+              margin: "0 auto",
               fontWeight: 300,
             }}>
-              1년 서버 운영비 후원 &middot; 12명 한정
+              Catholica는 비영리로 운영됩니다.<br />
+              서버 운영비를 후원해 주신 분들께<br />
+              진심으로 감사드립니다.
             </p>
           </div>
+        </section>
+
+        {/* ── 구분선 ── */}
+        <div className="sacred-rail">
+          <div style={{ height: "1px", background: "#E8E5DF" }} />
+        </div>
+
+        {/* ── FOUNDING — 12명 ── */}
+        <section className="sacred-rail" style={{
+          paddingTop: "clamp(48px, 7vw, 72px)",
+          paddingBottom: "clamp(48px, 7vw, 72px)",
+        }}>
+          <TierHeader tier={TIERS[0]} />
 
           <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: "16px",
-            maxWidth: "960px",
+            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+            gap: "14px",
+            maxWidth: "1000px",
             margin: "0 auto",
           }}>
-            {AURUM_DONORS.map((donor, i) => (
+            {FOUNDING_DONORS.map((donor, i) => (
               <div
-                key={`aurum-${i}`}
-                className="cooperator-card-aurum"
+                key={`f-${i}`}
+                className="coop-card coop-fade"
                 style={{
-                  animationDelay: `${i * 0.05}s`,
-                  position: "relative",
-                  borderRadius: "16px",
-                  padding: "28px 24px",
-                  minHeight: "140px",
+                  animationDelay: `${i * 0.04}s`,
+                  borderRadius: "12px",
+                  padding: donor ? "28px 24px" : "24px",
+                  minHeight: "120px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
                   alignItems: "center",
-                  background: donor
-                    ? "linear-gradient(135deg, rgba(201,169,110,0.12) 0%, rgba(232,213,168,0.06) 100%)"
-                    : "rgba(255,255,255,0.02)",
+                  backgroundColor: donor ? "#FFFFFF" : "#F8F7F4",
                   border: donor
-                    ? "1px solid rgba(201,169,110,0.35)"
-                    : "1px dashed rgba(201,169,110,0.15)",
-                  backdropFilter: "blur(8px)",
-                  transition: "border-color 0.3s, transform 0.3s",
+                    ? `1px solid ${TIERS[0].accentBorder}`
+                    : "1px dashed #E8E5DF",
+                  position: "relative",
                   overflow: "hidden",
                 }}
               >
                 {donor ? (
                   <>
-                    <div className="cooperator-shimmer" style={{
+                    {/* 골드 탑 라인 */}
+                    <div style={{
                       position: "absolute",
-                      inset: 0,
-                      borderRadius: "16px",
-                      pointerEvents: "none",
+                      top: 0,
+                      left: "20%",
+                      right: "20%",
+                      height: "2px",
+                      background: `linear-gradient(90deg, transparent, ${TIERS[0].accent}, transparent)`,
                     }} />
                     <p style={{
                       fontFamily: "'DM Mono', monospace",
                       fontSize: "10px",
-                      color: "#C9A96E",
-                      letterSpacing: "0.15em",
-                      marginBottom: "12px",
-                      position: "relative",
+                      color: TIERS[0].accent,
+                      letterSpacing: "0.12em",
+                      marginBottom: "10px",
                     }}>
                       {String(i + 1).padStart(2, "0")}
                     </p>
                     <p style={{
                       fontFamily: "'Noto Serif KR', serif",
-                      fontSize: "18px",
+                      fontSize: "17px",
                       fontWeight: 700,
-                      color: "#FFFFFF",
-                      marginBottom: "8px",
-                      position: "relative",
+                      color: "#0B2040",
+                      marginBottom: "6px",
                     }}>
                       {donor.name}
                     </p>
@@ -257,8 +218,7 @@ export default function CooperatorPage() {
                       <p style={{
                         fontFamily: "'DM Mono', monospace",
                         fontSize: "10px",
-                        color: "rgba(201,169,110,0.6)",
-                        position: "relative",
+                        color: "#9C9891",
                       }}>
                         since {donor.since}
                       </p>
@@ -267,12 +227,12 @@ export default function CooperatorPage() {
                       <p style={{
                         fontFamily: "'Noto Sans KR', sans-serif",
                         fontSize: "12px",
-                        color: "rgba(255,255,255,0.5)",
+                        color: "#52504B",
                         marginTop: "10px",
                         textAlign: "center",
                         lineHeight: 1.6,
                         fontWeight: 300,
-                        position: "relative",
+                        fontStyle: "italic",
                       }}>
                         &ldquo;{donor.message}&rdquo;
                       </p>
@@ -283,20 +243,19 @@ export default function CooperatorPage() {
                     <p style={{
                       fontFamily: "'DM Mono', monospace",
                       fontSize: "10px",
-                      color: "rgba(201,169,110,0.25)",
-                      letterSpacing: "0.15em",
-                      marginBottom: "10px",
+                      color: "#D0CDC7",
+                      letterSpacing: "0.12em",
+                      marginBottom: "8px",
                     }}>
                       {String(i + 1).padStart(2, "0")}
                     </p>
                     <p style={{
                       fontFamily: "'Noto Sans KR', sans-serif",
                       fontSize: "12px",
-                      color: "rgba(201,169,110,0.2)",
+                      color: "#D0CDC7",
                       fontWeight: 300,
-                      fontStyle: "italic",
                     }}>
-                      당신의 자리
+                      자리가 비어 있습니다
                     </p>
                   </>
                 )}
@@ -305,90 +264,50 @@ export default function CooperatorPage() {
           </div>
         </section>
 
-        {/* ── ARGENTUM (은잔) — 40명 ── */}
+        {/* ── CORE — 40명 ── */}
         <section style={{
-          background: "linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.04) 100%)",
-          paddingTop: "clamp(48px, 8vw, 80px)",
-          paddingBottom: "clamp(48px, 8vw, 80px)",
+          backgroundColor: "#FFFFFF",
+          paddingTop: "clamp(48px, 7vw, 72px)",
+          paddingBottom: "clamp(48px, 7vw, 72px)",
         }}>
           <div className="sacred-rail">
-            <div style={{ textAlign: "center", marginBottom: "40px" }}>
-              <div style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "16px",
-              }}>
-                <div style={{ width: "40px", height: "1px", background: "linear-gradient(90deg, transparent, #B8B8B8)" }} />
-                <p style={{
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: "12px",
-                  letterSpacing: "0.2em",
-                  background: "linear-gradient(135deg, #B8B8B8, #E0E0E0)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}>
-                  ARGENTUM
-                </p>
-                <div style={{ width: "40px", height: "1px", background: "linear-gradient(90deg, #B8B8B8, transparent)" }} />
-              </div>
-
-              <h2 style={{
-                fontFamily: "'Noto Serif KR', serif",
-                fontSize: "clamp(20px, 2.8vw, 26px)",
-                fontWeight: 700,
-                color: "#FFFFFF",
-                marginBottom: "8px",
-              }}>
-                은잔
-              </h2>
-              <p style={{
-                fontFamily: "'Noto Sans KR', sans-serif",
-                fontSize: "13px",
-                color: "rgba(255,255,255,0.35)",
-                fontWeight: 300,
-              }}>
-                6개월 서버 운영비 후원 &middot; 40명 한정
-              </p>
-            </div>
+            <TierHeader tier={TIERS[1]} />
 
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
               gap: "10px",
               maxWidth: "1100px",
               margin: "0 auto",
             }}>
-              {ARGENTUM_DONORS.map((donor, i) => (
+              {CORE_DONORS.map((donor, i) => (
                 <div
-                  key={`argentum-${i}`}
-                  className="cooperator-card-argentum"
+                  key={`c-${i}`}
+                  className="coop-fade"
                   style={{
-                    animationDelay: `${i * 0.02}s`,
-                    borderRadius: "12px",
-                    padding: "18px 16px",
-                    minHeight: "90px",
+                    animationDelay: `${i * 0.015}s`,
+                    borderRadius: "10px",
+                    padding: "16px 12px",
+                    minHeight: "72px",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "center",
                     alignItems: "center",
-                    background: donor
-                      ? "linear-gradient(135deg, rgba(184,184,184,0.1) 0%, rgba(224,224,224,0.05) 100%)"
-                      : "rgba(255,255,255,0.015)",
+                    backgroundColor: donor ? "#F8F7F4" : "transparent",
                     border: donor
-                      ? "1px solid rgba(184,184,184,0.25)"
-                      : "1px dashed rgba(184,184,184,0.08)",
-                    transition: "border-color 0.3s",
+                      ? `1px solid ${TIERS[1].accentBorder}`
+                      : "1px dashed #E8E5DF",
+                    transition: "background-color 0.2s",
                   }}
                 >
                   {donor ? (
                     <>
                       <p style={{
                         fontFamily: "'Noto Serif KR', serif",
-                        fontSize: "15px",
+                        fontSize: "14px",
                         fontWeight: 600,
-                        color: "#FFFFFF",
-                        marginBottom: "4px",
+                        color: "#0B2040",
+                        marginBottom: "2px",
                       }}>
                         {donor.name}
                       </p>
@@ -396,9 +315,9 @@ export default function CooperatorPage() {
                         <p style={{
                           fontFamily: "'DM Mono', monospace",
                           fontSize: "9px",
-                          color: "rgba(184,184,184,0.5)",
+                          color: "#9C9891",
                         }}>
-                          since {donor.since}
+                          {donor.since}
                         </p>
                       )}
                     </>
@@ -406,8 +325,8 @@ export default function CooperatorPage() {
                     <p style={{
                       fontFamily: "'DM Mono', monospace",
                       fontSize: "9px",
-                      color: "rgba(184,184,184,0.15)",
-                      letterSpacing: "0.1em",
+                      color: "#D0CDC7",
+                      letterSpacing: "0.08em",
                     }}>
                       {String(i + 1).padStart(2, "0")}
                     </p>
@@ -418,52 +337,14 @@ export default function CooperatorPage() {
           </div>
         </section>
 
-        {/* ── AES (동잔) — 무제한 ── */}
+        {/* ── FRIEND — 무제한 ── */}
         <section className="sacred-rail" style={{
-          paddingTop: "clamp(48px, 8vw, 80px)",
-          paddingBottom: "clamp(48px, 8vw, 80px)",
+          paddingTop: "clamp(48px, 7vw, 72px)",
+          paddingBottom: "clamp(48px, 7vw, 72px)",
         }}>
-          <div style={{ textAlign: "center", marginBottom: "40px" }}>
-            <div style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "16px",
-            }}>
-              <div style={{ width: "40px", height: "1px", background: "linear-gradient(90deg, transparent, #CD7F32)" }} />
-              <p style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "12px",
-                letterSpacing: "0.2em",
-                background: "linear-gradient(135deg, #CD7F32, #DBA06B)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}>
-                AES
-              </p>
-              <div style={{ width: "40px", height: "1px", background: "linear-gradient(90deg, #CD7F32, transparent)" }} />
-            </div>
+          <TierHeader tier={TIERS[2]} />
 
-            <h2 style={{
-              fontFamily: "'Noto Serif KR', serif",
-              fontSize: "clamp(20px, 2.8vw, 26px)",
-              fontWeight: 700,
-              color: "#FFFFFF",
-              marginBottom: "8px",
-            }}>
-              동잔
-            </h2>
-            <p style={{
-              fontFamily: "'Noto Sans KR', sans-serif",
-              fontSize: "13px",
-              color: "rgba(255,255,255,0.35)",
-              fontWeight: 300,
-            }}>
-              1개월 서버 운영비 후원 &middot; 인원 제한 없음
-            </p>
-          </div>
-
-          {AES_DONORS.length > 0 ? (
+          {FRIEND_DONORS.length > 0 ? (
             <div style={{
               display: "flex",
               flexWrap: "wrap",
@@ -472,20 +353,20 @@ export default function CooperatorPage() {
               maxWidth: "800px",
               margin: "0 auto",
             }}>
-              {AES_DONORS.map((donor, i) => (
+              {FRIEND_DONORS.map((donor, i) => (
                 <span
-                  key={`aes-${i}`}
-                  className="cooperator-card-aes"
+                  key={`fr-${i}`}
+                  className="coop-fade"
                   style={{
                     animationDelay: `${i * 0.03}s`,
                     fontFamily: "'Noto Sans KR', sans-serif",
                     fontSize: "13px",
                     fontWeight: 400,
-                    color: "#FFFFFF",
-                    padding: "8px 18px",
-                    borderRadius: "20px",
-                    background: "linear-gradient(135deg, rgba(205,127,50,0.1) 0%, rgba(219,160,107,0.05) 100%)",
-                    border: "1px solid rgba(205,127,50,0.2)",
+                    color: "#52504B",
+                    padding: "8px 20px",
+                    borderRadius: "24px",
+                    backgroundColor: "#FFFFFF",
+                    border: "1px solid #E8E5DF",
                   }}
                 >
                   {donor.name}
@@ -495,20 +376,19 @@ export default function CooperatorPage() {
           ) : (
             <div style={{
               textAlign: "center",
-              padding: "40px",
-              borderRadius: "16px",
-              border: "1px dashed rgba(205,127,50,0.15)",
-              maxWidth: "500px",
+              padding: "36px",
+              borderRadius: "12px",
+              border: "1px dashed #E8E5DF",
+              maxWidth: "420px",
               margin: "0 auto",
             }}>
               <p style={{
                 fontFamily: "'Noto Sans KR', sans-serif",
-                fontSize: "14px",
-                color: "rgba(205,127,50,0.3)",
+                fontSize: "13px",
+                color: "#D0CDC7",
                 fontWeight: 300,
-                fontStyle: "italic",
               }}>
-                첫 번째 동잔 협력자를 기다리고 있습니다
+                첫 번째 친구를 기다리고 있습니다
               </p>
             </div>
           )}
@@ -516,13 +396,10 @@ export default function CooperatorPage() {
 
         {/* ── 구분선 ── */}
         <div className="sacred-rail">
-          <div style={{
-            height: "1px",
-            background: "linear-gradient(90deg, transparent, rgba(201,169,110,0.2), transparent)",
-          }} />
+          <div style={{ height: "1px", background: "#E8E5DF" }} />
         </div>
 
-        {/* ── CTA 참여 안내 ── */}
+        {/* ── CTA ── */}
         <section className="sacred-rail" style={{
           paddingTop: "clamp(48px, 8vw, 80px)",
           paddingBottom: "clamp(60px, 10vw, 100px)",
@@ -532,87 +409,82 @@ export default function CooperatorPage() {
             fontFamily: "'DM Mono', monospace",
             fontSize: "11px",
             color: "#C9A96E",
-            letterSpacing: "0.2em",
+            letterSpacing: "0.18em",
             marginBottom: "20px",
           }}>
-            BECOME A COOPERATOR
+            JOIN US
           </p>
 
           <h2 style={{
             fontFamily: "'Noto Serif KR', serif",
-            fontSize: "clamp(22px, 3.5vw, 32px)",
+            fontSize: "clamp(20px, 3vw, 28px)",
             fontWeight: 700,
-            color: "#FFFFFF",
-            marginBottom: "20px",
+            color: "#0B2040",
+            marginBottom: "16px",
             lineHeight: 1.4,
           }}>
-            이 여정에 함께하세요
+            함께해 주세요
           </h2>
 
           <p style={{
             fontFamily: "'Noto Sans KR', sans-serif",
-            fontSize: "clamp(13px, 1.6vw, 15px)",
-            color: "rgba(255,255,255,0.45)",
+            fontSize: "14px",
+            color: "#52504B",
             lineHeight: 1.9,
-            maxWidth: "440px",
-            margin: "0 auto 40px",
+            maxWidth: "380px",
+            margin: "0 auto 36px",
             fontWeight: 300,
           }}>
-            Catholica는 비영리로 운영되며,<br />
-            서버 운영비 전액이 서비스 유지에 사용됩니다.<br />
-            후원을 원하시는 분은 아래로 연락해 주세요.
+            후원금 전액은 서버 운영에 사용됩니다.<br />
+            참여를 원하시면 아래로 연락해 주세요.
           </p>
 
-          {/* 티어 안내 카드 */}
+          {/* 티어 요약 */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "16px",
-            maxWidth: "720px",
-            margin: "0 auto 48px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "12px",
+            maxWidth: "640px",
+            margin: "0 auto 40px",
           }}>
-            {[
-              { tier: "AURUM", label: "금잔", desc: "1년 서버 운영비", limit: "12명 한정", color: "#C9A96E" },
-              { tier: "ARGENTUM", label: "은잔", desc: "6개월 서버 운영비", limit: "40명 한정", color: "#B8B8B8" },
-              { tier: "AES", label: "동잔", desc: "1개월 서버 운영비", limit: "인원 무제한", color: "#CD7F32" },
-            ].map((t) => (
-              <div key={t.tier} style={{
-                borderRadius: "12px",
-                padding: "24px 20px",
-                background: "rgba(255,255,255,0.03)",
-                border: `1px solid ${t.color}22`,
+            {TIERS.map((t) => (
+              <div key={t.key} style={{
+                borderRadius: "10px",
+                padding: "20px 16px",
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #E8E5DF",
               }}>
                 <p style={{
                   fontFamily: "'DM Mono', monospace",
                   fontSize: "10px",
-                  letterSpacing: "0.15em",
-                  color: t.color,
-                  marginBottom: "8px",
-                }}>
-                  {t.tier}
-                </p>
-                <p style={{
-                  fontFamily: "'Noto Serif KR', serif",
-                  fontSize: "18px",
-                  fontWeight: 700,
-                  color: "#FFFFFF",
+                  letterSpacing: "0.12em",
+                  color: t.accent,
                   marginBottom: "6px",
                 }}>
                   {t.label}
                 </p>
                 <p style={{
                   fontFamily: "'Noto Sans KR', sans-serif",
-                  fontSize: "13px",
-                  color: "rgba(255,255,255,0.4)",
-                  fontWeight: 300,
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#0B2040",
                   marginBottom: "4px",
+                }}>
+                  {t.title}
+                </p>
+                <p style={{
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  fontSize: "12px",
+                  color: "#9C9891",
+                  fontWeight: 300,
                 }}>
                   {t.desc}
                 </p>
                 <p style={{
                   fontFamily: "'DM Mono', monospace",
-                  fontSize: "10px",
-                  color: `${t.color}88`,
+                  fontSize: "9px",
+                  color: "#D0CDC7",
+                  marginTop: "6px",
                 }}>
                   {t.limit}
                 </p>
@@ -620,7 +492,7 @@ export default function CooperatorPage() {
             ))}
           </div>
 
-          {/* 연락처 */}
+          {/* CTA 버튼 */}
           <a
             href="https://pf.kakao.com/_TyTZX/friend"
             target="_blank"
@@ -632,12 +504,11 @@ export default function CooperatorPage() {
               fontFamily: "'Noto Sans KR', sans-serif",
               fontSize: "14px",
               fontWeight: 600,
-              color: "#0B2040",
-              backgroundColor: "#C9A96E",
+              color: "#FFFFFF",
+              backgroundColor: "#0B2040",
               padding: "14px 32px",
               borderRadius: "8px",
               textDecoration: "none",
-              transition: "opacity 0.2s",
             }}
           >
             카카오 채널로 문의하기
@@ -648,12 +519,10 @@ export default function CooperatorPage() {
           </a>
         </section>
 
-        {/* ── 하단 네비게이션 ── */}
-        <div className="sacred-rail" style={{
-          paddingBottom: "40px",
-        }}>
+        {/* ── 하단 네비 ── */}
+        <div className="sacred-rail" style={{ paddingBottom: "40px" }}>
           <div style={{
-            borderTop: "1px solid rgba(255,255,255,0.06)",
+            borderTop: "1px solid #E8E5DF",
             paddingTop: "24px",
             display: "flex",
             justifyContent: "space-between",
@@ -664,24 +533,71 @@ export default function CooperatorPage() {
               style={{
                 fontFamily: "'Noto Sans KR', sans-serif",
                 fontSize: "13px",
-                color: "rgba(255,255,255,0.3)",
+                color: "#9C9891",
                 textDecoration: "none",
                 fontWeight: 300,
               }}
             >
               &larr; 홈으로
             </Link>
-            <p style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: "10px",
-              color: "rgba(255,255,255,0.15)",
-              letterSpacing: "0.1em",
-            }}>
-              Ad Maiorem Dei Gloriam
-            </p>
+            <Link
+              href="/terms"
+              style={{
+                fontFamily: "'Noto Sans KR', sans-serif",
+                fontSize: "13px",
+                color: "#9C9891",
+                textDecoration: "none",
+                fontWeight: 300,
+              }}
+            >
+              이용약관 &rarr;
+            </Link>
           </div>
         </div>
       </main>
     </>
+  );
+}
+
+/* ── 티어 헤더 컴포넌트 ── */
+function TierHeader({ tier }: { tier: typeof TIERS[number] }) {
+  return (
+    <div style={{ textAlign: "center", marginBottom: "36px" }}>
+      <div style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "12px",
+        marginBottom: "12px",
+      }}>
+        <div style={{ width: "32px", height: "1px", background: `linear-gradient(90deg, transparent, ${tier.accent})` }} />
+        <p style={{
+          fontFamily: "'DM Mono', monospace",
+          fontSize: "11px",
+          letterSpacing: "0.18em",
+          color: tier.accent,
+        }}>
+          {tier.label}
+        </p>
+        <div style={{ width: "32px", height: "1px", background: `linear-gradient(90deg, ${tier.accent}, transparent)` }} />
+      </div>
+
+      <h2 style={{
+        fontFamily: "'Noto Serif KR', serif",
+        fontSize: "clamp(20px, 2.8vw, 26px)",
+        fontWeight: 700,
+        color: "#0B2040",
+        marginBottom: "6px",
+      }}>
+        {tier.title}
+      </h2>
+      <p style={{
+        fontFamily: "'Noto Sans KR', sans-serif",
+        fontSize: "13px",
+        color: "#9C9891",
+        fontWeight: 300,
+      }}>
+        {tier.desc} &middot; {tier.limit}
+      </p>
+    </div>
   );
 }
