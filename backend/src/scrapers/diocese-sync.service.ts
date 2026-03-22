@@ -54,11 +54,37 @@ const CATEGORY_COLOR: Record<string, string> = {
   뉴스: '#5C6B7A',    // muted slate blue (교구 소식)
 };
 
+// ─── 교구 사이트 보호 상수 ──────────────────────────────────────────────────
+const POLITE_USER_AGENT = 'CatholicaBot/1.0 (+https://catholica.kr; 가톨릭 행사 정보 수집)';
+const POLITE_DELAY_MS = 5000;  // 교구 사이트 부담 최소화: 요청 간 5초 대기
+const PDF_DELAY_MS = 3000;     // PDF 다운로드 간 3초 대기
+
 @Injectable()
 export class DioceseSyncService {
   private readonly logger = new Logger(DioceseSyncService.name);
 
+  // 24시간 URL 캐시 — 같은 URL 중복 요청 방지
+  private readonly urlCache = new Map<string, number>();
+  private readonly URL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
+
   constructor(private readonly prisma: PrismaService) {}
+
+  private isUrlCached(url: string): boolean {
+    const cached = this.urlCache.get(url);
+    if (cached && Date.now() - cached < this.URL_CACHE_TTL) return true;
+    // 만료된 캐시 정리 (100개 초과 시)
+    if (this.urlCache.size > 100) {
+      const now = Date.now();
+      for (const [k, v] of this.urlCache) {
+        if (now - v > this.URL_CACHE_TTL) this.urlCache.delete(k);
+      }
+    }
+    return false;
+  }
+
+  private cacheUrl(url: string): void {
+    this.urlCache.set(url, Date.now());
+  }
 
   // ─── 전체 교구 순차 실행 ─────────────────────────────────────────────────
   async runAll(monthsAhead = 3): Promise<DioceseSyncResult> {
@@ -83,26 +109,26 @@ export class DioceseSyncService {
       this.logger.error(`[Busan] 전체 실패: ${e.message}`);
       return 0;
     });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const daegu = await this.runDaegu(monthsAhead).catch((e) => {
       this.logger.error(`[Daegu] 전체 실패: ${e.message}`);
       return 0;
     });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const daejeonBoard = await this.runDaejeon(monthsAhead).catch((e) => {
       this.logger.error(`[Daejeon] 전체 실패: ${e.message}`);
       return 0;
     });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const daejeonPdf = await this.runDaejeonJubo().catch((e) => {
       this.logger.error(`[Daejeon Jubo] 실패: ${e.message}`);
       return 0;
     });
     const daejeon = daejeonBoard + daejeonPdf;
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     // ── 신규 교구 (Phase 2) — ★ 2026-03-06 실제 URL 검증 결과 적용 ────
     const seoul = await this.runGenericBoard({
@@ -115,7 +141,7 @@ export class DioceseSyncService {
         'https://aos.catholic.or.kr/schedule',
       ],
     }).catch((e) => { this.logger.error(`[Seoul] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const suwon = await this.runGenericBoard({
       name: '수원교구',
@@ -127,7 +153,7 @@ export class DioceseSyncService {
         'https://www.casuwon.or.kr/info/schedule',
       ],
     }).catch((e) => { this.logger.error(`[Suwon] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     // ★ 인천교구 — http:// 필수 (https 미지원), iframe 내부 /home.do 사용
     //   + 주보 PDF 자동 다운로드 (/upload/magazine/YYYYMM/YYYYMMDD_XXXX.pdf)
@@ -140,14 +166,14 @@ export class DioceseSyncService {
         'http://www.caincheon.or.kr/n/board/normal_mboard_list.do?i_sBidx=11',
       ],
     }).catch((e) => { this.logger.error(`[Incheon Board] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const incheonPdf = await this.runIncheonJubo().catch((e) => {
       this.logger.error(`[Incheon Jubo] 실패: ${e.message}`);
       return 0;
     });
     const incheon = incheonBoard + incheonPdf;
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     // ── 추가 교구 (Phase 3) ────────────────────────────────────────────────
     const gwangju = await this.runGenericBoard({
@@ -161,7 +187,7 @@ export class DioceseSyncService {
         'https://www.gjcatholic.or.kr/archdiocese/archbishop/news',
       ],
     }).catch((e) => { this.logger.error(`[Gwangju] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const chuncheonBoard = await this.runGenericBoard({
       name: '춘천교구',
@@ -172,14 +198,14 @@ export class DioceseSyncService {
         'https://www.cccatholic.or.kr/news/church',
       ],
     }).catch((e) => { this.logger.error(`[Chuncheon Board] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const chuncheonPdf = await this.runChuncheonJubo().catch((e) => {
       this.logger.error(`[Chuncheon Jubo] 실패: ${e.message}`);
       return 0;
     });
     const chuncheon = chuncheonBoard + chuncheonPdf;
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const jeju = await this.runGenericBoard({
       name: '제주교구',
@@ -191,7 +217,7 @@ export class DioceseSyncService {
         'https://www.diocesejeju.or.kr/board_church',
       ],
     }).catch((e) => { this.logger.error(`[Jeju] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const wonju = await this.runGenericBoard({
       name: '원주교구',
@@ -203,7 +229,7 @@ export class DioceseSyncService {
         'http://www.wjcatholic.or.kr/board/notice2',
       ],
     }).catch((e) => { this.logger.error(`[Wonju] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const uijeongbu = await this.runGenericBoard({
       name: '의정부교구',
@@ -216,25 +242,25 @@ export class DioceseSyncService {
         'http://ucatholic.or.kr/bbs/board.php?bo_table=jubo',
       ],
     }).catch((e) => { this.logger.error(`[Uijeongbu] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const cheongju = await this.runCheongjuJubo().catch((e) => {
       this.logger.error(`[Cheongju Jubo] 실패: ${e.message}`);
       return 0;
     });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const masan = await this.runMasanJubo().catch((e) => {
       this.logger.error(`[Masan Jubo] 실패: ${e.message}`);
       return 0;
     });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const andong = await this.runAndongJubo().catch((e) => {
       this.logger.error(`[Andong Jubo] 실패: ${e.message}`);
       return 0;
     });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     const gunjong = await this.runGenericBoard({
       name: '군종교구',
@@ -244,7 +270,7 @@ export class DioceseSyncService {
         'https://www.gunjong.or.kr/parish/notice.asp',
       ],
     }).catch((e) => { this.logger.error(`[Gunjong] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     // ── 전주교구 (게시판 형태 — wr_id 패턴) ──────────────────────────────
     const jeonju = await this.runGenericBoard({
@@ -256,7 +282,7 @@ export class DioceseSyncService {
         'https://www.jcatholic.or.kr/index.php?theme=event',
       ],
     }).catch((e) => { this.logger.error(`[Jeonju] 실패: ${e.message}`); return 0; });
-    await this.delay(2000);
+    await this.politeRandomDelay();
 
     // ── CBCK (한국천주교주교회의) 공지사항 ──────────────────────────────────
     const cbck = await this.runGenericBoard({
@@ -482,7 +508,7 @@ export class DioceseSyncService {
         );
       }
 
-      await this.delay(2000);
+      await this.politeRandomDelay();
     }
 
     this.logger.log(`[Daegu] 완료. 저장: ${saved}`);
@@ -624,7 +650,7 @@ export class DioceseSyncService {
           `[Daejeon] 페이지${page} 실패: ${(err as Error).message}`,
         );
       }
-      await this.delay(2000);
+      await this.politeRandomDelay();
     }
 
     this.logger.log(`[Daejeon] 완료. 저장: ${saved}`);
@@ -898,18 +924,23 @@ export class DioceseSyncService {
 
     for (const url of config.urls) {
       try {
+        // 24시간 내 이미 수집한 URL이면 스킵 (교구 서버 부담 최소화)
+        if (this.isUrlCached(url)) {
+          this.logger.log(`[${config.name}] 캐시됨, 스킵: ${url}`);
+          continue;
+        }
         const res = await axios.get<ArrayBuffer>(url, {
           timeout: 15000,
           responseType: 'arraybuffer',
           maxRedirects: 10,
           headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': POLITE_USER_AGENT,
             'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
             'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
           },
         });
 
+        this.cacheUrl(url); // 성공한 URL 캐시 (24시간 중복 방지)
         const html = this.decodeKorean(Buffer.from(res.data), res.headers['content-type']);
 
         if (this.detectBotBlock(html, config.name)) continue;
@@ -1047,7 +1078,7 @@ export class DioceseSyncService {
       } catch (err) {
         this.logger.debug(`[Incheon Jubo] ${url} 건너뜀: ${(err as Error).message}`);
       }
-      await this.delay(1000);
+      await this.delay(PDF_DELAY_MS);
     }
 
     this.logger.log(`[Incheon Jubo] 완료. 저장: ${totalSaved}`);
@@ -1102,7 +1133,7 @@ export class DioceseSyncService {
       maxRedirects: 5,
       httpsAgent: new https.Agent({ rejectUnauthorized: false }),
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': POLITE_USER_AGENT,
         'Accept': 'application/pdf,*/*',
         ...(referer ? { 'Referer': referer } : {}),
       },
@@ -1244,7 +1275,7 @@ export class DioceseSyncService {
       // 주보 목록 페이지에서 최신 PDF 타임스탬프 추출
       const listRes = await axios.get('https://www.cccatholic.or.kr/publication/jubo', {
         timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        headers: { 'User-Agent': POLITE_USER_AGENT },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
@@ -1275,7 +1306,7 @@ export class DioceseSyncService {
         } catch (err) {
           this.logger.debug(`[Chuncheon Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
         }
-        await this.delay(1000);
+        await this.delay(PDF_DELAY_MS);
       }
 
       this.logger.log(`[Chuncheon Jubo] 완료. 저장: ${totalSaved}`);
@@ -1297,7 +1328,7 @@ export class DioceseSyncService {
       const listRes = await axios.get('https://www.acatholic.or.kr/sub6/sub1.asp', {
         timeout: 15000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': POLITE_USER_AGENT,
           'Referer': 'https://www.acatholic.or.kr/',
         },
       });
@@ -1324,7 +1355,7 @@ export class DioceseSyncService {
         } catch (err) {
           this.logger.debug(`[Andong Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
         }
-        await this.delay(1000);
+        await this.delay(PDF_DELAY_MS);
       }
 
       this.logger.log(`[Andong Jubo] 완료. 저장: ${totalSaved}`);
@@ -1348,7 +1379,7 @@ export class DioceseSyncService {
       const listRes = await axios.get('https://cathms.kr/C_8', {
         timeout: 15000,
         httpsAgent: agent,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        headers: { 'User-Agent': POLITE_USER_AGENT },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
@@ -1371,7 +1402,7 @@ export class DioceseSyncService {
           const detailRes = await axios.get(`https://cathms.kr/C_8/${docId}`, {
             timeout: 15000,
             httpsAgent: agent,
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            headers: { 'User-Agent': POLITE_USER_AGENT },
           });
           const detailHtml = typeof detailRes.data === 'string' ? detailRes.data : '';
 
@@ -1388,7 +1419,7 @@ export class DioceseSyncService {
         } catch (err) {
           this.logger.debug(`[Masan Jubo] docId ${docId} 실패: ${(err as Error).message}`);
         }
-        await this.delay(1000);
+        await this.delay(PDF_DELAY_MS);
       }
 
       this.logger.log(`[Masan Jubo] 완료. 저장: ${totalSaved}`);
@@ -1409,7 +1440,7 @@ export class DioceseSyncService {
     try {
       const listRes = await axios.get('https://www.cdcj.or.kr/media/journal', {
         timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        headers: { 'User-Agent': POLITE_USER_AGENT },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
@@ -1434,7 +1465,7 @@ export class DioceseSyncService {
         } catch (err) {
           this.logger.debug(`[Cheongju Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
         }
-        await this.delay(1000);
+        await this.delay(PDF_DELAY_MS);
       }
 
       this.logger.log(`[Cheongju Jubo] 완료. 저장: ${totalSaved}`);
@@ -1455,7 +1486,7 @@ export class DioceseSyncService {
     try {
       const listRes = await axios.get('https://jubo.djcatholic.or.kr/home/last.asp', {
         timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        headers: { 'User-Agent': POLITE_USER_AGENT },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
@@ -1479,7 +1510,7 @@ export class DioceseSyncService {
         } catch (err) {
           this.logger.debug(`[Daejeon Jubo] ${pdfUrl} 실패: ${(err as Error).message}`);
         }
-        await this.delay(1000);
+        await this.delay(PDF_DELAY_MS);
       }
 
       this.logger.log(`[Daejeon Jubo] 완료. 저장: ${totalSaved}`);
@@ -1506,5 +1537,15 @@ export class DioceseSyncService {
 
   private delay(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
+  }
+
+  /** 교구 사이트 보호: 랜덤 지연 (패턴 감지 방지) */
+  private async politeRandomDelay(): Promise<void> {
+    // 5~30초 사이 랜덤 대기 → 규칙적 패턴 없앰
+    const min = 5000;
+    const max = 30000;
+    const ms = Math.floor(Math.random() * (max - min)) + min;
+    this.logger.debug(`[Polite] ${(ms / 1000).toFixed(1)}초 대기 중...`);
+    await this.delay(ms);
   }
 }
