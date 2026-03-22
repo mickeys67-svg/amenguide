@@ -176,3 +176,36 @@ export function inferDiocese(location: string | null | undefined): Diocese | nul
 
   return null;
 }
+
+/** URL 도메인에서 교구 추론 (location이 없을 때 fallback) */
+const DOMAIN_DIOCESE_MAP: Record<string, Diocese> = {
+  'catholicbusan': '부산교구',
+  'bfrancis': '부산교구',
+  'daegu-archdiocese': '대구대교구',
+  'casuwon': '수원교구',
+  'caincheon': '인천교구',
+  'cathms': '마산교구',
+  'jcatholic': '전주교구',
+  'cdcj': '청주교구',
+  'cwcatholic': '춘천교구',
+  'wonjudiocese': '원주교구',
+  'jejucatholic': '제주교구',
+  'uijeongbu': '의정부교구',
+  'dcatholic': '대전교구',
+  'gunjong': '군종교구',
+  'gjcatholic': '광주대교구',
+  'samog.gjcatholic': '광주대교구',
+  'catholic.or.kr': '서울대교구',
+  'catholicandong': '안동교구',
+};
+
+export function inferDioceseFromUrl(url: string | null | undefined): Diocese | null {
+  if (!url) return null;
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    for (const [key, diocese] of Object.entries(DOMAIN_DIOCESE_MAP)) {
+      if (hostname.includes(key)) return diocese;
+    }
+  } catch { /* invalid URL */ }
+  return null;
+}

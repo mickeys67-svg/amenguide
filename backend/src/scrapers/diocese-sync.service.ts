@@ -54,6 +54,16 @@ const CATEGORY_COLOR: Record<string, string> = {
   뉴스: '#5C6B7A',    // muted slate blue (교구 소식)
 };
 
+// ─── HTML 엔티티 디코딩 ──────────────────────────────────────────────────────
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ').replace(/&ensp;/g, ' ').replace(/&emsp;/g, ' ')
+    .replace(/&#8203;/g, '').replace(/&#x200B;/g, '') // zero-width space
+    .replace(/\s+/g, ' ').trim();
+}
+
 // ─── 교구 사이트 보호 상수 ──────────────────────────────────────────────────
 const POLITE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const POLITE_DELAY_MS = 5000;  // 교구 사이트 부담 최소화: 요청 간 5초 대기
@@ -563,7 +573,7 @@ export class DioceseSyncService {
     while ((m = linkRe.exec(html)) !== null) {
       const href = m[1].trim();
       // ★ 내부 HTML 태그 제거 후 텍스트만 추출
-      const rawTitle = m[2].replace(/<[^>]+>/g, '').trim().replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+      const rawTitle = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, ''));
 
       if (!rawTitle || seen.has(rawTitle)) continue;
       if (rawTitle.length < 3 || /^\d+$/.test(rawTitle)) continue;
@@ -702,7 +712,7 @@ export class DioceseSyncService {
     while ((m = linkRe.exec(html)) !== null) {
       const href = m[1].trim();
       // ★ 내부 HTML 태그 제거 후 텍스트만 추출
-      const rawTitle = m[2].replace(/<[^>]+>/g, '').trim().replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+      const rawTitle = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, ''));
 
       if (!rawTitle || seen.has(rawTitle)) continue;
       if (rawTitle.length < 3 || /^\d+$/.test(rawTitle)) continue;
@@ -781,31 +791,39 @@ export class DioceseSyncService {
         createdAt: { gte: thirtyDaysAgo },
       };
     }
-    const dup = await this.prisma.event.findFirst({ where: dupWhere });
+    // 트랜잭션으로 중복 체크 + 생성 원자적 처리 (레이스 컨디션 방지)
+    try {
+      const saved = await this.prisma.$transaction(async (tx) => {
+        const dup = await tx.event.findFirst({ where: dupWhere });
+        if (dup) return false;
 
-    if (dup) {
-      this.logger.debug(`${prefix} 중복: ${evt.title}`);
+        await tx.event.create({
+          data: {
+            title: evt.title,
+            date: evt.date,
+            location: evt.location,
+            aiSummary: evt.aiSummary ?? null,
+            themeColor: evt.themeColor,
+            originUrl: evt.originUrl,
+            category: evt.category,
+            diocese: evt.diocese ?? null,
+            status: 'APPROVED',
+          } as any,
+        });
+        return true;
+      });
+
+      if (saved) {
+        this.logger.log(`${prefix} ✅ 저장: "${evt.title}" [${evt.category}] @ ${evt.location}`);
+      } else {
+        this.logger.debug(`${prefix} 중복: ${evt.title}`);
+      }
+      return saved;
+    } catch (err) {
+      // unique constraint 위반 등 → 중복으로 처리
+      this.logger.debug(`${prefix} 저장 실패 (중복?): ${evt.title} — ${err.message}`);
       return false;
     }
-
-    await this.prisma.event.create({
-      data: {
-        title: evt.title,
-        date: evt.date,
-        location: evt.location,
-        aiSummary: evt.aiSummary ?? null,
-        themeColor: evt.themeColor,
-        originUrl: evt.originUrl,
-        category: evt.category,
-        diocese: evt.diocese ?? null,
-        status: 'APPROVED', // 교구 스크래핑 행사는 즉시 공개
-      } as any,
-    });
-
-    this.logger.log(
-      `${prefix} ✅ 저장: "${evt.title}" [${evt.category}] @ ${evt.location}`,
-    );
-    return true;
   }
 
   /** 봇 차단 / CAPTCHA 감지 — HTML 응답이 실제 콘텐츠인지 검증 */

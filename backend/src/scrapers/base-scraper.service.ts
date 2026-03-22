@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { convert } from 'html-to-text';
 
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 @Injectable()
 export class BaseScraperService {
   private readonly logger = new Logger(BaseScraperService.name);
@@ -14,33 +16,40 @@ export class BaseScraperService {
       this.logger.log(`Fetching via Scraping API (with JS rendering) for: ${url}`);
       try {
         const proxyUrl = `http://api.scraperapi.com?api_key=${api_key}&url=${encodeURIComponent(url)}&render=true`;
-        const response = await axios.get(proxyUrl, { timeout: 60000 }); // Longer timeout for rendering
+        const response = await axios.get(proxyUrl, { timeout: 60000 });
         return response.data;
       } catch (error) {
         this.logger.error(`Scraping API failed: ${error.message}. Falling back to direct request.`);
       }
     }
 
-    try {
-      this.logger.log(`Fetching HTML directly (No JS rendering) from: ${url}`);
-      // ★ arraybuffer로 받아 인코딩 감지 후 디코딩 (EUC-KR 한국 사이트 대응)
-      const response = await axios.get(url, {
-        timeout: 10000,
-        responseType: 'arraybuffer',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-      });
-      return this.decodeKorean(
-        Buffer.from(response.data),
-        response.headers['content-type'],
-      );
-    } catch (error) {
-      this.logger.error(`Failed to fetch HTML from ${url}: ${error.message}`);
-      throw new Error(`Failed to fetch source: ${error.message}`);
+    // 3회 재시도 + 지수 백오프
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) this.logger.log(`Retry ${attempt}/${maxRetries} for: ${url}`);
+        const response = await axios.get(url, {
+          timeout: 15000,
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': CHROME_UA,
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        });
+        return this.decodeKorean(Buffer.from(response.data), response.headers['content-type']);
+      } catch (error) {
+        if (attempt < maxRetries - 1) {
+          const delay = Math.pow(2, attempt) * 2000 + Math.random() * 1000; // 2s, 4s, 8s + jitter
+          this.logger.warn(`Fetch failed (attempt ${attempt + 1}): ${error.message}. Retrying in ${(delay / 1000).toFixed(1)}s...`);
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          this.logger.error(`Failed to fetch HTML from ${url} after ${maxRetries} attempts: ${error.message}`);
+          throw new Error(`Failed to fetch source: ${error.message}`);
+        }
+      }
     }
+    throw new Error('Unreachable');
   }
 
   /** 한국어 HTML 인코딩 감지 및 디코딩 (UTF-8 / EUC-KR / cp949) */
@@ -94,6 +103,10 @@ export class BaseScraperService {
           { selector: '.footer', format: 'skip' },
           { selector: '.navigation', format: 'skip' },
           { selector: '.sidebar', format: 'skip' },
+          { selector: '.breadcrumb', format: 'skip' },
+          { selector: '.comment', format: 'skip' },
+          { selector: '.comments', format: 'skip' },
+          { selector: '.related', format: 'skip' },
         ],
       });
     } catch (error) {

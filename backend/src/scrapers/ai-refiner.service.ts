@@ -65,9 +65,14 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
       throw new Error('AI service is not configured (missing ANTHROPIC_API_KEY).');
     }
 
-    // 한국 가톨릭 행사 페이지는 제목·날짜·장소가 앞부분에 집중 → 1500자면 충분
-    // 8000자(~1600토큰) → 1500자(~300토큰): 입력 토큰 약 81% 절감
-    const contentForAi = text.slice(0, 1500);
+    // 앞(제목/날짜) + 중간(본문) + 끝(문의/신청) 샘플링 → 정보 커버리지 향상
+    const len = text.length;
+    const parts = [
+      text.slice(0, 600),                                           // 앞: 제목, 날짜, 장소
+      len > 1200 ? text.slice(Math.floor(len / 2) - 300, Math.floor(len / 2) + 300) : '', // 중간: 본문
+      len > 600 ? text.slice(Math.max(0, len - 400)) : '',          // 끝: 문의처, 신청방법
+    ].filter(Boolean);
+    const contentForAi = parts.join('\n\n---\n\n').slice(0, 1800);
 
     try {
       const message = await this.anthropic.messages.create({
