@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import LuceDiFedeHome from "@/components/main/LuceDiFedeHome";
 
 const SITE_URL = "https://catholica.kr";
@@ -56,7 +57,9 @@ export default async function Home() {
   return (
     <main>
       <HomeJsonLd events={events} />
-      <LuceDiFedeHome initialEvents={events} initialTotal={total} initialCategoryCounts={categoryCounts} />
+      <Suspense>
+        <LuceDiFedeHome initialEvents={events} initialTotal={total} initialCategoryCounts={categoryCounts} />
+      </Suspense>
     </main>
   );
 }

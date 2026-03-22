@@ -17,11 +17,16 @@ export class NoticesService {
   }
 
   // ── 목록 조회 (승인된 글만, 고정글 상단) ─────────────────────────────
-  async findAll(page: number, limit: number, category?: string) {
+  async findAll(page: number, limit: number, category?: string, sort?: string) {
     const where: any = { status: 'APPROVED' };
     if (category && category !== '전체') {
       where.category = category;
     }
+
+    // 정렬 옵션 (고정글은 항상 상단)
+    const sortField = sort === 'oldest' ? { createdAt: 'asc' as const }
+      : sort === 'views' ? { viewCount: 'desc' as const }
+      : { createdAt: 'desc' as const };
 
     const [data, total] = await Promise.all([
       this.prisma.notice.findMany({
@@ -30,7 +35,7 @@ export class NoticesService {
           author: { select: { id: true, name: true } },
           _count: { select: { comments: true } },
         },
-        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ isPinned: 'desc' }, sortField],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -169,6 +174,7 @@ export class NoticesService {
         .upload(storagePath, file.buffer, {
           contentType: file.mimetype,
           upsert: false,
+          cacheControl: 'public, max-age=31536000, immutable',
         });
       if (error) throw error;
 

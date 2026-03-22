@@ -216,6 +216,40 @@ export class EventsController {
   }
 
   /**
+   * 행사 일괄 승인
+   * POST /events/admin/batch-approve
+   */
+  @Post('admin/batch-approve')
+  async batchApprove(
+    @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
+    @Body() body: { ids: string[] },
+  ) {
+    this.adminAuth.requireAdmin(key, auth);
+    if (!body.ids?.length || body.ids.length > 100) {
+      throw new BadRequestException('ids must be 1-100 items');
+    }
+    return this.eventsService.batchApprove(body.ids);
+  }
+
+  /**
+   * 행사 일괄 거절
+   * POST /events/admin/batch-reject
+   */
+  @Post('admin/batch-reject')
+  async batchReject(
+    @Headers('x-admin-key') key: string,
+    @Headers('authorization') auth: string,
+    @Body() body: { ids: string[]; reason?: string },
+  ) {
+    this.adminAuth.requireAdmin(key, auth);
+    if (!body.ids?.length || body.ids.length > 100) {
+      throw new BadRequestException('ids must be 1-100 items');
+    }
+    return this.eventsService.batchReject(body.ids, body.reason);
+  }
+
+  /**
    * 행사 수정 (관리자)
    * PUT /events/admin/events/:id
    */

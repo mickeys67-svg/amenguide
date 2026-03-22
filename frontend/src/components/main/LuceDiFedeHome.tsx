@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo, useEffect, useCallback, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navigation } from "./Navigation";
 import { Hero } from "./Hero";
@@ -115,13 +115,16 @@ function mapRawEvents(data: any[]): EventData[] {
 
 export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initialCategoryCounts }: { initialEvents?: any[]; initialTotal?: number; initialCategoryCounts?: Record<string, number> }) {
     const router = useRouter();
-    const [activeFilter, setActiveFilter] = useState("전체");
+    const searchParams = useSearchParams();
+
+    // URL params에서 초기 상태 복원
+    const [activeFilter, setActiveFilter] = useState(() => searchParams.get("filter") || "전체");
     // carousel state removed — using horizontal chip strip
-    const [sortBy, setSortBy] = useState("date");
+    const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "date");
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [searchOpen, setSearchOpen] = useState(false);
     const [aiRecommendOpen, setAiRecommendOpen] = useState(false);
-    const [selectedDiocese, setSelectedDiocese] = useState("");
+    const [selectedDiocese, setSelectedDiocese] = useState(() => searchParams.get("diocese") || "");
 
     // 하이드레이션 후 localStorage에서 교구 복원
     useEffect(() => {
@@ -130,7 +133,10 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
     }, []);
     const [aboutOpen, setAboutOpen] = useState(false);
     const eventsRef = useRef<HTMLDivElement>(null);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(() => {
+        const p = searchParams.get("page");
+        return p ? Math.max(1, parseInt(p, 10) || 1) : 1;
+    });
 
     // ── 로그인 상태 (useAuth 공유 훅) ──────────────────────────────
     const { authUser, logout: authLogout } = useAuth();
@@ -292,6 +298,18 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
         setCurrentPage(1);
     }, [activeFilter, sortBy, selectedDiocese, pageSize]);
 
+    // URL search params 동기화 (필터/정렬/페이지 → URL)
+    useEffect(() => {
+        const params = new URLSearchParams();
+        if (activeFilter !== "전체") params.set("filter", activeFilter);
+        if (sortBy !== "date") params.set("sort", sortBy);
+        if (currentPage > 1) params.set("page", String(currentPage));
+        if (selectedDiocese) params.set("diocese", selectedDiocese);
+        const qs = params.toString();
+        const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+        window.history.replaceState(null, "", newUrl);
+    }, [activeFilter, sortBy, currentPage, selectedDiocese]);
+
     // URL 해시(#events, #map)로 이동 시 해당 섹션으로 스크롤
     useEffect(() => {
         const hash = window.location.hash.replace("#", "");
@@ -303,10 +321,20 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                 const y = el.getBoundingClientRect().top + window.scrollY - offset;
                 window.scrollTo({ top: y, behavior: "smooth" });
             }
-            // 해시 제거 (뒤로가기 시 재트리거 방지)
-            window.history.replaceState(null, "", window.location.pathname);
+            // 해시 제거 (뒤로가기 시 재트리거 방지, search params 유지)
+            window.history.replaceState(null, "", window.location.pathname + window.location.search);
         }, 300);
         return () => clearTimeout(timer);
+    }, []);
+
+    // 뒤로가기 시 스크롤 위치 복원
+    useEffect(() => {
+        if (window.location.hash) return; // 해시 스크롤이 우선
+        const saved = sessionStorage.getItem('scrollY');
+        if (saved) {
+            sessionStorage.removeItem('scrollY');
+            requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10)));
+        }
     }, []);
 
     const countByCategory = useMemo(() => {
@@ -554,8 +582,8 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                         </p>
                     </motion.div>
 
-                    {/* Loading */}
-                    {isLoading ? (
+                    {/* Loading — 데이터 없으면 풀 스피너, 있으면 오버레이 */}
+                    {isLoading && pagedEvents.length === 0 ? (
                         <div style={{ display: "flex", justifyContent: "center", padding: "96px 0" }}>
                             <motion.div
                                 animate={{ rotate: 360 }}
@@ -613,6 +641,24 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                             </p>
                         </motion.div>
                     ) : viewMode === "grid" ? (
+                        <div style={{ position: "relative" }}>
+                        {isLoading && (
+                            <div style={{
+                                position: "absolute", inset: 0, zIndex: 10,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                backgroundColor: "rgba(248,247,244,0.7)",
+                                borderRadius: "12px",
+                            }}>
+                                <motion.div
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                                    style={{
+                                        width: "32px", height: "32px", borderRadius: "50%",
+                                        border: "2px solid #E8E5DF", borderTopColor: "#0B2040",
+                                    }}
+                                />
+                            </div>
+                        )}
                         <motion.div
                             key={`grid-${activeFilter}`}
                             initial={{ opacity: 0 }}
@@ -638,7 +684,26 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                                 />
                             ))}
                         </motion.div>
+                        </div>
                     ) : (
+                        <div style={{ position: "relative" }}>
+                        {isLoading && (
+                            <div style={{
+                                position: "absolute", inset: 0, zIndex: 10,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                backgroundColor: "rgba(248,247,244,0.7)",
+                                borderRadius: "12px",
+                            }}>
+                                <motion.div
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                                    style={{
+                                        width: "32px", height: "32px", borderRadius: "50%",
+                                        border: "2px solid #E8E5DF", borderTopColor: "#0B2040",
+                                    }}
+                                />
+                            </div>
+                        )}
                         <motion.div
                             key={`list-${activeFilter}`}
                             initial={{ opacity: 0 }}
@@ -678,6 +743,7 @@ export default function LuceDiFedeHome({ initialEvents = [], initialTotal, initi
                                 />
                             ))}
                         </motion.div>
+                        </div>
                     )}
                     {/* ── 페이지네이션 ── */}
                     {totalPages >= 1 && (

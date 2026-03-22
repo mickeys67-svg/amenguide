@@ -25,10 +25,11 @@ export class NoticesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('category') category?: string,
+    @Query('sort') sort?: string,
   ) {
     const p = Math.max(1, parseInt(page || '1', 10) || 1);
     const l = Math.min(50, Math.max(1, parseInt(limit || '20', 10) || 20));
-    return this.noticesService.findAll(p, l, category);
+    return this.noticesService.findAll(p, l, category, sort);
   }
 
   // ── 관리자: 전체 목록 (status 포함) ──────────────────────────────────

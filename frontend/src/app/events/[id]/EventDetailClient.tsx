@@ -38,6 +38,19 @@ export default function EventDetailClient() {
     const router = useRouter();
     const [event, setEvent] = useState<EventData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [copied, setCopied] = useState(false);
+    const [relatedEvents, setRelatedEvents] = useState<EventData[]>([]);
+
+    const handleShare = async () => {
+        const url = window.location.href;
+        if (navigator.share) {
+            try { await navigator.share({ title: event?.title, url }); } catch {}
+        } else {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     useEffect(() => {
         if (!id) return;
@@ -69,6 +82,26 @@ export default function EventDetailClient() {
         fetchEvent();
         return () => controller.abort();
     }, [id]);
+
+    // 관련 행사 로드
+    useEffect(() => {
+        if (!event?.category || !id) return;
+        apiFetch<{ data: any[] }>(`/events?category=${encodeURIComponent(event.category)}&pageSize=4`)
+            .then(res => {
+                const items = (res.data || [])
+                    .filter((e: any) => String(e.id) !== String(id))
+                    .slice(0, 3)
+                    .map((e: any) => ({
+                        id: e.id, title: e.title, subtitle: e.category || "",
+                        category: e.category || "",
+                        date: e.date ? new Date(e.date).toLocaleDateString("ko-KR") : "날짜 미정",
+                        location: e.location || "장소 미정",
+                        description: e.aiSummary || "", image: "",
+                    }));
+                setRelatedEvents(items);
+            })
+            .catch(() => {});
+    }, [event?.category, id]);
 
     /* Loading */
     if (isLoading) {
@@ -357,11 +390,7 @@ export default function EventDetailClient() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    if (navigator.share) {
-                                        navigator.share({ title: event.title, url: window.location.href });
-                                    }
-                                }}
+                                onClick={handleShare}
                                 style={{
                                     width: "48px",
                                     height: "48px",
@@ -621,11 +650,7 @@ export default function EventDetailClient() {
                             {/* Share */}
                             <button
                                 type="button"
-                                onClick={() => {
-                                    if (navigator.share) {
-                                        navigator.share({ title: event.title, url: window.location.href });
-                                    }
-                                }}
+                                onClick={handleShare}
                                 style={{
                                     width: "100%",
                                     display: "flex",
@@ -673,7 +698,85 @@ export default function EventDetailClient() {
                         </div>
                     </motion.div>
                 </div>
+
+                {/* ── 관련 행사 ── */}
+                {relatedEvents.length > 0 && (
+                    <section style={{
+                        maxWidth: "1200px", margin: "0 auto", padding: "48px 24px 0",
+                    }}>
+                        <h3 style={{
+                            fontFamily: "'Noto Serif KR', serif",
+                            fontSize: "20px", fontWeight: 600, color: "#0B2040",
+                            marginBottom: "20px",
+                        }}>
+                            관련 행사
+                        </h3>
+                        <div style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                            gap: "16px",
+                        }}>
+                            {relatedEvents.map((re) => {
+                                const rc = CATEGORY_COLORS[re.category] || "#666";
+                                return (
+                                    <a
+                                        key={re.id}
+                                        href={`/events/${re.id}`}
+                                        style={{
+                                            display: "block", padding: "20px",
+                                            borderRadius: "12px", border: "1px solid #E8E5DF",
+                                            textDecoration: "none", color: "inherit",
+                                            transition: "border-color 0.15s, box-shadow 0.15s",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            (e.currentTarget as HTMLElement).style.borderColor = rc;
+                                            (e.currentTarget as HTMLElement).style.boxShadow = `0 2px 12px ${rc}20`;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            (e.currentTarget as HTMLElement).style.borderColor = "#E8E5DF";
+                                            (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                                        }}
+                                    >
+                                        <span style={{
+                                            fontSize: "11px", fontWeight: 600, color: rc,
+                                            textTransform: "uppercase", letterSpacing: "0.05em",
+                                        }}>
+                                            {re.category}
+                                        </span>
+                                        <h4 style={{
+                                            fontFamily: "'Noto Sans KR', sans-serif",
+                                            fontSize: "15px", fontWeight: 600, color: "#100F0F",
+                                            marginTop: "6px", lineHeight: 1.4,
+                                            overflow: "hidden", textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                        }}>
+                                            {re.title}
+                                        </h4>
+                                        <p style={{
+                                            fontSize: "12px", color: "#9C9891", marginTop: "4px",
+                                        }}>
+                                            {re.date} · {re.location}
+                                        </p>
+                                    </a>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
             </main>
+
+            {/* 링크 복사 토스트 */}
+            {copied && (
+                <div style={{
+                    position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
+                    zIndex: 100, padding: "10px 24px", borderRadius: "8px",
+                    backgroundColor: "#0B2040", color: "#fff",
+                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                }}>
+                    링크가 복사되었습니다
+                </div>
+            )}
 
             <Footer />
         </div>

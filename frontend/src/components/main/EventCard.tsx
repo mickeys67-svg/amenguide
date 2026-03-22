@@ -90,7 +90,7 @@ export function EventCard({
     ──────────────────────────────── */
     if (variant === "featured") {
         return (
-            <Link href={`/events/${event.id}`}>
+            <Link href={`/events/${event.id}`} onClick={() => sessionStorage.setItem('scrollY', String(window.scrollY))}>
                 <motion.article
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -215,7 +215,7 @@ export function EventCard({
     ──────────────────────────────── */
     if (variant === "list") {
         return (
-            <Link href={`/events/${event.id}`}>
+            <Link href={`/events/${event.id}`} onClick={() => sessionStorage.setItem('scrollY', String(window.scrollY))}>
                 <motion.article
                     initial={{ opacity: 0, x: -10 }}
                     whileInView={{ opacity: 1, x: 0 }}
@@ -303,7 +303,7 @@ export function EventCard({
        Grid variant (default)
     ──────────────────────────────── */
     return (
-        <Link href={`/events/${event.id}`} style={{ display: "block", height: "100%" }}>
+        <Link href={`/events/${event.id}`} onClick={() => sessionStorage.setItem('scrollY', String(window.scrollY))} style={{ display: "block", height: "100%" }}>
             <motion.article
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}

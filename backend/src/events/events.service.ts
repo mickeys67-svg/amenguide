@@ -293,6 +293,22 @@ export class EventsService implements OnModuleInit {
     });
   }
 
+  async batchApprove(ids: string[]) {
+    const result = await this.prisma.event.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'APPROVED' } as any,
+    });
+    return { updated: result.count };
+  }
+
+  async batchReject(ids: string[], reason?: string) {
+    const result = await this.prisma.event.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'REJECTED', rejectionReason: reason ?? null } as any,
+    });
+    return { updated: result.count };
+  }
+
   private static ALLOWED_STATUSES = ['APPROVED', 'PENDING', 'REJECTED'];
 
   async adminUpdateEvent(id: string, data: any) {
@@ -329,6 +345,7 @@ export class EventsService implements OnModuleInit {
         .upload(fileName, file.buffer, {
           contentType: file.mimetype,
           upsert: false,
+          cacheControl: 'public, max-age=31536000, immutable',
         });
       if (error) throw error;
       const { data: { publicUrl } } = this.supabase.storage

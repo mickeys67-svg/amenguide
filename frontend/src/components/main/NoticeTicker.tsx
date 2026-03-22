@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../utils/api";
 import type { Notice, NoticeListResponse } from "../../types/notice";
@@ -10,6 +10,7 @@ export function NoticeTicker() {
     const [notices, setNotices] = useState<Notice[]>([]);
     const [current, setCurrent] = useState(0);
     const [sliding, setSliding] = useState(false);
+    const pausedRef = useRef(false);
 
     useEffect(() => {
         apiFetch<NoticeListResponse>("/notices?page=1&limit=5")
@@ -21,7 +22,7 @@ export function NoticeTicker() {
     }, []);
 
     const next = useCallback(() => {
-        if (notices.length <= 1) return;
+        if (notices.length <= 1 || pausedRef.current) return;
         setSliding(true);
         setTimeout(() => {
             setCurrent(i => (i + 1) % notices.length);
@@ -169,7 +170,10 @@ export function NoticeTicker() {
                     .ticker-dots { display: none; }
                 }
             `}</style>
-            <div className="notice-ticker">
+            <div className="notice-ticker"
+                onMouseEnter={() => { pausedRef.current = true; }}
+                onMouseLeave={() => { pausedRef.current = false; }}
+            >
                 <div className="ticker-inner">
                     <div className="ticker-icon">N</div>
                     <div className="ticker-content">

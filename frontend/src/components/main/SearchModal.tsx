@@ -165,8 +165,21 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
                                         </motion.div>
                                     ))
                                 ) : query.trim() ? (
-                                    <div className="py-20 text-center opacity-30">
-                                        <p className="text-sm tracking-widest uppercase">일치하는 내용을 찾을 수 없습니다.</p>
+                                    <div className="py-16 flex flex-col items-center gap-6">
+                                        <p className="text-sm tracking-widest uppercase opacity-30">일치하는 내용을 찾을 수 없습니다.</p>
+                                        <div className="flex flex-wrap justify-center gap-2">
+                                            {["피정", "미사", "청년", "순례", "강의", "문화"].map(keyword => (
+                                                <button
+                                                    key={keyword}
+                                                    type="button"
+                                                    onClick={() => setQuery(keyword)}
+                                                    className="px-4 py-1.5 rounded-full text-xs tracking-wider border transition-all hover:border-[#C9A96E] hover:text-[#C9A96E]"
+                                                    style={{ borderColor: "rgba(201,169,110,0.2)", color: "rgba(245,240,232,0.5)" }}
+                                                >
+                                                    {keyword}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="py-20 flex flex-col items-center gap-6 opacity-20">
