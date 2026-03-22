@@ -34,6 +34,7 @@ export interface DioceseSyncResult {
   masan: number;
   andong: number;
   gunjong: number;
+  jeonju: number;
   cbck: number;
   total: number;
 }
@@ -245,6 +246,18 @@ export class DioceseSyncService {
     }).catch((e) => { this.logger.error(`[Gunjong] 실패: ${e.message}`); return 0; });
     await this.delay(2000);
 
+    // ── 전주교구 (게시판 형태 — wr_id 패턴) ──────────────────────────────
+    const jeonju = await this.runGenericBoard({
+      name: '전주교구',
+      defaultLocation: '전주교구',
+      diocese: '전주교구',
+      urls: [
+        'https://www.jcatholic.or.kr/bbs/board.php?bo_table=notice',
+        'https://www.jcatholic.or.kr/index.php?theme=event',
+      ],
+    }).catch((e) => { this.logger.error(`[Jeonju] 실패: ${e.message}`); return 0; });
+    await this.delay(2000);
+
     // ── CBCK (한국천주교주교회의) 공지사항 ──────────────────────────────────
     const cbck = await this.runGenericBoard({
       name: 'CBCK',
@@ -273,9 +286,10 @@ export class DioceseSyncService {
       masan,
       andong,
       gunjong,
+      jeonju,
       cbck,
       total: busan + daegu + daejeon + seoul + suwon + incheon +
-             gwangju + chuncheon + jeju + wonju + uijeongbu + cheongju + masan + andong + gunjong + cbck,
+             gwangju + chuncheon + jeju + wonju + uijeongbu + cheongju + masan + andong + gunjong + jeonju + cbck,
     };
 
     this.logger.log(`[DioceseSync] 완료 → ${JSON.stringify(result)}`);
@@ -885,8 +899,9 @@ export class DioceseSyncService {
     for (const url of config.urls) {
       try {
         const res = await axios.get<ArrayBuffer>(url, {
-          timeout: 12000,
+          timeout: 15000,
           responseType: 'arraybuffer',
+          maxRedirects: 10,
           headers: {
             'User-Agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -949,7 +964,7 @@ export class DioceseSyncService {
     // ★ 내부 태그 허용: <a href="..."><span>제목</span></a> 도 매칭
     const re =
       linkRe ??
-      /href=["']([^"']*(?:view|read|detail|notice_view|board_view|schedule_view|plan_view|viewMode=view|exe=view|document_srl=|idx=|no=|seq=|wr_id=|\/board_\w+\/\d|\/news\/\w+\/\d)\d*[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      /href=["']([^"']*(?:view|read|detail|notice_view|board_view|schedule_view|plan_view|viewMode=view|exe=view|document_srl=|idx=|no=|seq=|wr_id=|\/board_\w+\/\d|\/news\/\w+\/\d|\/info\/\w+\/\d|\/bbs\/board\.php)\d*[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
 
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) !== null) {
@@ -1348,9 +1363,9 @@ export class DioceseSyncService {
 
       this.logger.log(`[Masan Jubo] ${sorted.length}개 교구보 발견: ${sorted.slice(0, 3).join(', ')}`);
 
-      // 최근 2개만 처리
+      // 최근 5개 처리 (기존 2개 → 5개로 확대)
       let totalSaved = 0;
-      for (const docId of sorted.slice(0, 2)) {
+      for (const docId of sorted.slice(0, 5)) {
         try {
           // 상세 페이지에서 file_srl + sid 추출
           const detailRes = await axios.get(`https://cathms.kr/C_8/${docId}`, {

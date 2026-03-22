@@ -3,6 +3,7 @@ import { BaseScraperService } from './base-scraper.service';
 import { AiRefinerService } from './ai-refiner.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizeCategory } from './scraper-constants';
+import { inferDiocese } from './diocese-mapper';
 
 @Injectable()
 export class SacredWhisperService {
@@ -55,6 +56,7 @@ export class SacredWhisperService {
           title: result.title,
           date: result.date?.startsWith('1970') ? null : new Date(result.date),
           location: result.location,
+          diocese: inferDiocese(result.location),
           aiSummary: result.aiSummary,
           themeColor: result.themeColor,
           originUrl: url,
