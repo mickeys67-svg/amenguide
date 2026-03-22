@@ -241,6 +241,17 @@ export class PrismaService
       ALTER TABLE "User"  ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;
     `;
     await this.$executeRawUnsafe(alterSql);
+
+    // Event 테이블 인덱스 (검색/필터링 성능)
+    const eventIndexSql = `
+      CREATE INDEX IF NOT EXISTS "Event_status_date_idx" ON "Event"("status", "date");
+      CREATE INDEX IF NOT EXISTS "Event_status_category_idx" ON "Event"("status", "category");
+      CREATE INDEX IF NOT EXISTS "Event_diocese_idx" ON "Event"("diocese");
+      CREATE INDEX IF NOT EXISTS "Event_originUrl_idx" ON "Event"("originUrl");
+      CREATE INDEX IF NOT EXISTS "Event_createdAt_idx" ON "Event"("createdAt");
+      CREATE INDEX IF NOT EXISTS "Bookmark_userId_idx" ON "Bookmark"("userId");
+    `;
+    await this.$executeRawUnsafe(eventIndexSql);
     console.log('--- DEFINITIVE DATABASE INITIALIZATION COMPLETE ---');
   }
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit, OnModuleDestroy, HttpException, HttpStatus } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
 import { BaseScraperService } from '../scrapers/base-scraper.service';
@@ -10,7 +10,9 @@ import { inferDiocese } from '../scrapers/diocese-mapper';
 
 
 @Injectable()
-export class EventsService implements OnModuleInit {
+export class EventsService implements OnModuleInit, OnModuleDestroy {
+  private cleanupTimer?: ReturnType<typeof setInterval>;
+  private cleanupRunning = false;
   private readonly logger = new Logger(EventsService.name);
   private readonly supabase: ReturnType<typeof createClient> | null;
 
@@ -29,14 +31,24 @@ export class EventsService implements OnModuleInit {
   }
 
   onModuleInit() {
-    // 매일 자정 이후 행사 종료 2일 경과한 이벤트 자동 삭제
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-    const run = () =>
-      this.cleanupExpiredEvents().catch((err) =>
-        this.logger.error(`Event cleanup failed: ${err.message}`),
-      );
-    run(); // 시작 시 1회 즉시 실행
-    setInterval(run, ONE_DAY_MS);
+    const run = async () => {
+      if (this.cleanupRunning) return; // 중복 실행 방지
+      this.cleanupRunning = true;
+      try {
+        await this.cleanupExpiredEvents();
+      } catch (err: any) {
+        this.logger.error(`Event cleanup failed: ${err.message}`);
+      } finally {
+        this.cleanupRunning = false;
+      }
+    };
+    run();
+    this.cleanupTimer = setInterval(run, ONE_DAY_MS);
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
   }
 
   /** 행사 종료 14일 후 이벤트 레코드 삭제 + Supabase Storage 이미지 삭제 */
@@ -107,26 +119,28 @@ export class EventsService implements OnModuleInit {
 
   async scrapeAndSave(url: string) {
     try {
-      // Duplicate Check
-      const existing = await this.prisma.event.findFirst({
-        where: { originUrl: url },
-      });
-      if (existing) return existing;
+      // 중복 체크 + 스크래핑 + 생성을 트랜잭션으로 래핑 (레이스 컨디션 방지)
+      return await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.event.findFirst({
+          where: { originUrl: url },
+        });
+        if (existing) return existing;
 
-      const result = await this.scrapeOnDemand(url);
+        const result = await this.scrapeOnDemand(url);
 
-      return this.prisma.event.create({
-        data: {
-          title: result.title,
-          date: result.date?.startsWith('1970') ? null : new Date(result.date),
-          location: result.location,
-          diocese: inferDiocese(result.location),
-          aiSummary: result.aiSummary,
-          themeColor: result.themeColor,
-          originUrl: url,
-          category: normalizeCategory(result.category),
-          status: 'APPROVED', // 스크래핑 행사는 즉시 공개
-        } as any,
+        return tx.event.create({
+          data: {
+            title: result.title,
+            date: result.date?.startsWith('1970') ? null : new Date(result.date),
+            location: result.location,
+            diocese: inferDiocese(result.location),
+            aiSummary: result.aiSummary,
+            themeColor: result.themeColor,
+            originUrl: url,
+            category: normalizeCategory(result.category),
+            status: 'APPROVED',
+          } as any,
+        });
       });
     } catch (error) {
       this.logger.error(`Failed to scrape and save ${url}: ${error.message}`);

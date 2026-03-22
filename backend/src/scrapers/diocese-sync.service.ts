@@ -92,11 +92,16 @@ export class DioceseSyncService {
   private isUrlCached(url: string): boolean {
     const entry = this.httpCache.get(url);
     if (entry && Date.now() - entry.timestamp < this.CACHE_TTL) return true;
-    // 만료된 캐시 정리
-    if (this.httpCache.size > 200) {
+    // 만료된 캐시 정리 + 크기 제한 (500개)
+    if (this.httpCache.size > 100) {
       const now = Date.now();
       for (const [k, v] of this.httpCache) {
         if (now - v.timestamp > this.CACHE_TTL) this.httpCache.delete(k);
+      }
+      // 그래도 크면 가장 오래된 것부터 삭제
+      if (this.httpCache.size > 500) {
+        const sorted = [...this.httpCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp);
+        for (let i = 0; i < sorted.length - 500; i++) this.httpCache.delete(sorted[i][0]);
       }
     }
     return false;

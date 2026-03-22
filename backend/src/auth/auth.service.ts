@@ -1,13 +1,18 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, OnModuleDestroy } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword, verifyPassword } from '../common/password.util';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleDestroy {
+  private cleanupTimer: ReturnType<typeof setInterval>;
+
   constructor(private prisma: PrismaService) {
-    // 만료된 임시 코드 5분마다 정리
-    setInterval(() => this.cleanupExpiredCodes(), 5 * 60 * 1000);
+    this.cleanupTimer = setInterval(() => this.cleanupExpiredCodes(), 5 * 60 * 1000);
+  }
+
+  onModuleDestroy() {
+    clearInterval(this.cleanupTimer);
   }
 
   // ── 임시 인증 코드 저장소 (OAuth 콜백용) ───────────────────────────
