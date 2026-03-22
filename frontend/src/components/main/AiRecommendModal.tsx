@@ -1596,7 +1596,15 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                     marginTop: "6px",
                                     padding: "0 4px",
                                 }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                    <a
+                                        href="/healing"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            display: "flex", alignItems: "center", gap: "4px",
+                                            textDecoration: "none",
+                                        }}
+                                    >
                                         <span style={{
                                             width: "5px", height: "5px", borderRadius: "50%",
                                             background: "conic-gradient(from 0deg, #C9A96E, #63DCBE, #5B8DEF, #C9A96E)",
@@ -1605,10 +1613,11 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                                             fontFamily: "'DM Mono', monospace",
                                             fontSize: "9px", color: "#C0BDB8",
                                             letterSpacing: "0.05em",
+                                            transition: "color 0.2s",
                                         }}>
-                                            POWERED BY AI
+                                            마음치유 심화 상담 &rarr;
                                         </span>
-                                    </div>
+                                    </a>
                                     <span style={{
                                         fontFamily: "'DM Mono', monospace",
                                         fontSize: "10px", color: "#C0BDB8",
