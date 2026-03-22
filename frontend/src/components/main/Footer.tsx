@@ -19,6 +19,7 @@ const LINKS: Record<string, { label: string; href: string | null }[]> = {
         { label: "자주 묻는 질문",  href: "/faq"     },
         { label: "개인정보처리방침", href: "/privacy" },
         { label: "이용약관",        href: "/terms"   },
+        { label: "Cooperator",     href: "/cooperator" },
     ],
     연결: [
         { label: "카카오 채널",   href: "https://pf.kakao.com/_TyTZX/friend" },
