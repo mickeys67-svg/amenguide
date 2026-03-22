@@ -479,7 +479,8 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                         {/* 햄버거 (모바일 ~767px) */}
                         <button
                             type="button"
-                            aria-label="메뉴 열기"
+                            aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
+                            aria-expanded={menuOpen}
                             onClick={() => setMenuOpen(true)}
                             className="nav-hamburger"
                             style={{

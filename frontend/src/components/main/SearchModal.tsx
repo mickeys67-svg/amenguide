@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ArrowUpRight, Sparkles } from "lucide-react";
 import { EventData, CATEGORY_COLORS } from "../../types/event";
 import { apiFetch } from "../../utils/api";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import Link from "next/link";
 
 interface SearchModalProps {
@@ -17,6 +18,7 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
     const [semanticResults, setSemanticResults] = useState<EventData[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const trapRef = useFocusTrap(isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -84,6 +86,10 @@ export function SearchModal({ isOpen, onClose, events }: SearchModalProps) {
                     />
 
                     <motion.div
+                        ref={trapRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="검색"
                         className="fixed top-0 left-0 right-0 z-[201] px-6 md:px-16 pt-20 md:pt-32"
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}

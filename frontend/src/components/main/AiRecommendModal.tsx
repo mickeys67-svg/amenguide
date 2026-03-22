@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, ArrowUpRight, Heart, Music, RotateCcw, Phone, Gift, Download, Share2, BookOpen } from "lucide-react";
 import { EventData, CATEGORY_COLORS } from "../../types/event";
 import { apiFetch } from "../../utils/api";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
     type EmotionGrade,
     type HeartCardData,
@@ -672,6 +673,7 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
+    const trapRef = useFocusTrap(isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -906,6 +908,10 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
 
                     {/* Modal */}
                     <motion.div
+                        ref={trapRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="세실리아 AI 상담"
                         className="cecilia-modal-wrap"
                         style={{
                             position: "fixed", inset: 0, zIndex: 201,
