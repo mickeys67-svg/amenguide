@@ -51,47 +51,50 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
   }
 
-  /** 행사 종료 14일 후 이벤트 레코드 삭제 + Supabase Storage 이미지 삭제 */
+  /** 행사 종료 14일 후 소프트 삭제 (EXPIRED) + 이미지만 삭제, 레코드 유지 */
   private async cleanupExpiredEvents() {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 14);
 
-    // 1. 만료된 이벤트의 Supabase 이미지 먼저 삭제
-    if (this.supabase) {
-      const eventsWithImages = await this.prisma.event.findMany({
-        where: {
-          AND: [
-            { imageUrl: { not: null } },
-            { date: { not: null, lt: cutoffDate } },
-          ],
-        },
-        select: { id: true, imageUrl: true },
-      });
+    // 만료 대상 조회 (APPROVED 상태이면서 날짜 지남)
+    const expiredEvents = await this.prisma.event.findMany({
+      where: {
+        status: 'APPROVED',
+        date: { not: null, lt: cutoffDate },
+      },
+      select: { id: true, imageUrl: true },
+    });
 
-      if (eventsWithImages.length > 0) {
-        this.logger.log(`Cleaning images for ${eventsWithImages.length} expired event(s)`);
-        const prefix = `${process.env.SUPABASE_URL}/storage/v1/object/public/event-images/`;
-        const fileNames = eventsWithImages
-          .filter((e) => e.imageUrl?.startsWith(prefix))
-          .map((e) => e.imageUrl!.slice(prefix.length));
-        if (fileNames.length > 0) {
-          try {
-            await this.supabase.storage.from('event-images').remove(fileNames);
-          } catch (err) {
-            this.logger.error(`Batch image delete failed: ${err.message}`);
-          }
+    if (expiredEvents.length === 0) return;
+
+    // 1. Supabase Storage 이미지 삭제 (비용 절약)
+    if (this.supabase) {
+      const prefix = `${process.env.SUPABASE_URL}/storage/v1/object/public/event-images/`;
+      const fileNames = expiredEvents
+        .filter((e) => e.imageUrl?.startsWith(prefix))
+        .map((e) => e.imageUrl!.slice(prefix.length));
+      if (fileNames.length > 0) {
+        try {
+          await this.supabase.storage.from('event-images').remove(fileNames);
+          this.logger.log(`Deleted images for ${fileNames.length} expired event(s)`);
+        } catch (err) {
+          this.logger.error(`Batch image delete failed: ${err.message}`);
         }
       }
     }
 
-    // 2. 만료된 이벤트 레코드 삭제 (date IS NOT NULL AND date < 2일 전)
-    const deleted = await this.prisma.event.deleteMany({
+    // 2. 소프트 삭제: status → EXPIRED, 이미지 URL 제거 (레코드 유지)
+    const updated = await this.prisma.event.updateMany({
       where: {
-        date: { not: null, lt: cutoffDate },
+        id: { in: expiredEvents.map((e) => e.id) },
+      },
+      data: {
+        status: 'EXPIRED',
+        imageUrl: null,
       },
     });
-    if (deleted.count > 0) {
-      this.logger.log(`Deleted ${deleted.count} expired event record(s)`);
+    if (updated.count > 0) {
+      this.logger.log(`Soft-deleted ${updated.count} expired event(s) — records preserved`);
     }
   }
 

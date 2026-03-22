@@ -199,10 +199,30 @@ export default function EventDetailClient() {
 
     const catColor = CATEGORY_COLORS[event.category] || "#0B2040";
 
+    const isExpired = (event as any).status === 'EXPIRED';
+
     return (
         <div style={{ backgroundColor: "#F8F7F4", minHeight: "100vh" }}>
             <EventJsonLd event={event} catColor={catColor} />
             <Navigation activeFilter="전체" onFilterChange={() => {}} onSearchOpen={() => {}} />
+
+            {isExpired && (
+                <div style={{
+                    backgroundColor: "#F0EFE9",
+                    borderBottom: "1px solid #E8E5DF",
+                    padding: "12px 0",
+                    textAlign: "center",
+                }}>
+                    <p style={{
+                        fontFamily: "'Noto Sans KR', sans-serif",
+                        fontSize: "13px",
+                        color: "#9C9891",
+                        fontWeight: 400,
+                    }}>
+                        이 행사는 종료되었습니다
+                    </p>
+                </div>
+            )}
 
             {/* ── Hero header with image ── */}
             <div
