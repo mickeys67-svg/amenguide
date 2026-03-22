@@ -24,7 +24,13 @@ interface Donor {
   message?: string;
 }
 
-const FOUNDING_DONORS: (Donor | null)[] = Array.from({ length: 12 }, () => null);
+const FOUNDING_DONORS: (Donor | null)[] = [
+  { name: "장유리 세실리아", since: "2026", message: "함께 걸어가는 여정에 감사합니다" },
+  { name: "윤희 마리아", since: "2026", message: "작은 정성이 큰 기쁨이 되길" },
+  null, null, null, null,
+  null, null, null, null,
+  null, null,
+];
 const CORE_DONORS: (Donor | null)[] = Array.from({ length: 40 }, () => null);
 const FRIEND_DONORS: Donor[] = [];
 
