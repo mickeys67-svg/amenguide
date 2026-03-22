@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import * as https from 'https';
+import * as crypto from 'crypto';
 import { convert } from 'html-to-text';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse');
@@ -73,27 +74,62 @@ const PDF_DELAY_MS = 3000;     // PDF 다운로드 간 3초 대기
 export class DioceseSyncService {
   private readonly logger = new Logger(DioceseSyncService.name);
 
-  // 24시간 URL 캐시 — 같은 URL 중복 요청 방지
-  private readonly urlCache = new Map<string, number>();
-  private readonly URL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
+  // ─── HTTP 캐시 + 콘텐츠 해싱 시스템 ──────────────────────────────────────
+  // URL별 ETag, Last-Modified, 콘텐츠 해시를 저장하여:
+  // 1) 변경 없는 페이지는 304 응답으로 다운로드 스킵 (대역폭 절감)
+  // 2) 다운로드해도 내용 동일하면 AI 호출 스킵 (비용 절감)
+  private readonly httpCache = new Map<string, {
+    timestamp: number;
+    etag?: string;
+    lastModified?: string;
+    contentHash?: string;
+  }>();
+  private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /** URL이 24시간 내 캐시되었는지 확인 */
   private isUrlCached(url: string): boolean {
-    const cached = this.urlCache.get(url);
-    if (cached && Date.now() - cached < this.URL_CACHE_TTL) return true;
-    // 만료된 캐시 정리 (100개 초과 시)
-    if (this.urlCache.size > 100) {
+    const entry = this.httpCache.get(url);
+    if (entry && Date.now() - entry.timestamp < this.CACHE_TTL) return true;
+    // 만료된 캐시 정리
+    if (this.httpCache.size > 200) {
       const now = Date.now();
-      for (const [k, v] of this.urlCache) {
-        if (now - v > this.URL_CACHE_TTL) this.urlCache.delete(k);
+      for (const [k, v] of this.httpCache) {
+        if (now - v.timestamp > this.CACHE_TTL) this.httpCache.delete(k);
       }
     }
     return false;
   }
 
-  private cacheUrl(url: string): void {
-    this.urlCache.set(url, Date.now());
+  /** URL 캐시 저장 (ETag/Last-Modified/해시 포함) */
+  private cacheUrl(url: string, headers?: Record<string, any>, contentHash?: string): void {
+    this.httpCache.set(url, {
+      timestamp: Date.now(),
+      etag: headers?.etag,
+      lastModified: headers?.['last-modified'],
+      contentHash,
+    });
+  }
+
+  /** 콘텐츠 해시 생성 (변경 감지용) */
+  private hashContent(content: string): string {
+    return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+  }
+
+  /** 콘텐츠가 이전과 동일한지 확인 */
+  private isContentUnchanged(url: string, newHash: string): boolean {
+    const entry = this.httpCache.get(url);
+    return entry?.contentHash === newHash;
+  }
+
+  /** HTTP 조건부 요청 헤더 생성 (If-Modified-Since / If-None-Match) */
+  private getConditionalHeaders(url: string): Record<string, string> {
+    const entry = this.httpCache.get(url);
+    const headers: Record<string, string> = {};
+    if (entry?.etag) headers['If-None-Match'] = entry.etag;
+    if (entry?.lastModified) headers['If-Modified-Since'] = entry.lastModified;
+    return headers;
   }
 
   // ─── 전체 교구 순차 실행 ─────────────────────────────────────────────────
@@ -947,19 +983,38 @@ export class DioceseSyncService {
           this.logger.log(`[${config.name}] 캐시됨, 스킵: ${url}`);
           continue;
         }
+        // HTTP 조건부 요청 (If-Modified-Since / If-None-Match) → 변경 없으면 304
+        const conditionalHeaders = this.getConditionalHeaders(url);
         const res = await axios.get<ArrayBuffer>(url, {
           timeout: 15000,
           responseType: 'arraybuffer',
           maxRedirects: 10,
+          validateStatus: (s) => s === 200 || s === 304,
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
             'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+            ...conditionalHeaders,
           },
         });
 
-        this.cacheUrl(url); // 성공한 URL 캐시 (24시간 중복 방지)
+        // 304 Not Modified → 페이지 변경 없음, 스킵
+        if (res.status === 304) {
+          this.logger.log(`[${config.name}] 304 변경 없음, 스킵: ${url}`);
+          this.cacheUrl(url, res.headers);
+          continue;
+        }
+
         const html = this.decodeKorean(Buffer.from(res.data), res.headers['content-type']);
+
+        // 콘텐츠 해싱 → 내용이 이전과 동일하면 파싱 스킵
+        const contentHash = this.hashContent(html);
+        if (this.isContentUnchanged(url, contentHash)) {
+          this.logger.log(`[${config.name}] 콘텐츠 동일(해시), 스킵: ${url}`);
+          this.cacheUrl(url, res.headers, contentHash);
+          continue;
+        }
+        this.cacheUrl(url, res.headers, contentHash);
 
         if (this.detectBotBlock(html, config.name)) continue;
 
