@@ -270,7 +270,6 @@ export function Footer() {
                         {[
                             { label: "개인정보처리방침", href: "/privacy" },
                             { label: "이용약관", href: "/terms" },
-                            { label: "Cooperator", href: "/cooperator" },
                             { label: "사이트맵", href: "/sitemap.xml" },
                         ].map(({ label, href }) => (
                             <Link
