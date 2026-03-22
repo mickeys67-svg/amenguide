@@ -232,10 +232,6 @@ export default function AdminPage() {
     const [changePwStatus, setChangePwStatus] = useState<StatusMsg>(null);
     const [showChangePw, setShowChangePw] = useState(false);
 
-    // ── 토큰은 React state에만 보관 (sessionStorage 사용 안 함) ────
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {}, []);
-
     // ── 로그인 ─────────────────────────────────────────────────────
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();

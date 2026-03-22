@@ -74,7 +74,7 @@ export class NoticesService {
     if (countView) {
       this.prisma.notice
         .update({ where: { id }, data: { viewCount: { increment: 1 } } })
-        .catch((e) => { /* 조회수 증가 실패는 무시 (비핵심) */ });
+        .catch((e) => this.logger.warn(`조회수 증가 실패: ${e.message}`));
     }
 
     return notice;

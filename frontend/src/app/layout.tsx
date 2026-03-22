@@ -51,12 +51,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-video-preview": -1, "max-image-preview": "large", "max-snippet": -1 },
   },
-  verification: {
-    google: "google-site-verification-placeholder",
-  },
-  other: {
-    "naver-site-verification": "naver-site-verification-placeholder",
-  },
+  other: {},
 };
 
 // Organization + WebSite JSON-LD (server-rendered)

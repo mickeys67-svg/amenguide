@@ -673,6 +673,8 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
+    const mountedRef = useRef(true);
+    useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
     const trapRef = useFocusTrap(isOpen);
 
     useEffect(() => {
@@ -777,6 +779,8 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
                 })
             );
 
+            if (!mountedRef.current) return;
+
             if (detectCrisis(data.message)) {
                 setShowCrisis(true);
             }
@@ -792,14 +796,17 @@ export function AiRecommendModal({ isOpen, onClose }: AiRecommendModalProps) {
             };
             setMessages((prev) => [...prev, aiMsg]);
         } catch {
+            if (!mountedRef.current) return;
             const errorMsg: ChatMessage = {
                 role: "assistant",
                 content: "추천을 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
             };
             setMessages((prev) => [...prev, errorMsg]);
         } finally {
-            setIsLoading(false);
-            setTimeout(() => inputRef.current?.focus(), 100);
+            if (mountedRef.current) {
+                setIsLoading(false);
+                setTimeout(() => inputRef.current?.focus(), 100);
+            }
         }
     }, [input, isLoading, messages]);
 

@@ -105,7 +105,7 @@ export class CommunityService {
     if (countView) {
       this.prisma.communityPost
         .update({ where: { id }, data: { viewCount: { increment: 1 } } })
-        .catch((e) => { /* 조회수 증가 실패는 무시 (비핵심) */ });
+        .catch((e) => this.logger.warn(`조회수 증가 실패: ${e.message}`));
     }
 
     // 리액션 요약 (타입별 개수 + 현재 유저 반응 여부)
