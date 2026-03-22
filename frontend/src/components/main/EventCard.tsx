@@ -62,6 +62,7 @@ export function EventCard({
     const [bookmarked, setBookmarked] = useState(isBookmarked);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const catColor = CATEGORY_COLORS[event.category] || "#0B2040";
+    const isPast = event.rawDate ? new Date(event.rawDate) < new Date() : false;
     const fallbackImg = CATEGORY_IMAGES[event.category] || event.image || RETREAT_IMG;
     const cardImage = useOgImage(event.originUrl, fallbackImg);
 
@@ -384,6 +385,17 @@ export function EventCard({
                     >
                         {event.category}
                     </span>
+                    {isPast && (
+                        <span style={{
+                            position: "absolute", top: "10px", left: "70px",
+                            padding: "3px 8px", borderRadius: "4px",
+                            fontSize: "10px", fontWeight: 700,
+                            backgroundColor: "rgba(0,0,0,0.5)", color: "#fff",
+                            fontFamily: "'Noto Sans KR', sans-serif",
+                        }}>
+                            종료
+                        </span>
+                    )}
                     {/* Index + 하트 버튼 */}
                     <div style={{
                         position: "absolute", top: "10px", right: "10px",

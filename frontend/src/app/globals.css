@@ -7,6 +7,18 @@
   --font-mono: "DM Mono", monospace;
 }
 
+/* 접근성: skip-to-content focus */
+a[href="#main-content"]:focus {
+  top: 0 !important;
+}
+
+/* 접근성: 커스텀 버튼 포커스 인디케이터 */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #0B2040;
+  outline-offset: 2px;
+}
+
 html {
   scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;

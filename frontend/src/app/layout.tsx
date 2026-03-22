@@ -93,12 +93,27 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
+        <link rel="alternate" type="application/rss+xml" title="Catholica RSS" href="/feed.xml" />
+        {/* DNS prefetch + preconnect */}
+        <link rel="dns-prefetch" href="https://amenguide-backend-775250805671.us-west1.run.app" />
+        <link rel="dns-prefetch" href="https://maps.googleapis.com" />
+        <link rel="preconnect" href="https://maps.googleapis.com" crossOrigin="" />
+        <link rel="preconnect" href="https://maps.gstatic.com" crossOrigin="" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
       <body className="antialiased" style={{ overflowX: "hidden" }}>
+        {/* 접근성: skip-to-content */}
+        <a href="#main-content" style={{
+          position: "absolute", top: "-40px", left: 0, zIndex: 100,
+          background: "#0B2040", color: "#fff", padding: "8px 16px",
+          fontSize: "14px", fontFamily: "'Noto Sans KR', sans-serif",
+          textDecoration: "none", transition: "top 0.2s",
+        }} onFocus={undefined}>메인 콘텐츠로 이동</a>
         {children}
       </body>
     </html>

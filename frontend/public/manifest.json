@@ -1,0 +1,22 @@
+{
+  "name": "Catholica - 가톨릭 행사 허브",
+  "short_name": "Catholica",
+  "description": "전국 가톨릭 피정·미사·강의·순례 행사를 한곳에서 탐색하세요.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F7F4",
+  "theme_color": "#0B2040",
+  "orientation": "portrait-primary",
+  "lang": "ko",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["religion", "events", "lifestyle"],
+  "shortcuts": [
+    { "name": "행사 탐색", "short_name": "탐색", "url": "/#events" },
+    { "name": "지도", "short_name": "지도", "url": "/#map" },
+    { "name": "공지사항", "short_name": "공지", "url": "/notices" },
+    { "name": "친교의 다락방", "short_name": "다락방", "url": "/community" }
+  ]
+}

@@ -52,6 +52,29 @@ export default function EventDetailClient() {
         }
     };
 
+    const handleCalendarExport = () => {
+        if (!event) return;
+        const dtStart = event.rawDate
+            ? new Date(event.rawDate).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+            : new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+        const ics = [
+            'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Catholica//KO',
+            'BEGIN:VEVENT',
+            `DTSTART:${dtStart}`,
+            `SUMMARY:${event.title}`,
+            `LOCATION:${event.location || ''}`,
+            `DESCRIPTION:${(event.aiSummary || event.description || '').replace(/\n/g, '\\n')}`,
+            `URL:${typeof window !== 'undefined' ? window.location.href : ''}`,
+            'END:VEVENT', 'END:VCALENDAR',
+        ].join('\r\n');
+        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${event.title.slice(0, 30)}.ics`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
     useEffect(() => {
         if (!id) return;
         const controller = new AbortController();
@@ -681,6 +704,23 @@ export default function EventDetailClient() {
                             >
                                 <Share2 size={14} />
                                 공유하기
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleCalendarExport}
+                                style={{
+                                    width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                                    padding: "12px", borderRadius: "10px",
+                                    border: "1px solid #E8E5DF", backgroundColor: "transparent",
+                                    fontFamily: "'Noto Sans KR', sans-serif", fontSize: "13px", fontWeight: 500,
+                                    color: "#52504B", cursor: "pointer", transition: "all 0.15s ease",
+                                }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = catColor; (e.currentTarget as HTMLElement).style.color = catColor; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#E8E5DF"; (e.currentTarget as HTMLElement).style.color = "#52504B"; }}
+                            >
+                                <Calendar size={14} />
+                                캘린더에 추가
                             </button>
 
                             <p

@@ -158,8 +158,27 @@ const FAQ_DATA: FaqSection[] = [
     },
 ];
 
+function FaqJsonLd() {
+    const allItems = FAQ_DATA.flatMap(s => s.items);
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: allItems.map(item => ({
+            "@type": "Question",
+            name: item.q,
+            acceptedAnswer: {
+                "@type": "Answer",
+                text: Array.isArray(item.a) ? item.a.join(" ") : item.a,
+            },
+        })),
+    };
+    return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/<\//g, '<\\/') }} />;
+}
+
 export default function FaqPage() {
     return (
+        <>
+        <FaqJsonLd />
         <main
             style={{
                 maxWidth: 800,
@@ -383,5 +402,6 @@ export default function FaqPage() {
                 details summary:hover { color: #183568; }
             `}</style>
         </main>
+        </>
     );
 }
