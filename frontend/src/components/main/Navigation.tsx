@@ -29,6 +29,9 @@ const NAV_STYLE = `
         .nav-desktop-only  { display: none; }
         .nav-login-btn      { display: none; }
         .nav-hamburger      { display: flex; }
+        .nav-search-btn     { display: none !important; }
+        .cecilia-nav-btn    { padding: 6px 10px !important; }
+        .nav-logo img        { height: 44px !important; }
     }
 
     /* ── 3D Flip Card ── */
@@ -182,13 +185,14 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
             >
                 <div
                     className="sacred-rail"
-                    style={{ height: "100%", display: "flex", alignItems: "center", gap: "24px" }}
+                    style={{ height: "100%", display: "flex", alignItems: "center", gap: "12px", overflow: "hidden" }}
                 >
                     {/* ── Logo ── */}
                     <Logo
                         variant="dark"
                         size={64}
-                        style={{ flexShrink: 0 }}
+                        className="nav-logo"
+                        style={{ flexShrink: 1, minWidth: 0 }}
                         onClick={() => { onFilterChange?.("전체"); router.push("/"); }}
                     />
 
@@ -303,7 +307,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                     </nav>
 
                     {/* ── Actions ── */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "220px", justifyContent: "flex-end" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
 
                         {/* 세실리아 AI 상담 — 3D flip → AI 마음치료사 */}
                         <div className="flip-card">
@@ -348,7 +352,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                         backgroundColor: "#0B2040",
                                     }} />
                                 </span>
-                                <span className="nav-desktop-only flip-card-inner" style={{ display: "inline-flex", height: "18px", lineHeight: "18px" }}>
+                                <span className="nav-desktop-only flip-card-inner" style={{ height: "18px", lineHeight: "18px" }}>
                                     <span className="flip-card-front">세실리아</span>
                                     <span className="flip-card-back" style={{ fontSize: "11.5px", whiteSpace: "nowrap" }}>AI 마음치료사</span>
                                 </span>
@@ -365,10 +369,11 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             </button>
                         </div>
 
-                        {/* 검색 아이콘 */}
+                        {/* 검색 아이콘 (데스크탑만 — 모바일은 햄버거 메뉴) */}
                         <button
                             type="button"
                             aria-label="검색"
+                            className="nav-search-btn"
                             onClick={() => onSearchOpen?.()}
                             style={{
                                 width: "44px", height: "44px",
@@ -563,6 +568,33 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                     </span>
                                     <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891" }}>
                                         영성 상담 · 행사 추천
+                                    </span>
+                                </button>
+
+                                {/* 검색 (모바일 메뉴) */}
+                                <button
+                                    type="button"
+                                    onClick={() => { setMenuOpen(false); onSearchOpen?.(); }}
+                                    style={{
+                                        width: "100%", display: "flex", alignItems: "center",
+                                        justifyContent: "space-between",
+                                        padding: "14px 0",
+                                        border: "none", borderBottomWidth: "1px",
+                                        borderBottomStyle: "solid", borderBottomColor: "#F0EFE9",
+                                        background: "none", cursor: "pointer",
+                                        textAlign: "left",
+                                    }}
+                                >
+                                    <span style={{
+                                        fontFamily: "'Noto Sans KR', sans-serif", fontSize: "15px",
+                                        color: "#0B2040", fontWeight: 600,
+                                        display: "flex", alignItems: "center", gap: "8px",
+                                    }}>
+                                        <Search size={16} strokeWidth={2} />
+                                        검색
+                                    </span>
+                                    <span style={{ fontFamily: "'Noto Sans KR', sans-serif", fontSize: "12px", color: "#9C9891" }}>
+                                        행사 · 키워드 검색
                                     </span>
                                 </button>
 

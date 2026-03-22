@@ -7,17 +7,25 @@ export const metadata: Metadata = {
   alternates: { canonical: SITE_URL },
 };
 
-async function getEvents() {
+async function getEvents(retry = true): Promise<{ data: any[]; total: number; categoryCounts?: Record<string, number> }> {
   const backendUrl =
     process.env.NEXT_PUBLIC_API_URL ??
     "https://amenguide-backend-775250805671.us-west1.run.app";
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s (콜드 스타트 대응)
     const res = await fetch(`${backendUrl}/events?page=1&pageSize=15`, {
       next: { revalidate: false },
+      signal: controller.signal,
     });
-    if (!res.ok) return { data: [], total: 0 };
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      if (retry) return getEvents(false);
+      return { data: [], total: 0 };
+    }
     return res.json();
   } catch {
+    if (retry) return getEvents(false);
     return { data: [], total: 0 };
   }
 }

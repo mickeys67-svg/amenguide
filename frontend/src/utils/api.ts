@@ -1,14 +1,9 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://amenguide-backend-775250805671.us-west1.run.app';
 
-export async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-
-    // 외부 signal이 있으면 사용, 없으면 내부 timeout용 controller 생성
-    const externalSignal = options?.signal;
+async function fetchOnce<T>(url: string, options?: RequestInit, externalSignal?: AbortSignal | null): Promise<T> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout (콜드 스타트 대응)
 
-    // 외부 signal이 abort되면 내부 controller도 abort
     if (externalSignal) {
         if (externalSignal.aborted) { controller.abort(); }
         else { externalSignal.addEventListener('abort', () => controller.abort(), { once: true }); }
@@ -33,12 +28,30 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
         }
 
         return response.json();
-    } catch (err: unknown) {
-        if (err instanceof Error && err.name === 'AbortError') {
-            throw new Error('요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
-        }
-        throw err;
     } finally {
         clearTimeout(timeoutId);
+    }
+}
+
+export async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const externalSignal = options?.signal ?? null;
+
+    try {
+        return await fetchOnce<T>(url, options, externalSignal);
+    } catch (err: unknown) {
+        // 외부에서 abort된 경우 재시도하지 않음
+        if (externalSignal?.aborted) {
+            throw err;
+        }
+        // 1회 재시도 (콜드 스타트 대응)
+        try {
+            return await fetchOnce<T>(url, options, externalSignal);
+        } catch (retryErr: unknown) {
+            if (retryErr instanceof Error && retryErr.name === 'AbortError') {
+                throw new Error('요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+            }
+            throw retryErr;
+        }
     }
 }
