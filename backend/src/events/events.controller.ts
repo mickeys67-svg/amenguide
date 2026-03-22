@@ -169,6 +169,17 @@ export class EventsController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     this.adminAuth.requireAdmin(key, auth);
+    // 매직바이트 검증 (MIME 위조 방지)
+    const MAGIC: Record<string, number[]> = {
+      'image/jpeg': [0xFF, 0xD8, 0xFF],
+      'image/png': [0x89, 0x50, 0x4E, 0x47],
+      'image/gif': [0x47, 0x49, 0x46],
+      'image/webp': [0x52, 0x49, 0x46, 0x46],
+    };
+    const expected = MAGIC[file.mimetype];
+    if (expected && !expected.every((b, i) => file.buffer[i] === b)) {
+      throw new BadRequestException('파일 내용이 확장자와 일치하지 않습니다.');
+    }
     return this.eventsService.uploadImage(file);
   }
 

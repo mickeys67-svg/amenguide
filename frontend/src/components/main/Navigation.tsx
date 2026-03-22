@@ -402,6 +402,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                             <div className="nav-login-btn" style={{ alignItems: "center", gap: "8px" }}>
                                 <button
                                     type="button"
+                                    aria-label="마이페이지"
                                     onClick={() => router.push("/mypage")}
                                     style={{
                                         display: "flex", alignItems: "center", gap: "6px",
@@ -425,6 +426,7 @@ export function Navigation({ activeFilter, onFilterChange, onSearchOpen, onAiRec
                                 </button>
                                 <button
                                     type="button"
+                                    aria-label="로그아웃"
                                     onClick={handleLogout}
                                     style={{
                                         display: "flex", alignItems: "center", gap: "5px",
