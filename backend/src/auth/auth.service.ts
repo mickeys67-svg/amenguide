@@ -129,14 +129,8 @@ export class AuthService {
     const passwordHash = await this.hashPassword(password);
     const id = crypto.randomUUID();
 
-    await this.prisma.$executeRawUnsafe(
-      `INSERT INTO "User" ("id","email","name","provider","passwordHash","createdAt","updatedAt")
-       VALUES ($1,$2,$3,'email',$4,NOW(),NOW())`,
-      id,
-      normalizedEmail,
-      name.trim(),
-      passwordHash,
-    );
+    await this.prisma.$executeRaw`INSERT INTO "User" ("id","email","name","provider","passwordHash","createdAt","updatedAt")
+       VALUES (${id},${normalizedEmail},${name.trim()},'email',${passwordHash},NOW(),NOW())`;
 
     return {
       token: this.createToken(id),
@@ -150,10 +144,8 @@ export class AuthService {
       throw new BadRequestException('이메일과 비밀번호를 입력해주세요.');
     }
 
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id","email","name","passwordHash" FROM "User" WHERE "email"=$1 AND "provider"='email' LIMIT 1`,
-      email.toLowerCase().trim(),
-    );
+    const loginEmail = email.toLowerCase().trim();
+    const rows = await this.prisma.$queryRaw`SELECT "id","email","name","passwordHash" FROM "User" WHERE "email"=${loginEmail} AND "provider"='email' LIMIT 1` as any[];
 
     if (rows.length === 0) {
       throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
@@ -214,10 +206,7 @@ export class AuthService {
       ...values,
     );
 
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id","email","name","targetDiocese" FROM "User" WHERE "id"=$1 LIMIT 1`,
-      userId,
-    );
+    const rows = await this.prisma.$queryRaw`SELECT "id","email","name","targetDiocese" FROM "User" WHERE "id"=${userId} LIMIT 1` as any[];
     return rows[0];
   }
 
@@ -227,12 +216,9 @@ export class AuthService {
     if (!userId) throw new UnauthorizedException('유효하지 않은 인증 토큰입니다.');
 
     const id = crypto.randomUUID();
-    await this.prisma.$executeRawUnsafe(
-      `INSERT INTO "Bookmark" ("id","userId","eventId","createdAt")
-       VALUES ($1,$2,$3,NOW())
-       ON CONFLICT ("userId","eventId") DO NOTHING`,
-      id, userId, eventId,
-    );
+    await this.prisma.$executeRaw`INSERT INTO "Bookmark" ("id","userId","eventId","createdAt")
+       VALUES (${id},${userId},${eventId},NOW())
+       ON CONFLICT ("userId","eventId") DO NOTHING`;
     return { bookmarked: true };
   }
 
@@ -240,10 +226,7 @@ export class AuthService {
     const userId = this.verifyToken(token);
     if (!userId) throw new UnauthorizedException('유효하지 않은 인증 토큰입니다.');
 
-    await this.prisma.$executeRawUnsafe(
-      `DELETE FROM "Bookmark" WHERE "userId"=$1 AND "eventId"=$2`,
-      userId, eventId,
-    );
+    await this.prisma.$executeRaw`DELETE FROM "Bookmark" WHERE "userId"=${userId} AND "eventId"=${eventId}`;
     return { bookmarked: false };
   }
 
@@ -251,15 +234,12 @@ export class AuthService {
     const userId = this.verifyToken(token);
     if (!userId) throw new UnauthorizedException('유효하지 않은 인증 토큰입니다.');
 
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT e.*, b."createdAt" as "bookmarkedAt"
+    const rows = await this.prisma.$queryRaw`SELECT e.*, b."createdAt" as "bookmarkedAt"
        FROM "Bookmark" b
        JOIN "Event" e ON e."id" = b."eventId"
-       WHERE b."userId" = $1
+       WHERE b."userId" = ${userId}
          AND e."status" = 'APPROVED'
-       ORDER BY b."createdAt" DESC`,
-      userId,
-    );
+       ORDER BY b."createdAt" DESC` as any[];
     return rows;
   }
 
@@ -267,10 +247,7 @@ export class AuthService {
     const userId = this.verifyToken(token);
     if (!userId) return [];
 
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "eventId" FROM "Bookmark" WHERE "userId"=$1`,
-      userId,
-    );
+    const rows = await this.prisma.$queryRaw`SELECT "eventId" FROM "Bookmark" WHERE "userId"=${userId}` as any[];
     return rows.map((r: any) => r.eventId);
   }
 
@@ -348,23 +325,15 @@ export class AuthService {
     const displayName = name || normalizedEmail.split('@')[0];
 
     // 3. DB에 UPSERT (이미 있으면 업데이트, 없으면 신규 생성)
-    await this.prisma.$executeRawUnsafe(
-      `INSERT INTO "User" ("id","email","name","provider","createdAt","updatedAt")
-       VALUES ($1,$2,$3,'google',NOW(),NOW())
+    await this.prisma.$executeRaw`INSERT INTO "User" ("id","email","name","provider","createdAt","updatedAt")
+       VALUES (${newId},${normalizedEmail},${displayName},'google',NOW(),NOW())
        ON CONFLICT ("email") DO UPDATE
          SET "name" = EXCLUDED."name",
              "provider" = 'google',
-             "updatedAt" = NOW()`,
-      newId,
-      normalizedEmail,
-      displayName,
-    );
+             "updatedAt" = NOW()`;
 
     // 4. 실제 저장된 사용자 조회 (UPSERT 후 id가 기존 것일 수 있음)
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id","email","name" FROM "User" WHERE "email"=$1 LIMIT 1`,
-      normalizedEmail,
-    );
+    const rows = await this.prisma.$queryRaw`SELECT "id","email","name" FROM "User" WHERE "email"=${normalizedEmail} LIMIT 1` as any[];
 
     if (rows.length === 0) throw new UnauthorizedException('사용자 생성에 실패했습니다.');
 

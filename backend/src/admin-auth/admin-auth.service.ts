@@ -35,10 +35,8 @@ export class AdminAuthService implements OnModuleInit {
     }
 
     // 기존 계정이 있으면 건너뜀 (비밀번호 변경 보존)
-    const existing = await this.prisma.$queryRawUnsafe(
-      `SELECT "id" FROM "Admin" WHERE "email" = $1 LIMIT 1`,
-      adminEmail.toLowerCase().trim(),
-    ) as any[];
+    const seedEmail = adminEmail.toLowerCase().trim();
+    const existing = await this.prisma.$queryRaw`SELECT "id" FROM "Admin" WHERE "email" = ${seedEmail} LIMIT 1` as any[];
     if (existing.length > 0) {
       console.log('AdminAuthService: admin already exists — skipping seed');
       return;
@@ -46,13 +44,8 @@ export class AdminAuthService implements OnModuleInit {
 
     const passwordHash = await this.hashPassword(adminPassword.trim());
     const id = crypto.randomUUID();
-    await this.prisma.$executeRawUnsafe(
-      `INSERT INTO "Admin" ("id","email","name","passwordHash","createdAt","updatedAt")
-       VALUES ($1,$2,'관리자',$3,NOW(),NOW())`,
-      id,
-      adminEmail.toLowerCase().trim(),
-      passwordHash,
-    );
+    await this.prisma.$executeRaw`INSERT INTO "Admin" ("id","email","name","passwordHash","createdAt","updatedAt")
+       VALUES (${id},${seedEmail},'관리자',${passwordHash},NOW(),NOW())`;
     console.log('AdminAuthService: initial admin seeded');
   }
 
@@ -132,10 +125,8 @@ export class AdminAuthService implements OnModuleInit {
     if (!email?.trim() || !password) {
       throw new BadRequestException('이메일과 비밀번호를 입력해주세요.');
     }
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id","email","name","passwordHash" FROM "Admin" WHERE "email"=$1 LIMIT 1`,
-      email.toLowerCase().trim(),
-    );
+    const loginEmail = email.toLowerCase().trim();
+    const rows = await this.prisma.$queryRaw`SELECT "id","email","name","passwordHash" FROM "Admin" WHERE "email"=${loginEmail} LIMIT 1` as any[];
     if (rows.length === 0) {
       throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
     }
@@ -153,19 +144,14 @@ export class AdminAuthService implements OnModuleInit {
   async getMe(token: string) {
     const adminId = this.verifyAdminToken(token);
     if (!adminId) throw new UnauthorizedException('유효하지 않은 관리자 토큰입니다.');
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id","email","name","createdAt" FROM "Admin" WHERE "id"=$1 LIMIT 1`,
-      adminId,
-    );
+    const rows = await this.prisma.$queryRaw`SELECT "id","email","name","createdAt" FROM "Admin" WHERE "id"=${adminId} LIMIT 1` as any[];
     if (rows.length === 0) throw new UnauthorizedException('존재하지 않는 관리자입니다.');
     return rows[0];
   }
 
   // ── 관리자 목록 ───────────────────────────────────────────────────────────
   async listAdmins() {
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id","email","name","createdAt" FROM "Admin" ORDER BY "createdAt" ASC`,
-    );
+    const rows = await this.prisma.$queryRaw`SELECT "id","email","name","createdAt" FROM "Admin" ORDER BY "createdAt" ASC` as any[];
     return rows;
   }
 
@@ -184,22 +170,13 @@ export class AdminAuthService implements OnModuleInit {
       throw new BadRequestException('비밀번호에 영문자가 1개 이상 포함되어야 합니다.');
     }
     const normalizedEmail = email.toLowerCase().trim();
-    const exists: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id" FROM "Admin" WHERE "email"=$1 LIMIT 1`,
-      normalizedEmail,
-    );
+    const exists = await this.prisma.$queryRaw`SELECT "id" FROM "Admin" WHERE "email"=${normalizedEmail} LIMIT 1` as any[];
     if (exists.length > 0) throw new ConflictException('이미 사용 중인 이메일입니다.');
 
     const passwordHash = await this.hashPassword(password);
     const id = crypto.randomUUID();
-    await this.prisma.$executeRawUnsafe(
-      `INSERT INTO "Admin" ("id","email","name","passwordHash","createdAt","updatedAt")
-       VALUES ($1,$2,$3,$4,NOW(),NOW())`,
-      id,
-      normalizedEmail,
-      name.trim(),
-      passwordHash,
-    );
+    await this.prisma.$executeRaw`INSERT INTO "Admin" ("id","email","name","passwordHash","createdAt","updatedAt")
+       VALUES (${id},${normalizedEmail},${name.trim()},${passwordHash},NOW(),NOW())`;
     return { id, email: normalizedEmail, name: name.trim() };
   }
 
@@ -208,19 +185,14 @@ export class AdminAuthService implements OnModuleInit {
     if (id === requestorId) {
       throw new BadRequestException('자신의 계정은 삭제할 수 없습니다.');
     }
-    const target: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "id" FROM "Admin" WHERE "id"=$1 LIMIT 1`,
-      id,
-    );
+    const target = await this.prisma.$queryRaw`SELECT "id" FROM "Admin" WHERE "id"=${id} LIMIT 1` as any[];
     if (target.length === 0) throw new BadRequestException('존재하지 않는 관리자입니다.');
 
-    const count: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT COUNT(*) as count FROM "Admin"`,
-    );
+    const count = await this.prisma.$queryRaw`SELECT COUNT(*) as count FROM "Admin"` as any[];
     if (parseInt(count[0].count) <= 1) {
       throw new BadRequestException('마지막 관리자는 삭제할 수 없습니다.');
     }
-    await this.prisma.$executeRawUnsafe(`DELETE FROM "Admin" WHERE "id"=$1`, id);
+    await this.prisma.$executeRaw`DELETE FROM "Admin" WHERE "id"=${id}`;
     return { deleted: true };
   }
 
@@ -235,21 +207,14 @@ export class AdminAuthService implements OnModuleInit {
     if (!/[a-zA-Z]/.test(newPassword)) {
       throw new BadRequestException('비밀번호에 영문자가 1개 이상 포함되어야 합니다.');
     }
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT "passwordHash" FROM "Admin" WHERE "id"=$1 LIMIT 1`,
-      adminId,
-    );
+    const rows = await this.prisma.$queryRaw`SELECT "passwordHash" FROM "Admin" WHERE "id"=${adminId} LIMIT 1` as any[];
     if (rows.length === 0) throw new UnauthorizedException('관리자를 찾을 수 없습니다.');
 
     const valid = await this.verifyPassword(oldPassword, rows[0].passwordHash);
     if (!valid) throw new UnauthorizedException('현재 비밀번호가 올바르지 않습니다.');
 
     const newHash = await this.hashPassword(newPassword);
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "Admin" SET "passwordHash"=$1, "updatedAt"=NOW() WHERE "id"=$2`,
-      newHash,
-      adminId,
-    );
+    await this.prisma.$executeRaw`UPDATE "Admin" SET "passwordHash"=${newHash}, "updatedAt"=NOW() WHERE "id"=${adminId}`;
     return { success: true };
   }
 }
