@@ -4,9 +4,39 @@ import LuceDiFedeHome from "@/components/main/LuceDiFedeHome";
 
 const SITE_URL = "https://catholica.kr";
 
-export const metadata: Metadata = {
-  alternates: { canonical: SITE_URL },
-};
+interface HomeProps {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}
+
+export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {
+  const params = await searchParams;
+  const diocese = params.diocese;
+  const category = params.filter;
+
+  if (diocese) {
+    const title = `${diocese} 가톨릭 행사`;
+    const desc = `${diocese}의 최신 피정, 미사, 강의, 순례 일정을 한눈에 확인하세요.`;
+    return {
+      title,
+      description: desc,
+      alternates: { canonical: `${SITE_URL}/?diocese=${encodeURIComponent(diocese)}` },
+      openGraph: { title: `${title} | Catholica`, description: desc, url: SITE_URL },
+    };
+  }
+
+  if (category && category !== "전체") {
+    const title = `가톨릭 ${category} 행사`;
+    const desc = `전국 ${category} 행사 일정을 탐색하세요. 피정, 미사, 강의, 순례 등 다양한 행사 정보.`;
+    return {
+      title,
+      description: desc,
+      alternates: { canonical: `${SITE_URL}/?filter=${encodeURIComponent(category)}` },
+      openGraph: { title: `${title} | Catholica`, description: desc, url: SITE_URL },
+    };
+  }
+
+  return { alternates: { canonical: SITE_URL } };
+}
 
 async function getEvents(retry = true): Promise<{ data: any[]; total: number; categoryCounts?: Record<string, number> }> {
   const backendUrl =

@@ -10,6 +10,7 @@ interface NoticeRaw {
   content: string;
   category: string;
   createdAt: string;
+  updatedAt?: string;
   author?: { name: string };
 }
 
@@ -46,17 +47,32 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-function NoticeBreadcrumbJsonLd({ notice }: { notice: NoticeRaw }) {
-  const breadcrumb = {
+function NoticeJsonLd({ notice }: { notice: NoticeRaw }) {
+  const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "홈", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "공지사항", item: `${SITE_URL}/notices` },
-      { "@type": "ListItem", position: 3, name: notice.title, item: `${SITE_URL}/notices/${notice.id}` },
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "홈", item: SITE_URL },
+          { "@type": "ListItem", position: 2, name: "공지사항", item: `${SITE_URL}/notices` },
+          { "@type": "ListItem", position: 3, name: notice.title, item: `${SITE_URL}/notices/${notice.id}` },
+        ],
+      },
+      {
+        "@type": "NewsArticle",
+        headline: notice.title,
+        description: (notice.content || "").replace(/<[^>]*>/g, "").slice(0, 200),
+        datePublished: notice.createdAt,
+        dateModified: notice.updatedAt || notice.createdAt,
+        author: { "@type": "Organization", name: "Catholica" },
+        publisher: { "@type": "Organization", name: "Catholica", logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.png` } },
+        mainEntityOfPage: `${SITE_URL}/notices/${notice.id}`,
+        inLanguage: "ko",
+      },
     ],
   };
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/<\//g, '<\\/') }} />;
 }
 
 export default async function NoticeDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -65,7 +81,7 @@ export default async function NoticeDetailPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      {notice && <NoticeBreadcrumbJsonLd notice={notice} />}
+      {notice && <NoticeJsonLd notice={notice} />}
       <NoticeDetailClient />
     </>
   );

@@ -10,9 +10,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const staticPages: MetadataRoute.Sitemap = [
         { url: SITE_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
         { url: `${SITE_URL}/notices`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
+        { url: `${SITE_URL}/community`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 },
+        { url: `${SITE_URL}/register-event`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
         { url: `${SITE_URL}/faq`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
-        { url: `${SITE_URL}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
-        { url: `${SITE_URL}/register`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+        { url: `${SITE_URL}/feed.xml`, lastModified: new Date(), changeFrequency: "daily", priority: 0.3 },
         { url: `${SITE_URL}/privacy`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.2 },
         { url: `${SITE_URL}/terms`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.2 },
     ];
@@ -48,5 +49,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }
     } catch {}
 
-    return [...staticPages, ...eventPages, ...noticePages];
+    let communityPages: MetadataRoute.Sitemap = [];
+    try {
+        const res = await fetch(`${API_BASE}/community?page=1&limit=100`, { next: { revalidate: 3600 } });
+        if (res.ok) {
+            const body = await res.json();
+            const posts: { id: string; updatedAt?: string; createdAt?: string }[] = body.data || [];
+            communityPages = posts.map((p) => ({
+                url: `${SITE_URL}/community/${p.id}`,
+                lastModified: p.updatedAt ? new Date(p.updatedAt) : p.createdAt ? new Date(p.createdAt) : new Date(),
+                changeFrequency: "weekly" as const,
+                priority: 0.5,
+            }));
+        }
+    } catch {}
+
+    return [...staticPages, ...eventPages, ...noticePages, ...communityPages];
 }

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-    title: "자주 묻는 질문 | Catholica",
-    description: "Catholica 서비스 이용에 관해 자주 묻는 질문과 답변",
+    title: "자주 묻는 질문",
+    description: "Catholica 서비스 이용에 관해 자주 묻는 질문과 답변 — 행사 검색, AI 상담, 행사 등록 방법 안내",
+    alternates: { canonical: "https://catholica.kr/faq" },
 };
 
 const H2: React.CSSProperties = {

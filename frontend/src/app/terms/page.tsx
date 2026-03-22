@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-    title: "이용약관 | Catholica",
-    description: "Catholica 서비스 이용약관",
+    title: "이용약관",
+    description: "Catholica 서비스 이용약관 — 이용 조건, 면책사항, 지적재산권 안내",
+    alternates: { canonical: "https://catholica.kr/terms" },
 };
 
 const SECTION_STYLE: React.CSSProperties = { marginBottom: 40 };

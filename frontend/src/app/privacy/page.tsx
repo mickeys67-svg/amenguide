@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-    title: "개인정보처리방침 | Catholica",
-    description: "Catholica 개인정보처리방침",
+    title: "개인정보처리방침",
+    description: "Catholica 개인정보처리방침 — 수집 항목, 이용 목적, 보관 기간, 제3자 제공 등 안내",
+    alternates: { canonical: "https://catholica.kr/privacy" },
 };
 
 const SECTION_STYLE: React.CSSProperties = { marginBottom: 40 };
