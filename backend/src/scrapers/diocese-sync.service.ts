@@ -55,7 +55,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 
 // ─── 교구 사이트 보호 상수 ──────────────────────────────────────────────────
-const POLITE_USER_AGENT = 'CatholicaBot/1.0 (+https://catholica.kr; 가톨릭 행사 정보 수집)';
+const POLITE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const POLITE_DELAY_MS = 5000;  // 교구 사이트 부담 최소화: 요청 간 5초 대기
 const PDF_DELAY_MS = 3000;     // PDF 다운로드 간 3초 대기
 
@@ -934,7 +934,7 @@ export class DioceseSyncService {
           responseType: 'arraybuffer',
           maxRedirects: 10,
           headers: {
-            'User-Agent': POLITE_USER_AGENT,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
             'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
           },
@@ -1133,7 +1133,7 @@ export class DioceseSyncService {
       maxRedirects: 5,
       httpsAgent: new https.Agent({ rejectUnauthorized: false }),
       headers: {
-        'User-Agent': POLITE_USER_AGENT,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/pdf,*/*',
         ...(referer ? { 'Referer': referer } : {}),
       },
@@ -1275,7 +1275,7 @@ export class DioceseSyncService {
       // 주보 목록 페이지에서 최신 PDF 타임스탬프 추출
       const listRes = await axios.get('https://www.cccatholic.or.kr/publication/jubo', {
         timeout: 15000,
-        headers: { 'User-Agent': POLITE_USER_AGENT },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
@@ -1328,7 +1328,7 @@ export class DioceseSyncService {
       const listRes = await axios.get('https://www.acatholic.or.kr/sub6/sub1.asp', {
         timeout: 15000,
         headers: {
-          'User-Agent': POLITE_USER_AGENT,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Referer': 'https://www.acatholic.or.kr/',
         },
       });
@@ -1379,7 +1379,7 @@ export class DioceseSyncService {
       const listRes = await axios.get('https://cathms.kr/C_8', {
         timeout: 15000,
         httpsAgent: agent,
-        headers: { 'User-Agent': POLITE_USER_AGENT },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
@@ -1402,7 +1402,7 @@ export class DioceseSyncService {
           const detailRes = await axios.get(`https://cathms.kr/C_8/${docId}`, {
             timeout: 15000,
             httpsAgent: agent,
-            headers: { 'User-Agent': POLITE_USER_AGENT },
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
           });
           const detailHtml = typeof detailRes.data === 'string' ? detailRes.data : '';
 
@@ -1440,7 +1440,7 @@ export class DioceseSyncService {
     try {
       const listRes = await axios.get('https://www.cdcj.or.kr/media/journal', {
         timeout: 15000,
-        headers: { 'User-Agent': POLITE_USER_AGENT },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
@@ -1486,7 +1486,7 @@ export class DioceseSyncService {
     try {
       const listRes = await axios.get('https://jubo.djcatholic.or.kr/home/last.asp', {
         timeout: 15000,
-        headers: { 'User-Agent': POLITE_USER_AGENT },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
       });
 
       const html = typeof listRes.data === 'string' ? listRes.data : '';
