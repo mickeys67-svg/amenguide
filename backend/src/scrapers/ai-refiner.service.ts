@@ -45,6 +45,7 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
 - location (string): Venue name and city in Korean. Use "장소 미정" if unknown. IMPORTANT: Do NOT use website navigation menu text (like "성지순례ㅣ여행후기", "피정", "교구소식") as the location — those are section titles, not venues.
 - aiSummary (string): 2-3 Korean sentences, warm spiritual tone (은총이 가득한 따뜻한 어조).
 - themeColor (string): One of #E63946 #457B9D #FFB703 #06D6A0 #C9A96E
+- confidence (number): 0.0~1.0 — how confident you are that this is a real public event with correct category. Use 0.7+ for clear events, 0.4~0.7 for ambiguous, below 0.4 for uncertain.
 - category (string): One of "피정" | "강론" | "강의" | "특강" | "피정의집" | "순례" | "청년" | "문화" | "선교" | "미사" | "뉴스"
   피정=피정·묵상·영성수련·성령쇄신·관상기도
   강론=강론·설교·사목서한·강론집
@@ -106,6 +107,14 @@ Otherwise return ONLY valid JSON (no markdown fences) with these fields:
     }
     // category 기본값 보장 — 유효하지 않으면 뉴스로 폴백
     data.category = normalizeCategory(data.category);
+
+    // confidence threshold — 확신도 낮으면 뉴스로 리다이렉트
+    const confidence = typeof data.confidence === 'number' ? data.confidence : 0.5;
+    if (confidence < 0.6 && data.category !== '뉴스') {
+      this.logger.log(`Low confidence (${confidence}) for "${data.title}" — category "${data.category}" → "뉴스"`);
+      data.category = '뉴스';
+    }
+    delete data.confidence; // DB에 저장하지 않음
 
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data.date)) {
       this.logger.warn(`AI returned non-ISO date: ${data.date}. Defaulting to 1970.`);
