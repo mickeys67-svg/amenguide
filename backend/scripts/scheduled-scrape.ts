@@ -633,7 +633,10 @@ async function main() {
   await dbClient.connect();
   console.log('[DB] Connected.');
 
-  // DB 정리
+  // DB 정리 (Bookmark FK 제약조건 → 이벤트 삭제 전 북마크 먼저 삭제)
+  await dbClient.query(
+    `DELETE FROM "Bookmark" WHERE "eventId" IN (SELECT id FROM "Event" WHERE (location = '장소 미정' OR location IS NULL) AND date < '1971-01-01')`,
+  );
   const cleanedDummy = await dbClient.query(
     `DELETE FROM "Event" WHERE (location = '장소 미정' OR location IS NULL) AND date < '1971-01-01'`,
   );
@@ -642,11 +645,24 @@ async function main() {
   // ★ 2일 → 14일: 다일간 행사(7일 피정 등) 진행 중 삭제 방지
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  await dbClient.query(
+    `DELETE FROM "Bookmark" WHERE "eventId" IN (SELECT id FROM "Event" WHERE date IS NOT NULL AND date < $1)`, [fourteenDaysAgo],
+  );
   const cleanedExpired = await dbClient.query(
     `DELETE FROM "Event" WHERE date IS NOT NULL AND date < $1`, [fourteenDaysAgo],
   );
   if ((cleanedExpired.rowCount ?? 0) > 0) console.log(`[CLEANUP] 만료 ${cleanedExpired.rowCount}개 삭제`);
 
+  await dbClient.query(`
+    DELETE FROM "Bookmark" WHERE "eventId" IN (
+      SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (
+          PARTITION BY REGEXP_REPLACE("originUrl", '[?&]num=\\d+', '')
+          ORDER BY "createdAt" DESC
+        ) AS rn FROM "Event" WHERE "originUrl" LIKE '%bbs.catholic.or.kr%'
+      ) ranked WHERE rn > 1
+    )
+  `);
   const cleanedDups = await dbClient.query(`
     DELETE FROM "Event" WHERE id IN (
       SELECT id FROM (
